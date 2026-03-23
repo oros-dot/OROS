@@ -1334,7 +1334,7 @@ document.getElementById('saveSettings').addEventListener('click', () => {
   document.getElementById('f_premioNetto').textContent =
     `= (Premio Lordo − Commissioni) × (1 − ${(CAPITAL_GAIN*100).toFixed(0)}%)`;
   document.getElementById('f_commissioni').textContent =
-    `= €${COMMISSIONI_UNIT.toFixed(2)}/contratto × N° contratti`;
+    `= €${fmtDec(COMMISSIONI_UNIT, 2)}/contratto × N° contratti`;
   document.getElementById('settingsOverlay').style.display = 'none';
   renderAll();
   if (compareVisible) renderCompare();
@@ -1342,7 +1342,7 @@ document.getElementById('saveSettings').addEventListener('click', () => {
 
 function compute(d) {
   const controvalore = d.quantitaOpz * d.strike;
-  const quantita = d.cash / controvalore;
+  const quantita = Math.floor(d.cash / controvalore);
   const premioLordo = d.premio * quantita * d.quantitaOpz;
   const commissioni = COMMISSIONI_UNIT * quantita;
   const premioNettoComm = premioLordo - commissioni;
@@ -1354,17 +1354,33 @@ function compute(d) {
   return { premioLordo, premioNetto, rendScadLordo, rendAnnuoLordo, rendScadNetto, rendAnnuoNetto, quantita };
 }
 
+// Formato italiano: . per le migliaia, , per i decimali
 function fmt(n, dec=2, prefix='€') {
   if (isNaN(n) || !isFinite(n)) return '—';
-  return prefix + n.toFixed(dec).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  var parts = n.toFixed(dec).split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return prefix + (dec > 0 ? parts[0] + ',' + parts[1] : parts[0]);
 }
 function fmtPct(n) {
   if (isNaN(n) || !isFinite(n)) return '—';
-  return (n * 100).toFixed(2) + '%';
+  var parts = (n * 100).toFixed(2).split('.');
+  return parts[0] + ',' + parts[1] + '%';
 }
 function fmtN(n) {
   if (isNaN(n) || !isFinite(n)) return '—';
-  return n.toFixed(2);
+  var parts = n.toFixed(2).split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return parts[0] + ',' + parts[1];
+}
+function fmtInt(n) {
+  if (isNaN(n) || !isFinite(n)) return '—';
+  return Math.floor(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+function fmtDec(n, dec) {
+  if (isNaN(n) || !isFinite(n)) return '—';
+  var parts = n.toFixed(dec).split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return dec > 0 ? parts[0] + ',' + parts[1] : parts[0];
 }
 
 function createTab(data = null) {
@@ -1431,7 +1447,7 @@ function updateOutputs(tab) {
   const set = (sel, val) => { const el = c.querySelector('[data-out="'+sel+'"]'); if (el) el.textContent = val; };
   const setW = (sel, w) => { const el = c.querySelector('[data-bar="'+sel+'"]'); if (el) el.style.width = w; };
   set('premioLordo', res ? fmt(res.premioLordo) : '—');
-  set('premioLordoSub', res ? 'Quantità contratti: ' + fmtN(res.quantita) : 'Inserisci i dati per calcolare');
+  set('premioLordoSub', res ? 'Quantità contratti: ' + res.quantita : 'Inserisci i dati per calcolare');
   set('premioNetto', res ? fmt(res.premioNetto) : '—');
   set('premioNettoSub', res ? 'Dopo commissioni (1.14/contratto) e capital gain 26%' : '');
   set('rendScadNetto', res ? fmtPct(res.rendScadNetto) : '—');
@@ -1528,7 +1544,7 @@ function renderPanels() {
             <div class="out-label">Premio Lordo</div>
             <div class="out-value" data-out="premioLordo">${res ? fmt(res.premioLordo) : '—'}</div>
             <div class="out-sub" data-out="premioLordoSub">
-              ${res ? `Quantità contratti: ${fmtN(res.quantita)}` : 'Inserisci i dati per calcolare'}
+              ${res ? `Quantità contratti: ${res.quantita}` : 'Inserisci i dati per calcolare'}
             </div>
             <div class="perf-bar"><div class="perf-bar-fill" data-bar="lordo" style="width:${annuoLordoBar}%"></div></div>
           </div>
@@ -1558,6 +1574,12 @@ function renderPanels() {
               <div class="out-value" data-out="rendAnnuoLordo">${res ? fmtPct(res.rendAnnuoLordo) : '—'}</div>
             </div>
           </div>
+
+          <button onclick="goToCC()" style="margin-top:12px;width:100%;padding:8px 16px;background:rgba(240,180,41,0.07);border:1px solid rgba(240,180,41,0.28);border-radius:6px;color:rgba(240,180,41,0.85);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;letter-spacing:0.4px;display:flex;align-items:center;justify-content:center;gap:6px;"
+            onmouseover="this.style.background='rgba(240,180,41,0.14)';this.style.borderColor='rgba(240,180,41,0.5)';this.style.color='#f0b429'"
+            onmouseout="this.style.background='rgba(240,180,41,0.07)';this.style.borderColor='rgba(240,180,41,0.28)';this.style.color='rgba(240,180,41,0.85)'">
+            <span style="font-size:11px;">📊</span> Analizza come Covered Call <span style="opacity:0.6;font-size:11px;">→</span>
+          </button>
         </div>
       </div>
     </div>
@@ -1567,7 +1589,24 @@ function renderPanels() {
   container.querySelectorAll('input[data-field]').forEach(input => {
     input.addEventListener('input', (e) => {
       const field = e.target.dataset.field;
-      tab.data[field] = e.target.value;
+      // Auto-format cash with thousands separators
+      if (field === 'cash') {
+        const raw = e.target.value.replace(/\./g, '').replace(/\D/g, '');
+        if (raw !== '') {
+          const formatted = parseInt(raw, 10).toLocaleString('it-IT');
+          const caretPos = e.target.selectionStart;
+          const oldLen = e.target.value.length;
+          e.target.value = formatted;
+          tab.data[field] = formatted;
+          // Keep caret at end
+          e.target.setSelectionRange(formatted.length, formatted.length);
+        } else {
+          e.target.value = '';
+          tab.data[field] = '';
+        }
+      } else {
+        tab.data[field] = e.target.value;
+      }
       if (field === 'ticker') renderTabs();
       updateOutputs(tab);
     });
@@ -1636,8 +1675,8 @@ function renderCompare() {
                   <span class="ticker-badge">${r.ticker.toUpperCase()}</span>
                   ${i === bestIdx && r.res ? '<span class="best-badge">BEST</span>' : ''}
                 </td>
-                <td class="gold-val">${r.tab.data.strike ? '€' + parseFloat(r.tab.data.strike).toFixed(3) : '—'}</td>
-                <td class="gold-val">${r.tab.data.cash ? '€' + parseFloat(r.tab.data.cash).toLocaleString('it') : '—'}</td>
+                <td class="gold-val">${r.tab.data.strike ? '€' + fmtDec(parseNum(r.tab.data.strike), 3) : '—'}</td>
+                <td class="gold-val">${r.tab.data.cash ? '€' + fmtDec(parseNum(r.tab.data.cash), 0) : '—'}</td>
                 <td class="green-val">${r.res ? fmt(r.res.premioLordo) : '—'}</td>
                 <td class="green-val">${r.res ? fmt(r.res.premioNetto) : '—'}</td>
                 <td class="green-val">${r.res ? fmtPct(r.res.rendScadNetto) : '—'}</td>
@@ -1649,6 +1688,26 @@ function renderCompare() {
       </div>
     </div>
   `;
+}
+
+// ── Funzione: vai a CC con dati precompilati dalla CSP attiva
+function goToCC() {
+  const tab = tabs.find(t => t.id === activeTab);
+  if (!tab) { goPage('cc'); return; }
+  const res = getResults(tab);
+  const contratti = res ? res.quantita : '';
+  const d = tab.data;
+  // Pre-popola il tab CC attivo con i dati CSP
+  const ccTab = ccTabs.find(t => t.id === ccActiveTab);
+  if (ccTab) {
+    ccTab.data.ticker      = d.ticker      || ccTab.data.ticker;
+    ccTab.data.contratti   = contratti !== '' ? String(contratti) : ccTab.data.contratti;
+    ccTab.data.quantitaOpz = d.quantitaOpz  || ccTab.data.quantitaOpz;
+    if (d.quantitaOpz && !d._qtaCustom) ccTab.data._qc = false;
+    else if (d._qtaCustom) ccTab.data._qc = true;
+  }
+  goPage('cc');
+  ccRenderAll();
 }
 
 // Wire buttons
@@ -1830,7 +1889,7 @@ function ccUpdateOutputs(tab) {
   set('ccPL',  res ? fmt(res.premioLordo)  : '—');
   set('ccPS',  res ? 'Controvalore: ' + fmt(res.controvalore) + '  ·  Cash: ' + fmt(res.cash) : 'Inserisci i dati per calcolare');
   set('ccPN',  res ? fmt(res.premioNetto)  : '—');
-  set('ccPT',  res ? 'Dopo comm. (€' + fmtN(res.commissioni) + ') e cap. gain ' + Math.round(CAPITAL_GAIN * 100) + '%' : '');
+  set('ccPT',  res ? 'Dopo comm. (€' + fmtDec(res.commissioni, 2) + ') e cap. gain ' + Math.round(CAPITAL_GAIN * 100) + '%' : '');
   set('ccRSN', res ? fmtPct(res.rendScadNetto)   : '—');
   set('ccRAN', res ? fmtPct(res.rendAnnuoNetto)  : '—');
   set('ccRSL', res ? fmtPct(res.rendScadLordo)   : '—');
@@ -1899,7 +1958,7 @@ function ccRenderPanel() {
           <div class="output-card primary">
             <div class="out-label">Premio Netto</div>
             <div class="out-value" data-out="ccPN">${res ? fmt(res.premioNetto) : '—'}</div>
-            <div class="out-sub" data-out="ccPT">${res ? 'Dopo comm. (€' + fmtN(res.commissioni) + ') e cap. gain ' + Math.round(CAPITAL_GAIN*100) + '%' : ''}</div>
+            <div class="out-sub" data-out="ccPT">${res ? 'Dopo comm. (€' + fmtDec(res.commissioni, 2) + ') e cap. gain ' + Math.round(CAPITAL_GAIN*100) + '%' : ''}</div>
             <div class="perf-bar"><div class="perf-bar-fill" data-bar="ccBN" style="width:${ann}%"></div></div>
           </div>
 
@@ -1946,6 +2005,10 @@ function ccRenderPanel() {
               <div class="output-mini">
                 <div class="out-label">Utile Netto (−26%)</div>
                 <div class="out-value" id="ccDivNetto" style="color:var(--accent);">—</div>
+              </div>
+              <div class="output-mini">
+                <div class="out-label">Rend. % Lordo su Investimento<span class="tip"><span class="tip-i">i</span><span class="tip-box">Rendimento lordo: Utile Lordo ÷ (Contratti × Quantità × Strike). Non include il capital gain del 26%.</span></span></div>
+                <div class="out-value" id="ccDivRend" style="color:var(--tv-gold);">—</div>
               </div>
             </div>
           </div>
@@ -2004,7 +2067,7 @@ function ccRenderCompare() {
         </tr></thead><tbody>
         ${results.map((r, i) => `<tr>
           <td><span class="ticker-badge">${r.ticker.toUpperCase()}</span>${i===bestIdx&&r.res?'<span class="best-badge">BEST</span>':''}</td>
-          <td class="gold-val">${r.tab.data.strike ? '€' + parseFloat(r.tab.data.strike).toFixed(3) : '—'}</td>
+          <td class="gold-val">${r.tab.data.strike ? '€' + fmtDec(ccParseNum(r.tab.data.strike), 3) : '—'}</td>
           <td class="gold-val">${r.tab.data.contratti || '—'}</td>
           <td class="green-val">${r.res ? fmt(r.res.premioLordo)  : '—'}</td>
           <td class="green-val">${r.res ? fmt(r.res.premioNetto)  : '—'}</td>
@@ -2052,24 +2115,36 @@ function ccCalcDividendi() {
   const qEl       = document.getElementById('ccDivQuantita');
   const lordoEl   = document.getElementById('ccDivLordo');
   const nettoEl   = document.getElementById('ccDivNetto');
+  const rendEl    = document.getElementById('ccDivRend');
   if (!importoEl || !qEl || !lordoEl || !nettoEl) return;
 
   const importo    = parseFloat(importoEl.value.replace(',', '.'));
   const contratti  = ccParseNum(tab.data.contratti);
   const quantitaOpz= ccParseNum(tab.data.quantitaOpz);
+  const strike     = ccParseNum(tab.data.strike);
 
   if (isNaN(importo) || importo <= 0 || isNaN(contratti) || isNaN(quantitaOpz)) {
     qEl.textContent = '—'; lordoEl.textContent = '—'; nettoEl.textContent = '—';
+    if (rendEl) rendEl.textContent = '—';
     return;
   }
 
-  const quantita   = contratti * quantitaOpz;          // = B9 × B6
-  const utileLordo = importo * quantita;               // = B22 × B21
-  const utileNetto = utileLordo - utileLordo * CAPITAL_GAIN;  // = B23 × (1-26%)
+  const quantita   = contratti * quantitaOpz;          // = contratti × quantitaOpz
+  const utileLordo = importo * quantita;               // dividendo × azioni
+  const utileNetto = utileLordo - utileLordo * CAPITAL_GAIN;  // al netto capital gain
 
-  qEl.textContent     = quantita.toLocaleString('it');
+  // Rendimento % = utile lordo / (contratti × quantitaOpz × strike) × 100
+  let rendStr = '—';
+  if (!isNaN(strike) && strike > 0) {
+    const investimento = contratti * quantitaOpz * strike;
+    const rend = (utileLordo / investimento) * 100;
+    rendStr = fmtDec(rend, 2) + '%';
+  }
+
+  qEl.textContent     = fmtInt(quantita);
   lordoEl.textContent = fmt(utileLordo);
   nettoEl.textContent = fmt(utileNetto);
+  if (rendEl) rendEl.textContent = rendStr;
 }
 
 </script>
