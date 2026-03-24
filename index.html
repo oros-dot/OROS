@@ -379,18 +379,7 @@ document.addEventListener('focusin', function(e) {
     overflow-x: hidden;
   }
 
-  /* Grid background */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(0,229,160,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,229,160,0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none;
-    z-index: 0;
-  }
+  /* Grid background removed — solid background only */
 
   .container {
     position: relative;
@@ -1015,7 +1004,7 @@ body {
 }
 .sc-bar h2 { 
   font-size: 24px; font-weight: 800; letter-spacing: -.3px;
-  background: var(--tv-blue);
+  background: #7aa3ff;
   -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
   font-family: 'Inter', sans-serif;
 }
@@ -1071,7 +1060,7 @@ body {
   padding-bottom: 0;
 }
 #pageCSP .logo-area h1 {
-  background: var(--tv-blue);
+  background: #7aa3ff;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -1196,7 +1185,7 @@ body {
   padding-bottom: 0;
 }
 #pageCC .logo-area h1 {
-  background: var(--tv-blue);
+  background: #7aa3ff;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -1378,10 +1367,10 @@ input[type="number"]:focus {
 <nav class="tv-nav" id="mainNav" style="display:none;">
   <div class="tv-logo" onclick="if(sessionValid()){document.querySelectorAll('#pageHome,#pageScreener,#pageCSP,#pageCC,#pageStoria').forEach(function(p){p.style.display='none';});document.getElementById('pageHome').style.display='block';document.getElementById('appHome').style.display='flex';document.getElementById('loginScreen').style.display='none';document.getElementById('mainNav').style.display='none';}" style="cursor:pointer;letter-spacing:2px;">OROS</div>
   <div class="tv-sep"></div>
-  <button class="tv-nav-btn" id="navScreener" onclick="goPage('screener')">📋 Screener</button>
-  <button class="tv-nav-btn"               id="navCSP"     onclick="goPage('csp')">⚡ CSP</button>
-  <button class="tv-nav-btn" id="navCC" onclick="goPage('cc')">📊 CC</button>
-  <button class="tv-nav-btn" id="navStoria" onclick="goPage('storia')">🗂 Storico</button>
+  <button class="tv-nav-btn" id="navScreener" onclick="goPage('screener')"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-1px;margin-right:5px"><rect x="0.5" y="0.5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="0.5" y="5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="0.5" y="9.5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/></svg>Screener</button>
+  <button class="tv-nav-btn"               id="navCSP"     onclick="goPage('csp')"><svg width="11" height="14" viewBox="0 0 11 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-2px;margin-right:5px"><path d="M6.5 0.5L0.5 7.5H5.5L4.5 13.5L10.5 6.5H5.5L6.5 0.5Z" fill="currentColor" opacity="0.8"/></svg>CSP</button>
+  <button class="tv-nav-btn" id="navCC" onclick="goPage('cc')"><svg width="14" height="13" viewBox="0 0 14 13" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-1px;margin-right:5px"><rect x="0.5" y="6.5" width="3" height="6" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="5.5" y="3.5" width="3" height="9" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="10.5" y="0.5" width="3" height="12" rx="0.6" fill="currentColor" opacity="0.75"/></svg>CC</button>
+  <button class="tv-nav-btn" id="navStoria" onclick="goPage('storia')"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-2px;margin-right:5px"><circle cx="7" cy="7" r="5.8" stroke="currentColor" stroke-width="1.2" opacity="0.8"/><path d="M7 4V7.2L9.2 9.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/></svg>Storico</button>
   <button class="theme-btn" id="themeBtn"  onclick="toggleTheme()">☀</button>
 </nav>
 
@@ -1478,22 +1467,22 @@ input[type="number"]:focus {
       <button class="home-btn" onclick="goPage('screener')" style="flex:1;padding:13px 8px;background:rgba(41,98,255,0.15);border:1px solid rgba(41,98,255,0.4);border-radius:8px;color:#2962ff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;"
         onmouseover="this.style.background='rgba(41,98,255,0.25)';this.style.transform='translateY(-2px)'"
         onmouseout="this.style.background='rgba(41,98,255,0.15)';this.style.transform='none'">
-        📋 Screener
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-1px;margin-right:5px"><rect x="0.5" y="0.5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="0.5" y="5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="0.5" y="9.5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/></svg>Screener
       </button>
       <button class="home-btn" onclick="goPage('csp')" style="flex:1;padding:13px 8px;background:rgba(38,166,154,0.15);border:1px solid rgba(38,166,154,0.4);border-radius:8px;color:#26a69a;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;white-space:nowrap;"
         onmouseover="this.style.background='rgba(38,166,154,0.25)';this.style.transform='translateY(-2px)'"
         onmouseout="this.style.background='rgba(38,166,154,0.15)';this.style.transform='none'">
-        ⚡ Cash Secured Put
+        <svg width="11" height="14" viewBox="0 0 11 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-2px;margin-right:5px"><path d="M6.5 0.5L0.5 7.5H5.5L4.5 13.5L10.5 6.5H5.5L6.5 0.5Z" fill="currentColor" opacity="0.8"/></svg>Cash Secured Put
       </button>
       <button class="home-btn" onclick="goPage('cc')" style="flex:1;padding:13px 8px;background:rgba(240,180,41,0.1);border:1px solid rgba(240,180,41,0.35);border-radius:8px;color:#f0b429;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;"
         onmouseover="this.style.background='rgba(240,180,41,0.2)';this.style.transform='translateY(-2px)'"
         onmouseout="this.style.background='rgba(240,180,41,0.1)';this.style.transform='none'">
-        📊 Covered Call
+        <svg width="14" height="13" viewBox="0 0 14 13" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-1px;margin-right:5px"><rect x="0.5" y="6.5" width="3" height="6" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="5.5" y="3.5" width="3" height="9" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="10.5" y="0.5" width="3" height="12" rx="0.6" fill="currentColor" opacity="0.75"/></svg>Covered Call
       </button>
       <button class="home-btn" onclick="goPage('storia')" style="flex:1;padding:13px 8px;background:rgba(120,123,134,0.1);border:1px solid rgba(120,123,134,0.3);border-radius:8px;color:#787b86;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;"
         onmouseover="this.style.background='rgba(120,123,134,0.2)';this.style.transform='translateY(-2px)'"
         onmouseout="this.style.background='rgba(120,123,134,0.1)';this.style.transform='none'">
-        🗂 Storico
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-2px;margin-right:5px"><circle cx="7" cy="7" r="5.8" stroke="currentColor" stroke-width="1.2" opacity="0.8"/><path d="M7 4V7.2L9.2 9.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/></svg>Storico
       </button>
     </div>
   </div>
@@ -1549,7 +1538,7 @@ input[type="number"]:focus {
 <div class="container">
   <header>
     <div class="logo-area">
-      <h1>Covered Call Analyzer</h1>
+      <h1>Covered Call</h1>
       <p>Options Premium Analyzer</p>
     </div>
     <button class="gear-btn" id="ccGearBtn" title="Impostazioni">⚙</button>
@@ -1569,7 +1558,7 @@ input[type="number"]:focus {
 
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
     <div>
-      <h2 style="font-size:24px;font-weight:800;letter-spacing:-.5px;background:var(--tv-blue);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-family:'Inter',sans-serif;">Storico Simulazioni</h2>
+      <h2 style="font-size:24px;font-weight:800;letter-spacing:-.5px;background:#7aa3ff;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-family:'Inter',sans-serif;">Storico Simulazioni</h2>
       <p style="font-size:12px;color:var(--tv-muted);margin-top:3px;">Le simulazioni salvate manualmente da CSP e CC</p>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
