@@ -77,7 +77,7 @@
 <script>
 // goPage defined first — always available
 function goPage(p) {
-  ['Home','Screener','CSP','CC'].forEach(function(n) {
+  ['Home','Screener','CSP','CC','Storia'].forEach(function(n) {
     var pg = document.getElementById('page' + n);
     var nb = document.getElementById('nav'  + n);
     var lc = n.toLowerCase();
@@ -90,6 +90,9 @@ function goPage(p) {
     var t = document.documentElement.getAttribute('data-theme') || 'dark';
     buildScreener(t);
   }
+  if (p === 'storia') {
+    renderStoria();
+  }
 }
 
 // Theme toggle
@@ -97,23 +100,249 @@ function setTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
   localStorage.setItem('csp-theme', t);
   var btn = document.getElementById('themeBtn');
-  if (btn) btn.textContent = t === 'dark' ? '☀ Chiaro' : '🌙 Scuro';
+  if (btn) btn.textContent = t === 'dark' ? '☀' : '🌙';
   buildScreener(t);
 }
 function toggleTheme() {
   var cur = document.documentElement.getAttribute('data-theme');
   setTheme(cur === 'dark' ? 'light' : 'dark');
 }
-// Auto-detect on first load
-(function(){
-  var saved = localStorage.getItem('csp-theme');
-  if (saved) { document.documentElement.setAttribute('data-theme', saved); }
-  else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
-    document.documentElement.setAttribute('data-theme', 'light');
-  }
-})();
-</script>
+// ══════════════════════════════════════
+// AUTH SYSTEM — SHA-256 + session
+// ══════════════════════════════════════
 
+// ── Credenziali (SHA-256 hash di username:password)
+// Per aggiungere utenti duplica una riga USERS con nuove credenziali.
+// Per cambiare password: calcola il nuovo hash su https://emn178.github.io/online-tools/sha256.html
+// inserendo "username:nuovapassword" (tutto minuscolo per lo username, password case-sensitive)
+const USERS = [
+  {
+    userHash: '20adeb19887fa7b7790d4592a46c03c4825e4889c05d9dd54e0a493b5eede245', // hash di "lucap"
+    pswHash:  '9cb1a25057ed6e737c3229d3db554a019083cb96a53211770b71b3058cffc9b3', // hash di "Oros2026"
+    displayName: 'Lucap'
+  }
+];
+
+const SESSION_KEY    = 'oros_session_v1';
+const SESSION_HOURS  = 8;
+const MAX_ATTEMPTS   = 5;
+const LOCK_MINUTES   = 15;
+const BRUTE_KEY      = 'oros_brute_v1';
+
+// Pure-JS SHA-256 (works on file://, no crypto.subtle needed)
+function sha256(str) {
+  function rightRotate(value, amount) { return (value >>> amount) | (value << (32 - amount)); }
+  var mathPow = Math.pow;
+  var maxWord = mathPow(2, 32);
+  var result = '';
+  var words = [];
+  var asciiBitLength = str.length * 8;
+  var hash = sha256.h = sha256.h || [];
+  var k = sha256.k = sha256.k || [];
+  var primeCounter = k.length;
+  var isComposite = {};
+  for (var candidate = 2; primeCounter < 64; candidate++) {
+    if (!isComposite[candidate]) {
+      for (var i = 0; i < 313; i += candidate) isComposite[i] = candidate;
+      hash[primeCounter] = (mathPow(candidate, .5) * maxWord) | 0;
+      k[primeCounter++] = (mathPow(candidate, 1/3) * maxWord) | 0;
+    }
+  }
+  str += '\x80';
+  while (str.length % 64 - 56) str += '\x00';
+  for (var i = 0; i < str.length; i++) {
+    var j = str.charCodeAt(i);
+    if (j >> 8) return '';
+    words[i >> 2] |= j << ((3 - i) % 4) * 8;
+  }
+  words[words.length] = ((asciiBitLength / maxWord) | 0);
+  words[words.length] = (asciiBitLength | 0);
+  for (var j = 0; j < words.length;) {
+    var w = words.slice(j, j += 16);
+    var oldHash = hash.slice(0);
+    for (var i = 0; i < 64; i++) {
+      var w15 = w[i - 15], w2 = w[i - 2];
+      var a = hash[0], e = hash[4];
+      var temp1 = hash[7]
+        + (rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25))
+        + ((e & hash[5]) ^ (~e & hash[6]))
+        + k[i]
+        + (w[i] = (i < 16) ? w[i] : (
+            w[i - 16]
+            + (rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3))
+            + w[i - 7]
+            + (rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10))
+          ) | 0
+        );
+      var temp2 = (rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22))
+        + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+      hash = [(temp1 + temp2) | 0].concat(hash);
+      hash[4] = (hash[4] + temp1) | 0;
+      hash.length = 8;
+    }
+    for (var i = 0; i < 8; i++) hash[i] = (hash[i] + oldHash[i]) | 0;
+  }
+  for (var i = 0; i < 8; i++) {
+    for (var j = 3; j + 1; j--) {
+      var b = (hash[i] >> (j * 8)) & 255;
+      result += ((b < 16) ? 0 : '') + b.toString(16);
+    }
+  }
+  return result;
+}
+
+function sessionGet() {
+  try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch(e) { return null; }
+}
+function sessionSet(user) {
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ user, expires: Date.now() + SESSION_HOURS * 3600000 }));
+}
+function sessionClear() {
+  localStorage.removeItem(SESSION_KEY);
+}
+function sessionValid() {
+  var s = sessionGet();
+  return s && s.expires && Date.now() < s.expires;
+}
+
+function bruteGet() {
+  try { return JSON.parse(localStorage.getItem(BRUTE_KEY) || '{"attempts":0,"lockedUntil":0}'); } catch(e) { return {attempts:0,lockedUntil:0}; }
+}
+function bruteSave(data) {
+  localStorage.setItem(BRUTE_KEY, JSON.stringify(data));
+}
+function bruteReset() {
+  localStorage.setItem(BRUTE_KEY, JSON.stringify({attempts:0,lockedUntil:0}));
+}
+
+function togglePswVisibility() {
+  var inp = document.getElementById('loginPsw');
+  var btn = document.getElementById('pswToggleBtn');
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+  else { inp.type = 'password'; btn.textContent = '👁'; }
+}
+
+function loginAttempt() {
+  var brute = bruteGet();
+  var errEl = document.getElementById('loginError');
+  var lockEl = document.getElementById('loginLock');
+  var btn    = document.getElementById('loginBtn');
+  errEl.style.display = 'none';
+  lockEl.style.display = 'none';
+
+  if (brute.lockedUntil && Date.now() < brute.lockedUntil) {
+    var mins = Math.ceil((brute.lockedUntil - Date.now()) / 60000);
+    lockEl.textContent = '⚠ Troppi tentativi falliti. Riprova tra ' + mins + ' minuto' + (mins > 1 ? 'i' : '') + '.';
+    lockEl.style.display = 'block';
+    return;
+  }
+
+  var userVal = (document.getElementById('loginUser').value || '').trim().toLowerCase();
+  var pswVal  = (document.getElementById('loginPsw').value  || '');
+  if (!userVal || !pswVal) {
+    errEl.textContent = 'Inserisci username e password.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  btn.textContent = '…';
+  btn.disabled = true;
+
+  var userHash = sha256(userVal);
+  var pswHash  = sha256(pswVal);
+
+  var match = USERS.find(function(u) { return u.userHash === userHash && u.pswHash === pswHash; });
+
+  if (match) {
+    bruteReset();
+    sessionSet(match.displayName);
+    btn.textContent = '✓';
+    setTimeout(function() {
+      showApp(match.displayName);
+      btn.textContent = 'Accedi →';
+      btn.disabled = false;
+    }, 400);
+  } else {
+    brute.attempts = (brute.attempts || 0) + 1;
+    if (brute.attempts >= MAX_ATTEMPTS) {
+      brute.lockedUntil = Date.now() + LOCK_MINUTES * 60000;
+      brute.attempts = 0;
+      bruteSave(brute);
+      lockEl.textContent = '⚠ Troppi tentativi falliti. Account bloccato per ' + LOCK_MINUTES + ' minuti.';
+      lockEl.style.display = 'block';
+    } else {
+      bruteSave(brute);
+      var rem = MAX_ATTEMPTS - brute.attempts;
+      errEl.textContent = 'Credenziali non valide. ' + rem + ' tentativo' + (rem > 1 ? 'i' : '') + ' rimanente' + (rem > 1 ? 'i' : '') + '.';
+      errEl.style.display = 'block';
+      var card = document.querySelector('#loginScreen > div > div:last-child');
+      if (card) { card.style.animation = 'loginShake 0.4s ease'; setTimeout(function(){ card.style.animation=''; }, 400); }
+    }
+    btn.textContent = 'Accedi →';
+    btn.disabled = false;
+  }
+}
+
+function showApp(displayName) {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appHome').style.display = 'none';
+  // Add logout button to nav
+  var nav = document.getElementById('mainNav');
+  if (nav && !document.getElementById('logoutBtn')) {
+    var logoutBtn = document.createElement('button');
+    logoutBtn.id = 'logoutBtn';
+    logoutBtn.className = 'theme-btn';
+    logoutBtn.style.cssText = 'margin-left:8px;border-color:rgba(239,83,80,.3);color:#ef5350;order:99;';
+    logoutBtn.textContent = '⎋ Esci';
+    logoutBtn.onclick = function() {
+      if (confirm('Vuoi uscire dalla sessione?')) { sessionClear(); location.reload(); }
+    };
+    // Append after themeBtn (at the end)
+    nav.appendChild(logoutBtn);
+  }
+  // Go directly to CSP page
+  _origGoPage('csp');
+}
+
+function authInit() {
+  // Sync theme button text with current theme (no words, only symbol)
+  var savedTheme = localStorage.getItem('csp-theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  var btn = document.getElementById('themeBtn');
+  if (btn) btn.textContent = savedTheme === 'dark' ? '☀' : '🌙';
+
+  if (sessionValid()) {
+    var s = sessionGet();
+    showApp(s.user);
+  }
+  // Pre-focus username field
+  setTimeout(function() {
+    var u = document.getElementById('loginUser');
+    if (u && document.getElementById('loginScreen').style.display !== 'none') u.focus();
+  }, 100);
+}
+
+// Shake keyframe
+(function(){
+  var style = document.createElement('style');
+  style.textContent = '@keyframes loginShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}';
+  document.head.appendChild(style);
+})();
+
+// Block access to other pages if not authenticated
+var _origGoPage = goPage;
+goPage = function(p) {
+  if (p !== 'home' && !sessionValid()) {
+    sessionClear();
+    location.reload();
+    return;
+  }
+  _origGoPage(p);
+};
+
+document.addEventListener('DOMContentLoaded', authInit);
+
+</script>
 <script>
 // Auto-select input content on focus (works for all inputs including dynamically rendered)
 document.addEventListener('focusin', function(e) {
@@ -776,7 +1005,7 @@ body {
 .theme-btn:hover { color: var(--tv-text); border-color: var(--tv-blue); }
 
 /* ── PAGES ── */
-#pageHome, #pageScreener, #pageCSP, #pageCC { display: none; }
+#pageScreener, #pageCSP, #pageCC { display: none; }
 
 /* ── SCREENER ── */
 .sc-wrap { padding: 20px; max-width: 1600px; margin: 0 auto; }
@@ -1147,22 +1376,87 @@ input[type="number"]:focus {
 <body>
 
 <nav class="tv-nav" id="mainNav" style="display:none;">
-  <div class="tv-logo" onclick="goPage('home')" style="cursor:pointer;letter-spacing:2px;">OROS</div>
+  <div class="tv-logo" onclick="if(sessionValid()){document.querySelectorAll('#pageHome,#pageScreener,#pageCSP,#pageCC,#pageStoria').forEach(function(p){p.style.display='none';});document.getElementById('pageHome').style.display='block';document.getElementById('appHome').style.display='flex';document.getElementById('loginScreen').style.display='none';document.getElementById('mainNav').style.display='none';}" style="cursor:pointer;letter-spacing:2px;">OROS</div>
   <div class="tv-sep"></div>
   <button class="tv-nav-btn" id="navScreener" onclick="goPage('screener')">📋 Screener</button>
   <button class="tv-nav-btn"               id="navCSP"     onclick="goPage('csp')">⚡ CSP</button>
   <button class="tv-nav-btn" id="navCC" onclick="goPage('cc')">📊 CC</button>
-  <button class="theme-btn" id="themeBtn"  onclick="toggleTheme()">☀ Chiaro</button>
+  <button class="tv-nav-btn" id="navStoria" onclick="goPage('storia')">🗂 Storico</button>
+  <button class="theme-btn" id="themeBtn"  onclick="toggleTheme()">☀</button>
 </nav>
 
 <div id="pageHome" style="display:block;">
 <canvas id="spaceCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;"></canvas>
-<div style="position:relative;z-index:1;min-height:calc(100vh - 50px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center;">
 
-  <!-- Stars overlay -->
+<!-- LOGIN SCREEN -->
+<div id="loginScreen" style="position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;">
+
   <div style="position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;" id="starsLayer"></div>
 
-  <!-- Main content -->
+  <div style="position:relative;z-index:2;width:100%;max-width:400px;">
+
+    <!-- Logo -->
+    <div style="text-align:center;margin-bottom:40px;">
+      <div style="font-size:clamp(56px,10vw,80px);font-weight:900;letter-spacing:12px;line-height:1;
+                  background:linear-gradient(135deg,#f0b429 0%,#ffd700 40%,#f0b429 60%,#c8860a 100%);
+                  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+                  filter:drop-shadow(0 0 30px rgba(240,180,41,0.3));
+                  font-family:'Inter',sans-serif;">OROS</div>
+      <div style="font-size:11px;letter-spacing:5px;color:#787b86;text-transform:uppercase;margin-top:10px;font-family:'Inter',sans-serif;">Options Analytics Platform</div>
+    </div>
+
+    <!-- Login fields — no box, full transparency, navicelle visible behind -->
+    <div style="padding:8px 0;">
+
+      <!-- Username -->
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(120,123,134,0.9);font-family:'Inter',sans-serif;margin-bottom:7px;text-shadow:0 1px 4px rgba(0,0,0,0.8);">Username</label>
+        <input id="loginUser" type="text" autocomplete="username" placeholder="username"
+          style="width:100%;background:rgba(10,14,26,0.45);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:13px 16px;color:#e2eaf8;font-family:'Inter',sans-serif;font-size:14px;font-weight:500;outline:none;transition:all 0.2s;box-sizing:border-box;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);"
+          onfocus="this.style.borderColor='#2962ff';this.style.boxShadow='0 0 0 3px rgba(41,98,255,0.2)';this.style.background='rgba(10,14,26,0.65)'"
+          onblur="this.style.borderColor='rgba(255,255,255,0.12)';this.style.boxShadow='none';this.style.background='rgba(10,14,26,0.45)'"
+          onkeydown="if(event.key==='Enter')document.getElementById('loginPsw').focus()">
+      </div>
+
+      <!-- Password -->
+      <div style="margin-bottom:8px;">
+        <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(120,123,134,0.9);font-family:'Inter',sans-serif;margin-bottom:7px;text-shadow:0 1px 4px rgba(0,0,0,0.8);">Password</label>
+        <div style="position:relative;">
+          <input id="loginPsw" type="password" autocomplete="current-password" placeholder="••••••••"
+            style="width:100%;background:rgba(10,14,26,0.45);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:13px 44px 13px 16px;color:#e2eaf8;font-family:'Inter',sans-serif;font-size:14px;font-weight:500;outline:none;transition:all 0.2s;box-sizing:border-box;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);"
+            onfocus="this.style.borderColor='#2962ff';this.style.boxShadow='0 0 0 3px rgba(41,98,255,0.2)';this.style.background='rgba(10,14,26,0.65)'"
+            onblur="this.style.borderColor='rgba(255,255,255,0.12)';this.style.boxShadow='none';this.style.background='rgba(10,14,26,0.45)'"
+            onkeydown="if(event.key==='Enter')loginAttempt()">
+          <button onclick="togglePswVisibility()" tabindex="-1"
+            style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#787b86;font-size:14px;padding:4px;line-height:1;"
+            title="Mostra/nascondi password" id="pswToggleBtn">👁</button>
+        </div>
+      </div>
+
+      <!-- Error message -->
+      <div id="loginError" style="display:none;background:rgba(239,83,80,0.12);border:1px solid rgba(239,83,80,0.35);border-radius:8px;padding:9px 13px;margin-bottom:12px;font-size:12px;color:#ef5350;font-family:'Inter',sans-serif;backdrop-filter:blur(6px);"></div>
+
+      <!-- Lock message -->
+      <div id="loginLock" style="display:none;background:rgba(240,180,41,0.1);border:1px solid rgba(240,180,41,0.3);border-radius:8px;padding:9px 13px;margin-bottom:12px;font-size:12px;color:#f0b429;font-family:'Inter',sans-serif;backdrop-filter:blur(6px);"></div>
+
+      <!-- Submit -->
+      <button onclick="loginAttempt()" id="loginBtn"
+        style="width:100%;margin-top:20px;padding:13px;background:rgba(41,98,255,0.85);border:1px solid rgba(41,98,255,0.5);border-radius:10px;color:#fff;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s;letter-spacing:0.3px;backdrop-filter:blur(6px);"
+        onmouseover="this.style.background='rgba(41,98,255,1)';this.style.boxShadow='0 0 20px rgba(41,98,255,0.4)'"
+        onmouseout="this.style.background='rgba(41,98,255,0.85)';this.style.boxShadow='none'">
+        Accedi →
+      </button>
+    </div>
+
+    <div style="text-align:center;margin-top:20px;font-size:11px;color:#3a3e4a;font-family:'Inter',sans-serif;">Sessione attiva per 8 ore · Accesso sicuro SHA-256</div>
+  </div>
+</div>
+
+<!-- APP HOME (shown after login) -->
+<div id="appHome" style="display:none;position:relative;z-index:1;min-height:calc(100vh - 50px);display:none;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center;">
+
+  <div style="position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;"></div>
+
   <div style="position:relative;z-index:2;max-width:700px;">
     <div style="font-size:11px;letter-spacing:6px;color:#787b86;text-transform:uppercase;margin-bottom:24px;font-family:'Inter',sans-serif;">
       Options Analytics Platform
@@ -1196,11 +1490,15 @@ input[type="number"]:focus {
         onmouseout="this.style.background='rgba(240,180,41,0.1)';this.style.transform='none'">
         📊 Covered Call
       </button>
+      <button class="home-btn" onclick="goPage('storia')" style="flex:1;padding:13px 8px;background:rgba(120,123,134,0.1);border:1px solid rgba(120,123,134,0.3);border-radius:8px;color:#787b86;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;"
+        onmouseover="this.style.background='rgba(120,123,134,0.2)';this.style.transform='translateY(-2px)'"
+        onmouseout="this.style.background='rgba(120,123,134,0.1)';this.style.transform='none'">
+        🗂 Storico
+      </button>
     </div>
   </div>
-
-
 </div>
+
 </div>
 
 <div id="pageScreener" style="display:none;">
@@ -1263,6 +1561,48 @@ input[type="number"]:focus {
   <div id="ccPanelsContainer"></div>
   <div id="ccCompareSection" style="display:none"></div>
 </div>
+</div>
+
+<!-- ════ STORIA PAGE ════ -->
+<div id="pageStoria" style="display:none;">
+<div class="sc-wrap" style="max-width:1200px;">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+    <div>
+      <h2 style="font-size:22px;font-weight:800;letter-spacing:-.3px;color:var(--tv-text);font-family:'Inter',sans-serif;">🗂 Storico Simulazioni</h2>
+      <p style="font-size:12px;color:var(--tv-muted);margin-top:3px;">Le simulazioni salvate manualmente da CSP e CC</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <button id="storiaFilterAll"  onclick="storiaSetFilter('all')"  class="storia-filter-btn storia-filter-active" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-blue);color:#fff;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;">Tutti</button>
+      <button id="storiaFilterCSP"  onclick="storiaSetFilter('csp')"  class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;">⚡ CSP</button>
+      <button id="storiaFilterCC"   onclick="storiaSetFilter('cc')"   class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;">📊 CC</button>
+      <button onclick="storiaClearAll()" style="padding:6px 14px;border-radius:6px;border:1px solid rgba(239,83,80,.3);background:rgba(239,83,80,.08);color:var(--tv-red);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;margin-left:8px;">🗑 Cancella tutto</button>
+    </div>
+  </div>
+
+  <div id="storiaContainer">
+    <!-- Populated by renderStoria() -->
+  </div>
+
+</div>
+</div>
+
+<!-- ════ STORIA DETAIL MODAL ════ -->
+<div id="storiaModal" style="display:none;position:fixed;inset:0;background:rgba(9,11,17,.92);z-index:9999;backdrop-filter:blur(8px);">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(640px,95vw);max-height:90vh;overflow-y:auto;background:var(--tv-surf);border:1px solid var(--tv-bord);border-radius:12px;padding:32px;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;">
+      <div>
+        <div id="storiaModalTitle" style="font-size:17px;font-weight:700;color:var(--tv-text);"></div>
+        <div id="storiaModalMeta"  style="font-size:11px;color:var(--tv-muted);margin-top:3px;"></div>
+      </div>
+      <button onclick="document.getElementById('storiaModal').style.display='none'" style="background:rgba(239,83,80,.12);border:1px solid rgba(239,83,80,.3);color:var(--tv-red);border-radius:6px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;">✕ Chiudi</button>
+    </div>
+    <div id="storiaModalBody"></div>
+    <div style="display:flex;gap:8px;margin-top:20px;flex-wrap:wrap;">
+      <button id="storiaModalLoad"  style="flex:1;padding:11px;background:var(--tv-blue);border:none;border-radius:6px;color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;min-width:140px;">↩ Ricarica simulazione</button>
+      <button id="storiaModalDelete" style="padding:11px 18px;background:rgba(239,83,80,.12);border:1px solid rgba(239,83,80,.3);border-radius:6px;color:var(--tv-red);font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;">🗑 Elimina</button>
+    </div>
+  </div>
 </div>
 
 <!-- ════ SETTINGS MODAL ════ -->
@@ -1531,6 +1871,18 @@ function renderPanels() {
               </select>
               ${d._qtaCustom ? `<input type="text" inputmode="numeric" placeholder="es. 2000" data-field="quantitaOpz" value="${d.quantitaOpz}" style="margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--gold);font-family:'Inter',sans-serif;font-size:14px;font-weight:700;outline:none;width:100%;transition:all 0.2s;">` : ''}
             </div>
+            <div class="field full" style="display:flex;gap:8px;margin-top:4px;">
+              <button onclick="goToCC()" style="flex:1;padding:8px 12px;background:transparent;border:1px solid rgba(240,180,41,0.2);border-radius:6px;color:rgba(240,180,41,0.5);font-family:'Inter',sans-serif;font-size:11px;font-weight:500;cursor:pointer;transition:all 0.25s;letter-spacing:0.3px;display:flex;align-items:center;justify-content:center;gap:4px;"
+                onmouseover="this.style.background='rgba(240,180,41,0.06)';this.style.borderColor='rgba(240,180,41,0.4)';this.style.color='rgba(240,180,41,0.85)'"
+                onmouseout="this.style.background='transparent';this.style.borderColor='rgba(240,180,41,0.2)';this.style.color='rgba(240,180,41,0.5)'">
+                Analizza come CC <span style="font-size:9px;opacity:0.6;">→</span>
+              </button>
+              <button onclick="salvaCspCorrente()" style="flex:1;padding:8px 12px;background:transparent;border:1px solid rgba(38,166,154,0.2);border-radius:6px;color:rgba(38,166,154,0.5);font-family:'Inter',sans-serif;font-size:11px;font-weight:500;cursor:pointer;transition:all 0.25s;letter-spacing:0.3px;display:flex;align-items:center;justify-content:center;gap:4px;"
+                onmouseover="this.style.background='rgba(38,166,154,0.06)';this.style.borderColor='rgba(38,166,154,0.4)';this.style.color='rgba(38,166,154,0.85)'"
+                onmouseout="this.style.background='transparent';this.style.borderColor='rgba(38,166,154,0.2)';this.style.color='rgba(38,166,154,0.5)'">
+                💾 Salva storico
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1575,11 +1927,6 @@ function renderPanels() {
             </div>
           </div>
 
-          <button onclick="goToCC()" style="margin-top:12px;width:100%;padding:7px 14px;background:transparent;border:1px solid rgba(240,180,41,0.22);border-radius:6px;color:rgba(240,180,41,0.55);font-family:'Inter',sans-serif;font-size:11px;font-weight:500;cursor:pointer;transition:all 0.25s;letter-spacing:0.5px;display:flex;align-items:center;justify-content:center;gap:5px;"
-            onmouseover="this.style.background='rgba(240,180,41,0.06)';this.style.borderColor='rgba(240,180,41,0.45)';this.style.color='rgba(240,180,41,0.9)'"
-            onmouseout="this.style.background='transparent';this.style.borderColor='rgba(240,180,41,0.22)';this.style.color='rgba(240,180,41,0.55)'">
-            Analizza come Covered Call <span style="font-size:10px;opacity:0.7;">→</span>
-          </button>
         </div>
       </div>
     </div>
@@ -1775,11 +2122,8 @@ document.addEventListener('DOMContentLoaded', function() {
   if (inp) inp.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') openSymbolChart();
   });
-  // Apply correct theme label on load
-  var t = document.documentElement.getAttribute('data-theme') || 'dark';
-  var btn = document.getElementById('themeBtn');
-  if (btn) btn.textContent = t === 'dark' ? '☀ Chiaro' : '🌙 Scuro';
   // Build screener with correct theme  
+  var t = document.documentElement.getAttribute('data-theme') || 'dark';
   buildScreener(t);
 });
 </script>
@@ -1942,6 +2286,13 @@ function ccRenderPanel() {
               </select>
               ${d._qc ? `<input type="text" inputmode="numeric" placeholder="es. 2000" data-field="quantitaOpz" value="${d.quantitaOpz}" style="margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--gold);font-family:'Inter',sans-serif;font-size:14px;font-weight:700;outline:none;width:100%;">` : ''}
             </div>
+            <div class="field full" style="margin-top:4px;">
+              <button onclick="salvaCcCorrente()" style="width:100%;padding:8px 12px;background:transparent;border:1px solid rgba(38,166,154,0.2);border-radius:6px;color:rgba(38,166,154,0.5);font-family:'Inter',sans-serif;font-size:11px;font-weight:500;cursor:pointer;transition:all 0.25s;letter-spacing:0.3px;display:flex;align-items:center;justify-content:center;gap:4px;"
+                onmouseover="this.style.background='rgba(38,166,154,0.06)';this.style.borderColor='rgba(38,166,154,0.4)';this.style.color='rgba(38,166,154,0.85)'"
+                onmouseout="this.style.background='transparent';this.style.borderColor='rgba(38,166,154,0.2)';this.style.color='rgba(38,166,154,0.5)'">
+                💾 Salva nello storico
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1968,6 +2319,9 @@ function ccRenderPanel() {
             <div class="output-mini"><div class="out-label">Rend. Scadenza Lordo</div> <div class="out-value" data-out="ccRSL">${res ? fmtPct(res.rendScadLordo)  : '—'}</div></div>
             <div class="output-mini"><div class="out-label">Rend. Annuo Lordo</div>    <div class="out-value" data-out="ccRAL">${res ? fmtPct(res.rendAnnuoLordo) : '—'}</div></div>
           </div>
+        </div>
+      </div>
+    </div>
         </div>
       </div>
     </div>
@@ -2344,6 +2698,288 @@ function ccCalcDividendi() {
     initSpace();
   }
 })();
+</script>
+
+<script>
+// ══════════════════════════════════════
+// STORICO SIMULAZIONI
+// ══════════════════════════════════════
+
+var STORIA_KEY = 'oros_storia_v1';
+var storiaFilterCur = 'all';
+var storiaModalCurrentId = null;
+
+function storiaLoad() {
+  try { return JSON.parse(localStorage.getItem(STORIA_KEY) || '[]'); } catch(e) { return []; }
+}
+function storiaSave(list) {
+  localStorage.setItem(STORIA_KEY, JSON.stringify(list));
+}
+
+function storiaAdd(tipo, inputData, results, label) {
+  var list = storiaLoad();
+  var entry = {
+    id: Date.now() + '_' + Math.random().toString(36).slice(2,7),
+    tipo: tipo,           // 'csp' | 'cc'
+    label: label || '',
+    data: JSON.parse(JSON.stringify(inputData)),
+    results: results ? JSON.parse(JSON.stringify(results)) : null,
+    savedAt: new Date().toISOString()
+  };
+  list.unshift(entry);
+  storiaSave(list);
+  return entry;
+}
+
+function storiaDelete(id) {
+  var list = storiaLoad().filter(function(e){ return e.id !== id; });
+  storiaSave(list);
+}
+
+function storiaClearAll() {
+  if (!confirm('Vuoi davvero cancellare tutto lo storico?')) return;
+  storiaSave([]);
+  renderStoria();
+}
+
+function storiaSetFilter(f) {
+  storiaFilterCur = f;
+  ['All','CSP','CC'].forEach(function(n) {
+    var btn = document.getElementById('storiaFilter'+n);
+    if (!btn) return;
+    var active = (f === n.toLowerCase());
+    btn.style.background = active ? 'var(--tv-blue)' : 'var(--tv-surf2)';
+    btn.style.color      = active ? '#fff' : 'var(--tv-muted)';
+    btn.style.borderColor= active ? 'var(--tv-blue)' : 'var(--tv-bord)';
+  });
+  renderStoria();
+}
+
+function fmtDate(iso) {
+  var d = new Date(iso);
+  return d.toLocaleDateString('it-IT', {day:'2-digit',month:'2-digit',year:'numeric'}) +
+         ' ' + d.toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit'});
+}
+
+function renderStoria() {
+  var container = document.getElementById('storiaContainer');
+  if (!container) return;
+  var list = storiaLoad();
+  if (storiaFilterCur !== 'all') {
+    list = list.filter(function(e){ return e.tipo === storiaFilterCur; });
+  }
+  if (list.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--tv-muted);font-family:\'Inter\',sans-serif;font-size:13px;">' +
+      '<div style="font-size:40px;margin-bottom:16px;">📭</div>' +
+      '<div style="font-weight:600;margin-bottom:6px;">Nessuna simulazione salvata</div>' +
+      '<div style="font-size:12px;">Vai su CSP o CC, inserisci i dati e premi 💾 Salva nello storico</div></div>';
+    return;
+  }
+
+  var html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">';
+  list.forEach(function(entry) {
+    var isCsp = entry.tipo === 'csp';
+    var accentColor = isCsp ? '#26a69a' : '#f0b429';
+    var accentBg    = isCsp ? 'rgba(38,166,154,0.1)' : 'rgba(240,180,41,0.1)';
+    var accentBord  = isCsp ? 'rgba(38,166,154,0.3)' : 'rgba(240,180,41,0.3)';
+    var typeLabel   = isCsp ? '⚡ CSP' : '📊 CC';
+    var ticker = (entry.data && entry.data.ticker) ? entry.data.ticker.toUpperCase() : '—';
+    var rendAnnuo = entry.results ? (entry.results.rendAnnuoNetto * 100).toFixed(2).replace('.',',') + '%' : '—';
+    var premioNetto = entry.results ? fmt(entry.results.premioNetto) : '—';
+
+    html += '<div onclick="storiaOpenModal(\'' + entry.id + '\')" style="cursor:pointer;background:var(--tv-surf);border:1px solid ' + accentBord + ';border-radius:10px;padding:18px;transition:transform 0.15s,box-shadow 0.15s;" ' +
+      'onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 8px 24px rgba(0,0,0,0.25)\'" ' +
+      'onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'none\'">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+        '<span style="background:' + accentBg + ';color:' + accentColor + ';border:1px solid ' + accentBord + ';padding:3px 9px;border-radius:5px;font-family:\'Inter\',sans-serif;font-size:11px;font-weight:700;">' + typeLabel + '</span>' +
+        '<span style="font-family:\'Inter\',sans-serif;font-size:11px;color:var(--tv-muted);">' + fmtDate(entry.savedAt) + '</span>' +
+      '</div>' +
+      '<div style="font-size:22px;font-weight:800;color:var(--tv-text);font-family:\'Inter\',sans-serif;letter-spacing:1px;margin-bottom:10px;">' + ticker + '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+        '<div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:7px;padding:10px;">' +
+          '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:3px;">Premio Netto</div>' +
+          '<div style="font-family:\'Inter\',sans-serif;font-size:15px;font-weight:700;color:' + accentColor + ';">' + premioNetto + '</div>' +
+        '</div>' +
+        '<div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:7px;padding:10px;">' +
+          '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:3px;">Rend. Annuo</div>' +
+          '<div style="font-family:\'Inter\',sans-serif;font-size:15px;font-weight:700;color:' + accentColor + ';">' + rendAnnuo + '</div>' +
+        '</div>' +
+      '</div>' +
+      (entry.label ? '<div style="margin-top:10px;font-size:11px;color:var(--tv-muted);font-family:\'Inter\',sans-serif;font-style:italic;">' + entry.label + '</div>' : '') +
+    '</div>';
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function storiaOpenModal(id) {
+  var list = storiaLoad();
+  var entry = list.find(function(e){ return e.id === id; });
+  if (!entry) return;
+  storiaModalCurrentId = id;
+
+  var isCsp = entry.tipo === 'csp';
+  var accentColor = isCsp ? '#26a69a' : '#f0b429';
+  var typeLabel = isCsp ? '⚡ Cash Secured Put' : '📊 Covered Call';
+  var ticker = (entry.data && entry.data.ticker) ? entry.data.ticker.toUpperCase() : '—';
+
+  document.getElementById('storiaModalTitle').textContent = typeLabel + ' — ' + ticker;
+  document.getElementById('storiaModalMeta').textContent = 'Salvata il ' + fmtDate(entry.savedAt);
+
+  var d = entry.data;
+  var r = entry.results;
+
+  var inputRows = '';
+  if (isCsp) {
+    inputRows = [
+      ['Strike',        d.strike    ? '€' + d.strike : '—'],
+      ['Cash',          d.cash      ? '€' + d.cash   : '—'],
+      ['Premio',        d.premio    || '—'],
+      ['Qtà per opz.',  d.quantitaOpz || '—'],
+    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] + '</td><td style="padding:8px 12px;color:var(--tv-gold);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + row[1] + '</td></tr>'; }).join('');
+  } else {
+    inputRows = [
+      ['Strike',        d.strike    ? '€' + d.strike : '—'],
+      ['Premio',        d.premio    || '—'],
+      ['Contratti',     d.contratti || '—'],
+      ['Qtà per opz.',  d.quantitaOpz || '—'],
+    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] + '</td><td style="padding:8px 12px;color:var(--tv-gold);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + row[1] + '</td></tr>'; }).join('');
+  }
+
+  var resultRows = '';
+  if (r) {
+    var rows = [
+      ['Premio Lordo',      fmt(r.premioLordo)],
+      ['Premio Netto',      fmt(r.premioNetto)],
+      ['Rend. Scad. Netto', fmtPct(r.rendScadNetto)],
+      ['Rend. Annuo Netto', fmtPct(r.rendAnnuoNetto)],
+      ['Rend. Scad. Lordo', fmtPct(r.rendScadLordo)],
+      ['Rend. Annuo Lordo', fmtPct(r.rendAnnuoLordo)],
+    ];
+    if (!isCsp && r.cash) rows.unshift(['Controvalore Totale', fmt(r.cash)]);
+    resultRows = rows.map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] + '</td><td style="padding:8px 12px;color:' + accentColor + ';font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + row[1] + '</td></tr>'; }).join('');
+  }
+
+  document.getElementById('storiaModalBody').innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:4px;">' +
+      '<div>' +
+        '<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:8px;">Parametri</div>' +
+        '<table style="width:100%;border-collapse:collapse;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;overflow:hidden;">' + inputRows + '</table>' +
+      '</div>' +
+      '<div>' +
+        '<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:8px;">Risultati</div>' +
+        '<table style="width:100%;border-collapse:collapse;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;overflow:hidden;">' + (resultRows || '<tr><td style="padding:12px;color:var(--tv-muted);font-size:12px;">Nessun risultato</td></tr>') + '</table>' +
+      '</div>' +
+    '</div>' +
+    ((!isCsp && d._dividendi) ? (
+      '<div style="margin-top:12px;">' +
+        '<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:8px;">💰 Dividendi</div>' +
+        '<table style="width:100%;border-collapse:collapse;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;overflow:hidden;">' +
+          '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">Dividendo per azione</td><td style="padding:8px 12px;color:var(--tv-gold);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">€' + fmtDec(d._dividendi.importo, 4) + '</td></tr>' +
+          '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">Quantità azioni</td><td style="padding:8px 12px;color:var(--tv-gold);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + fmtInt(d._dividendi.quantita) + '</td></tr>' +
+          '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">Utile lordo</td><td style="padding:8px 12px;color:#26a69a;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + fmt(d._dividendi.utileLordo) + '</td></tr>' +
+          '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">Utile netto (−26%)</td><td style="padding:8px 12px;color:#26a69a;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + fmt(d._dividendi.utileNetto) + '</td></tr>' +
+          (d._dividendi.rendPct !== null ? '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">Rend. lordo %</td><td style="padding:8px 12px;color:var(--tv-gold);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + fmtDec(d._dividendi.rendPct, 2) + '%</td></tr>' : '') +
+        '</table>' +
+      '</div>'
+    ) : '');
+
+  document.getElementById('storiaModalLoad').onclick = function() {
+    storiaRicarica(id);
+  };
+  document.getElementById('storiaModalDelete').onclick = function() {
+    if (confirm('Eliminare questa simulazione?')) {
+      storiaDelete(id);
+      document.getElementById('storiaModal').style.display = 'none';
+      renderStoria();
+    }
+  };
+
+  document.getElementById('storiaModal').style.display = 'block';
+}
+
+document.getElementById('storiaModal').addEventListener('click', function(e) {
+  if (e.target === this) this.style.display = 'none';
+});
+
+function storiaRicarica(id) {
+  var list = storiaLoad();
+  var entry = list.find(function(e){ return e.id === id; });
+  if (!entry) return;
+  document.getElementById('storiaModal').style.display = 'none';
+  if (entry.tipo === 'csp') {
+    goPage('csp');
+    var tab = tabs.find(function(t){ return t.id === activeTab; });
+    if (tab) {
+      Object.assign(tab.data, entry.data);
+      renderAll();
+    }
+  } else {
+    goPage('cc');
+    var ccTab = ccTabs.find(function(t){ return t.id === ccActiveTab; });
+    if (ccTab) {
+      Object.assign(ccTab.data, entry.data);
+      ccRenderAll();
+    }
+  }
+}
+
+// ── Called from CSP page
+function salvaCspCorrente() {
+  var tab = tabs.find(function(t){ return t.id === activeTab; });
+  if (!tab) return;
+  var res = getResults(tab);
+  if (!res) { alert('Inserisci i dati prima di salvare.'); return; }
+  storiaAdd('csp', tab.data, res, '');
+  // Flash feedback
+  var btn = document.querySelector('#panelsContainer button[onclick="salvaCspCorrente()"]');
+  if (btn) {
+    var orig = btn.innerHTML;
+    btn.innerHTML = '✓ Salvato!';
+    btn.style.color = 'rgba(38,166,154,0.85)';
+    btn.style.borderColor = 'rgba(38,166,154,0.4)';
+    setTimeout(function(){ btn.innerHTML = orig; btn.style.color = 'rgba(38,166,154,0.5)'; btn.style.borderColor = 'rgba(38,166,154,0.2)'; }, 1500);
+  }
+}
+
+// ── Called from CC page
+function salvaCcCorrente() {
+  var tab = ccTabs.find(function(t){ return t.id === ccActiveTab; });
+  if (!tab) return;
+  var res = ccGetResults(tab);
+  if (!res) { alert('Inserisci i dati prima di salvare.'); return; }
+
+  // Capture dividendi if section is open and importo is filled
+  var divData = null;
+  var divSection = document.getElementById('ccDivSection');
+  var divImporto = document.getElementById('ccDivImporto');
+  if (divSection && divSection.style.display !== 'none' && divImporto && divImporto.value.trim() !== '') {
+    var importo = parseFloat(divImporto.value.replace(',', '.'));
+    var contratti  = ccParseNum(tab.data.contratti);
+    var quantitaOpz= ccParseNum(tab.data.quantitaOpz);
+    var strike     = ccParseNum(tab.data.strike);
+    if (!isNaN(importo) && importo > 0 && !isNaN(contratti) && !isNaN(quantitaOpz)) {
+      var quantita   = contratti * quantitaOpz;
+      var utileLordo = importo * quantita;
+      var utileNetto = utileLordo - utileLordo * CAPITAL_GAIN;
+      var rend = (!isNaN(strike) && strike > 0) ? (utileLordo / (contratti * quantitaOpz * strike)) * 100 : null;
+      divData = { importo: importo, quantita: quantita, utileLordo: utileLordo, utileNetto: utileNetto, rendPct: rend };
+    }
+  }
+
+  var inputData = Object.assign({}, tab.data, divData ? { _dividendi: divData } : {});
+  storiaAdd('cc', inputData, res, '');
+
+  var btn = document.querySelector('#ccPanelsContainer button[onclick="salvaCcCorrente()"]');
+  if (btn) {
+    var orig = btn.innerHTML;
+    btn.innerHTML = '✓ Salvato!';
+    btn.style.color = 'rgba(38,166,154,0.85)';
+    btn.style.borderColor = 'rgba(38,166,154,0.4)';
+    setTimeout(function(){ btn.innerHTML = orig; btn.style.color = 'rgba(38,166,154,0.5)'; btn.style.borderColor = 'rgba(38,166,154,0.2)'; }, 1500);
+  }
+}
+
 </script>
 
 </body>
