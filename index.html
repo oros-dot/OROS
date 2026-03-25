@@ -1150,7 +1150,7 @@ body.has-sidebar { padding-left: 56px; }
 #mobileSidebarDrawer {
   position: fixed;
   top: 0; left: -240px;
-  width: 240px; height: 100vh; height: 100dvh;
+  width: 240px; height: 100vh;
   background: var(--tv-surf);
   border-right: 1px solid var(--tv-bord);
   z-index: 700;
@@ -1197,7 +1197,12 @@ body.has-sidebar { padding-left: 56px; }
 .mob-nav-active { color: var(--tv-text) !important; background: rgba(41,98,255,.1) !important; font-weight: 600 !important; }
 .mob-nav-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
 .mob-spacer { flex: 1; }
-.mob-bottom { border-top: 1px solid var(--tv-bord); padding-top: 8px; padding-bottom: max(16px, env(safe-area-inset-bottom, 16px)); }
+.mob-bottom { border-top: 1px solid var(--tv-bord); padding-top: 8px; }
+
+/* iPhone: alza i bottoni esci/tema sopra la barra URL di Safari (~50px) */
+@media (max-width: 768px) {
+  .mob-bottom { padding-bottom: 80px; }
+}
 
 /* ── PAGES ── */
 #pageScreener, #pageCSP, #pageCC { display: none; }
