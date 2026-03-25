@@ -1051,6 +1051,12 @@ body {
 }
 .sb-btn:hover::after { opacity: 1; visibility: visible; }
 
+/* iPad/touch: tooltip controllato via JS con auto-hide */
+@media (hover: none) {
+  .sb-btn:hover::after { opacity: 0; visibility: hidden; }
+  .sb-btn.touch-tooltip-show::after { opacity: 1 !important; visibility: visible !important; }
+}
+
 /* Theme toggle btn in sidebar */
 .theme-btn {
   position: relative;
@@ -1090,6 +1096,11 @@ body {
   margin-top: 22px;
 }
 .theme-btn:hover::after { opacity: 1; visibility: visible; }
+
+@media (hover: none) {
+  .theme-btn:hover::after { opacity: 0; visibility: hidden; }
+  .theme-btn.touch-tooltip-show::after { opacity: 1 !important; visibility: visible !important; }
+}
 
 /* ── BODY OFFSET WHEN SIDEBAR VISIBLE ── */
 body.has-sidebar { padding-left: 56px; }
@@ -3148,6 +3159,41 @@ function storiaOpenModal(id) {
 document.getElementById('storiaModal').addEventListener('click', function(e) {
   if (e.target === this) this.style.display = 'none';
 });
+
+// ── iPad: tooltip sidebar auto-hide dopo 1.5s su touch ──
+(function() {
+  var tooltipTimer = null;
+  var lastBtn = null;
+
+  function isTouchSidebar() {
+    return ('ontouchstart' in window || navigator.maxTouchPoints > 0)
+      && window.innerWidth > 768;
+  }
+
+  function clearTooltip() {
+    if (lastBtn) {
+      lastBtn.classList.remove('touch-tooltip-show');
+      lastBtn = null;
+    }
+    if (tooltipTimer) {
+      clearTimeout(tooltipTimer);
+      tooltipTimer = null;
+    }
+  }
+
+  document.addEventListener('touchend', function(e) {
+    if (!isTouchSidebar()) return;
+    var btn = e.target.closest('.sb-btn, .theme-btn');
+    if (btn && btn.getAttribute('data-tooltip')) {
+      clearTooltip();
+      lastBtn = btn;
+      btn.classList.add('touch-tooltip-show');
+      tooltipTimer = setTimeout(clearTooltip, 1500);
+    } else {
+      clearTooltip();
+    }
+  }, { passive: true });
+})();
 
 function storiaRicarica(id) {
   var list = storiaLoad();
