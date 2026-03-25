@@ -82,10 +82,16 @@ function goPage(p) {
     var nb = document.getElementById('nav'  + n);
     var lc = n.toLowerCase();
     if (pg) pg.style.display = (lc === p) ? 'block' : 'none';
-    if (nb) nb.className = 'tv-nav-btn' + (lc === p ? ' tv-nav-active' : '');
+    if (nb) nb.className = 'sb-btn' + (lc === p ? ' sb-active' : '');
   });
   var nav = document.getElementById('mainNav');
-  if (nav) nav.style.display = (p === 'home') ? 'none' : 'flex';
+  var isHome = (p === 'home');
+  if (nav) nav.style.display = isHome ? 'none' : 'flex';
+  if (isHome) {
+    document.body.classList.remove('has-sidebar');
+  } else {
+    document.body.classList.add('has-sidebar');
+  }
   if (p === 'screener') {
     var t = document.documentElement.getAttribute('data-theme') || 'dark';
     buildScreener(t);
@@ -95,12 +101,47 @@ function goPage(p) {
   }
 }
 
+function goHome() {
+  if (!sessionValid()) return;
+  ['pageHome','pageScreener','pageCSP','pageCC','pageStoria'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  document.getElementById('pageHome').style.display = 'block';
+  document.getElementById('appHome').style.display = 'flex';
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('mainNav').style.display = 'none';
+  document.body.classList.remove('has-sidebar');
+  closeMobileSidebar();
+}
+
+function toggleMobileSidebar() {
+  var drawer = document.getElementById('mobileSidebarDrawer');
+  var overlay = document.getElementById('mobileSidebarOverlay');
+  var isOpen = drawer && drawer.classList.contains('mob-open');
+  if (isOpen) {
+    closeMobileSidebar();
+  } else {
+    if (drawer) drawer.classList.add('mob-open');
+    if (overlay) overlay.style.display = 'block';
+  }
+}
+
+function closeMobileSidebar() {
+  var drawer = document.getElementById('mobileSidebarDrawer');
+  var overlay = document.getElementById('mobileSidebarOverlay');
+  if (drawer) drawer.classList.remove('mob-open');
+  if (overlay) overlay.style.display = 'none';
+}
+
 // Theme toggle
 function setTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
   localStorage.setItem('csp-theme', t);
   var btn = document.getElementById('themeBtn');
   if (btn) btn.textContent = t === 'dark' ? '☀' : '🌙';
+  var mobIcon = document.getElementById('mobThemeIcon');
+  if (mobIcon) mobIcon.textContent = t === 'dark' ? '☀' : '🌙';
   buildScreener(t);
 }
 function toggleTheme() {
@@ -286,18 +327,20 @@ function loginAttempt() {
 function showApp(displayName) {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('appHome').style.display = 'none';
-  // Add logout button to nav
+  // Add logout button to sidebar (bottom area)
   var nav = document.getElementById('mainNav');
   if (nav && !document.getElementById('logoutBtn')) {
     var logoutBtn = document.createElement('button');
     logoutBtn.id = 'logoutBtn';
-    logoutBtn.className = 'theme-btn';
-    logoutBtn.style.cssText = 'margin-left:8px;border-color:rgba(239,83,80,.3);color:#ef5350;order:99;';
-    logoutBtn.textContent = '⎋ Esci';
+    logoutBtn.className = 'sb-btn';
+    logoutBtn.setAttribute('data-tooltip', 'Esci dalla sessione');
+    logoutBtn.innerHTML = '⎋';
+    logoutBtn.style.cssText = 'color:rgba(239,83,80,0.7);';
+    logoutBtn.onmouseover = function() { this.style.color = '#ef5350'; };
+    logoutBtn.onmouseout  = function() { this.style.color = 'rgba(239,83,80,0.7)'; };
     logoutBtn.onclick = function() {
       if (confirm('Vuoi uscire dalla sessione?')) { sessionClear(); location.reload(); }
     };
-    // Append after themeBtn (at the end)
     nav.appendChild(logoutBtn);
   }
   // Go directly to CSP page
@@ -310,6 +353,8 @@ function authInit() {
   document.documentElement.setAttribute('data-theme', savedTheme);
   var btn = document.getElementById('themeBtn');
   if (btn) btn.textContent = savedTheme === 'dark' ? '☀' : '🌙';
+  var mobIcon = document.getElementById('mobThemeIcon');
+  if (mobIcon) mobIcon.textContent = savedTheme === 'dark' ? '☀' : '🌙';
 
   if (sessionValid()) {
     var s = sessionGet();
@@ -805,7 +850,6 @@ document.addEventListener('focusin', function(e) {
   }
 
   @media (max-width: 768px) {
-  .tv-logo { font-size: 15px; letter-spacing: 3px; margin-right: 10px; }
   .sc-inp { width: 100%; flex: 1; min-width: 120px; }
   .sc-btn { width: 100%; flex-shrink: 0; }
   .sc-search { width: 100%; }
@@ -813,9 +857,6 @@ document.addEventListener('focusin', function(e) {
   .home-btn { flex: none !important; width: 90% !important; font-size: 18px !important; padding: 13px 20px !important; font-weight: 700 !important; letter-spacing: 0.3px !important; }
   div:has(> .home-btn) { flex-direction: column !important; align-items: center !important; gap: 10px !important; }
 
-  .tv-sep { margin: 0 8px; }
-  .tv-nav-btn { padding: 0 10px; font-size: 12px; }
-  .theme-btn { padding: 5px 10px; font-size: 11px; }
   .container { padding: 20px 16px; }
   .panel { padding: 20px 16px; }
   .panel-grid { grid-template-columns: 1fr; }
@@ -829,6 +870,11 @@ document.addEventListener('focusin', function(e) {
     .input-grid { grid-template-columns: 1fr; }
     .field.full { grid-column: span 1; }
     .output-row { grid-template-columns: 1fr; }
+
+  /* Mobile: hide desktop sidebar, show mobile top bar */
+  .sidebar { display: none !important; }
+  body.has-sidebar { padding-left: 0 !important; padding-top: 50px; }
+  body.has-sidebar #mobileTopBar { display: flex !important; }
   }
 
   /* EMPTY STATE */
@@ -920,78 +966,230 @@ body {
   --sans:       'Inter', -apple-system, sans-serif;
 }
 
-/* ── TOP NAV ── */
-.tv-nav {
+/* ── SIDEBAR NAV ── */
+.sidebar {
+  position: fixed;
+  left: 0; top: 0;
+  width: 56px;
+  height: 100vh;
+  background: var(--tv-surf);
+  border-right: 1px solid var(--tv-bord);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: 12px;
+  z-index: 500;
+  box-shadow: 1px 0 6px var(--tv-shadow);
+  transition: background .25s, border-color .25s;
+  overflow: visible;
+}
+
+.sb-logo {
+  width: 100%;
+  height: 56px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  background: var(--tv-surf);
-  border-bottom: 1px solid var(--tv-bord);
-  position: sticky;
-  top: 0; z-index: 500;
-  padding: 0 12px;
-  height: 50px;
-  gap: 0;
-  box-shadow: 0 1px 4px var(--tv-shadow);
-  transition: background .25s, border-color .25s;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  min-width: 0;
-  flex-shrink: 0;
-}
-.tv-nav::-webkit-scrollbar { display: none; }
-.tv-logo {
-  font-size: 16px; font-weight: 800;
-  color: var(--tv-text);
-  margin-right: 24px; white-space: nowrap;
-  letter-spacing: -.3px;
-}
-.tv-logo { 
-  font-size: 18px; font-weight: 900;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 900;
   color: #f0b429;
-  letter-spacing: 4px;
+  letter-spacing: 3px;
+  cursor: pointer;
   text-shadow: 0 0 20px rgba(240,180,41,0.4);
   transition: text-shadow 0.3s;
-  margin-left: 16px;
-  margin-right: 19px;
+  border-bottom: 1px solid var(--tv-bord);
+  font-family: 'Inter', sans-serif;
+  user-select: none;
 }
-.tv-logo:hover { text-shadow: 0 0 30px rgba(240,180,41,0.7); }
-.tv-sep { width: 1px; height: 22px; background: var(--tv-bord); margin: 0 16px; flex-shrink: 0; }
-.tv-nav-btn {
-  padding: 0 14px;
-  height: 50px;
+.sb-logo:hover { text-shadow: 0 0 30px rgba(240,180,41,0.8); }
+
+.sb-sep { width: 32px; height: 1px; background: var(--tv-bord); margin: 6px 0; flex-shrink: 0; }
+.sb-spacer { flex: 1; }
+
+.sb-btn {
+  position: relative;
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
   background: transparent;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-radius: 10px;
+  color: var(--tv-muted);
+  cursor: pointer;
+  font-size: 18px;
+  transition: color .15s, background .15s;
+  flex-shrink: 0;
+  margin: 2px 0;
+  outline: none;
+  overflow: visible;
+}
+.sb-btn:hover { color: var(--tv-text); background: rgba(255,255,255,.06); }
+.sb-active { color: var(--tv-text) !important; background: rgba(41,98,255,.12) !important; }
+[data-theme="light"] .sb-btn:hover { background: rgba(0,0,0,.05); }
+[data-theme="light"] .sb-active { background: rgba(41,98,255,.1) !important; }
+
+/* Tooltip on hover — like Claude interface */
+.sb-btn::after {
+  content: attr(data-tooltip);
+  position: fixed;
+  left: 68px;
+  background: var(--tv-surf);
+  border: 1px solid var(--tv-bord);
+  border-radius: 7px;
+  padding: 6px 11px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px; font-weight: 500;
+  color: var(--tv-text);
+  white-space: nowrap;
+  opacity: 0; visibility: hidden;
+  pointer-events: none;
+  z-index: 9999;
+  box-shadow: 0 4px 14px var(--tv-shadow);
+  transition: opacity .15s, visibility .15s;
+  transform: translateY(-50%);
+  margin-top: 22px; /* vertically center relative to button */
+}
+.sb-btn:hover::after { opacity: 1; visibility: visible; }
+
+/* Theme toggle btn in sidebar */
+.theme-btn {
+  position: relative;
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  color: var(--tv-muted);
+  font-size: 16px;
+  cursor: pointer;
+  transition: color .15s, background .15s;
+  flex-shrink: 0;
+  margin: 2px 0;
+  overflow: visible;
+}
+.theme-btn:hover { color: var(--tv-text); background: rgba(255,255,255,.06); }
+[data-theme="light"] .theme-btn:hover { background: rgba(0,0,0,.05); }
+.theme-btn::after {
+  content: attr(data-tooltip);
+  position: fixed;
+  left: 68px;
+  background: var(--tv-surf);
+  border: 1px solid var(--tv-bord);
+  border-radius: 7px;
+  padding: 6px 11px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px; font-weight: 500;
+  color: var(--tv-text);
+  white-space: nowrap;
+  opacity: 0; visibility: hidden;
+  pointer-events: none;
+  z-index: 9999;
+  box-shadow: 0 4px 14px var(--tv-shadow);
+  transition: opacity .15s, visibility .15s;
+  transform: translateY(-50%);
+  margin-top: 22px;
+}
+.theme-btn:hover::after { opacity: 1; visibility: visible; }
+
+/* ── BODY OFFSET WHEN SIDEBAR VISIBLE ── */
+body.has-sidebar { padding-left: 56px; }
+
+/* ── MOBILE TOP BAR ── */
+#mobileTopBar {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 50px;
+  background: var(--tv-surf);
+  border-bottom: 1px solid var(--tv-bord);
+  z-index: 500;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  box-shadow: 0 1px 4px var(--tv-shadow);
+}
+.mob-oros {
+  font-size: 14px; font-weight: 900;
+  color: #f0b429;
+  letter-spacing: 4px;
+  cursor: pointer;
+  text-shadow: 0 0 18px rgba(240,180,41,0.4);
+  transition: text-shadow 0.3s;
+  font-family: 'Inter', sans-serif;
+  user-select: none;
+}
+.mob-oros:hover { text-shadow: 0 0 28px rgba(240,180,41,0.7); }
+.mob-hamburger {
+  background: transparent;
+  border: none;
+  color: var(--tv-muted);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 6px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px;
+  transition: color .15s, background .15s;
+}
+.mob-hamburger:hover { color: var(--tv-text); background: rgba(255,255,255,.06); }
+
+/* ── MOBILE DRAWER ── */
+#mobileSidebarOverlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.45);
+  z-index: 600;
+}
+#mobileSidebarDrawer {
+  position: fixed;
+  top: 0; left: -240px;
+  width: 240px; height: 100vh;
+  background: var(--tv-surf);
+  border-right: 1px solid var(--tv-bord);
+  z-index: 700;
+  display: flex; flex-direction: column;
+  padding: 0 0 16px 0;
+  transition: left .25s cubic-bezier(.4,0,.2,1);
+  box-shadow: 2px 0 12px rgba(0,0,0,.3);
+}
+#mobileSidebarDrawer.mob-open { left: 0; }
+
+.mob-drawer-header {
+  height: 56px; flex-shrink: 0;
+  display: flex; align-items: center;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--tv-bord);
+  font-size: 15px; font-weight: 900;
+  color: #f0b429;
+  letter-spacing: 4px;
+  font-family: 'Inter', sans-serif;
+  justify-content: space-between;
+}
+.mob-drawer-close {
+  background: transparent; border: none;
+  color: var(--tv-muted); font-size: 18px;
+  cursor: pointer; padding: 4px 8px;
+  border-radius: 6px;
+  transition: color .15s, background .15s;
+}
+.mob-drawer-close:hover { color: var(--tv-text); background: rgba(255,255,255,.06); }
+
+.mob-nav-btn {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px;
+  background: transparent; border: none;
   color: var(--tv-muted);
   font-family: 'Inter', sans-serif;
   font-size: 13px; font-weight: 500;
   cursor: pointer;
-  transition: color .15s, border-color .15s;
-  white-space: nowrap;
-  flex-shrink: 0;
+  transition: color .15s, background .15s;
+  text-align: left; width: 100%;
+  border-radius: 0;
 }
-.tv-nav-btn:hover { color: var(--tv-text); }
-.tv-nav-active {
-  color: var(--tv-text) !important;
-  border-bottom-color: var(--tv-blue) !important;
-  font-weight: 600 !important;
-}
-.theme-btn {
-  margin-left: auto;
-  padding: 6px 14px;
-  background: var(--tv-surf2);
-  border: 1px solid var(--tv-bord);
-  border-radius: 6px;
-  color: var(--tv-muted);
-  font-family: 'Inter', sans-serif;
-  font-size: 12px; font-weight: 600;
-  cursor: pointer;
-  transition: all .2s;
-  white-space: nowrap;
-}
-.theme-btn:hover { color: var(--tv-text); border-color: var(--tv-blue); }
+.mob-nav-btn:hover { color: var(--tv-text); background: rgba(255,255,255,.04); }
+.mob-nav-active { color: var(--tv-text) !important; background: rgba(41,98,255,.1) !important; font-weight: 600 !important; }
+.mob-nav-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
+.mob-spacer { flex: 1; }
+.mob-bottom { border-top: 1px solid var(--tv-bord); padding-top: 8px; }
 
 /* ── PAGES ── */
 #pageScreener, #pageCSP, #pageCC { display: none; }
@@ -1364,14 +1562,74 @@ input[type="number"]:focus {
 </head>
 <body>
 
-<nav class="tv-nav" id="mainNav" style="display:none;">
-  <div class="tv-logo" onclick="if(sessionValid()){document.querySelectorAll('#pageHome,#pageScreener,#pageCSP,#pageCC,#pageStoria').forEach(function(p){p.style.display='none';});document.getElementById('pageHome').style.display='block';document.getElementById('appHome').style.display='flex';document.getElementById('loginScreen').style.display='none';document.getElementById('mainNav').style.display='none';}" style="cursor:pointer;letter-spacing:2px;">OROS</div>
-  <div class="tv-sep"></div>
-  <button class="tv-nav-btn" id="navScreener" onclick="goPage('screener')"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-1px;margin-right:5px"><rect x="0.5" y="0.5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="0.5" y="5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="0.5" y="9.5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/></svg>Screener</button>
-  <button class="tv-nav-btn"               id="navCSP"     onclick="goPage('csp')"><svg width="11" height="14" viewBox="0 0 11 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-2px;margin-right:5px"><path d="M6.5 0.5L0.5 7.5H5.5L4.5 13.5L10.5 6.5H5.5L6.5 0.5Z" fill="currentColor" opacity="0.8"/></svg>CSP</button>
-  <button class="tv-nav-btn" id="navCC" onclick="goPage('cc')"><svg width="14" height="13" viewBox="0 0 14 13" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-1px;margin-right:5px"><rect x="0.5" y="6.5" width="3" height="6" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="5.5" y="3.5" width="3" height="9" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="10.5" y="0.5" width="3" height="12" rx="0.6" fill="currentColor" opacity="0.75"/></svg>CC</button>
-  <button class="tv-nav-btn" id="navStoria" onclick="goPage('storia')"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-2px;margin-right:5px"><circle cx="7" cy="7" r="5.8" stroke="currentColor" stroke-width="1.2" opacity="0.8"/><path d="M7 4V7.2L9.2 9.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/></svg>Storico</button>
-  <button class="theme-btn" id="themeBtn"  onclick="toggleTheme()">☀</button>
+<!-- Mobile Top Bar (visible only on small screens when logged in) -->
+<div id="mobileTopBar">
+  <div class="mob-oros" onclick="goHome()">OROS</div>
+  <button class="mob-hamburger" onclick="toggleMobileSidebar()" title="Menu">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="2" y="4.5" width="16" height="1.8" rx="0.9" fill="currentColor"/>
+      <rect x="2" y="9.1" width="16" height="1.8" rx="0.9" fill="currentColor"/>
+      <rect x="2" y="13.7" width="16" height="1.8" rx="0.9" fill="currentColor"/>
+    </svg>
+  </button>
+</div>
+
+<!-- Mobile Sidebar Overlay -->
+<div id="mobileSidebarOverlay" onclick="closeMobileSidebar()"></div>
+
+<!-- Mobile Sidebar Drawer -->
+<div id="mobileSidebarDrawer">
+  <div class="mob-drawer-header">
+    <span>OROS</span>
+    <button class="mob-drawer-close" onclick="closeMobileSidebar()" title="Chiudi">✕</button>
+  </div>
+  <button class="mob-nav-btn" id="mobNavScreener" onclick="goPage('screener');closeMobileSidebar()">
+    <span class="mob-nav-icon"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.5" y="0.5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="0.5" y="5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="0.5" y="9.5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/></svg></span>
+    Screener
+  </button>
+  <button class="mob-nav-btn" id="mobNavCSP" onclick="goPage('csp');closeMobileSidebar()">
+    <span class="mob-nav-icon"><svg width="11" height="14" viewBox="0 0 11 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6.5 0.5L0.5 7.5H5.5L4.5 13.5L10.5 6.5H5.5L6.5 0.5Z" fill="currentColor" opacity="0.8"/></svg></span>
+    Cash Secured Put
+  </button>
+  <button class="mob-nav-btn" id="mobNavCC" onclick="goPage('cc');closeMobileSidebar()">
+    <span class="mob-nav-icon"><svg width="14" height="13" viewBox="0 0 14 13" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.5" y="6.5" width="3" height="6" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="5.5" y="3.5" width="3" height="9" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="10.5" y="0.5" width="3" height="12" rx="0.6" fill="currentColor" opacity="0.75"/></svg></span>
+    Covered Call
+  </button>
+  <button class="mob-nav-btn" id="mobNavStoria" onclick="goPage('storia');closeMobileSidebar()">
+    <span class="mob-nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="5.8" stroke="currentColor" stroke-width="1.2" opacity="0.8"/><path d="M7 4V7.2L9.2 9.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/></svg></span>
+    Storico Simulazioni
+  </button>
+  <div class="mob-spacer"></div>
+  <div class="mob-bottom">
+    <button class="mob-nav-btn" onclick="toggleTheme()">
+      <span class="mob-nav-icon" id="mobThemeIcon">☀</span>
+      Cambia tema
+    </button>
+    <button class="mob-nav-btn" id="mobLogoutBtn" onclick="if(confirm('Vuoi uscire dalla sessione?')){sessionClear();location.reload();}" style="color:rgba(239,83,80,0.8);">
+      <span class="mob-nav-icon">⎋</span>
+      Esci dalla sessione
+    </button>
+  </div>
+</div>
+
+<!-- Desktop Sidebar Navigation -->
+<nav class="sidebar" id="mainNav" style="display:none;">
+  <div class="sb-logo" onclick="goHome()">OROS</div>
+  <div class="sb-sep"></div>
+  <button class="sb-btn" id="navScreener" onclick="goPage('screener')" data-tooltip="Screener Azioni">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.5" y="0.5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="0.5" y="5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="0.5" y="9.5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/></svg>
+  </button>
+  <button class="sb-btn" id="navCSP" onclick="goPage('csp')" data-tooltip="Cash Secured Put">
+    <svg width="11" height="14" viewBox="0 0 11 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6.5 0.5L0.5 7.5H5.5L4.5 13.5L10.5 6.5H5.5L6.5 0.5Z" fill="currentColor" opacity="0.8"/></svg>
+  </button>
+  <button class="sb-btn" id="navCC" onclick="goPage('cc')" data-tooltip="Covered Call">
+    <svg width="14" height="13" viewBox="0 0 14 13" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.5" y="6.5" width="3" height="6" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="5.5" y="3.5" width="3" height="9" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="10.5" y="0.5" width="3" height="12" rx="0.6" fill="currentColor" opacity="0.75"/></svg>
+  </button>
+  <button class="sb-btn" id="navStoria" onclick="goPage('storia')" data-tooltip="Storico Simulazioni">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="5.8" stroke="currentColor" stroke-width="1.2" opacity="0.8"/><path d="M7 4V7.2L9.2 9.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/></svg>
+  </button>
+  <div class="sb-spacer"></div>
+  <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" data-tooltip="Cambia tema">☀</button>
 </nav>
 
 <div id="pageHome" style="display:block;">
