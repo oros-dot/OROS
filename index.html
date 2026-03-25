@@ -972,6 +972,7 @@ body {
   left: 0; top: 0;
   width: 56px;
   height: 100vh;
+  height: 100dvh; /* iOS Safari: altezza viewport dinamica, esclude chrome browser */
   background: var(--tv-surf);
   border-right: 1px solid var(--tv-bord);
   display: flex;
@@ -981,7 +982,7 @@ body {
   z-index: 500;
   box-shadow: 1px 0 6px var(--tv-shadow);
   transition: background .25s, border-color .25s;
-  overflow: visible;
+  overflow: hidden; /* taglia contenuto eccedente; i tooltip position:fixed escono comunque */
 }
 
 .sb-logo {
@@ -1051,11 +1052,9 @@ body {
 }
 .sb-btn:hover::after { opacity: 1; visibility: visible; }
 
-/* iPad/touch: tooltip controllato via JS con auto-hide */
-@media (hover: none) {
-  .sb-btn:hover::after { opacity: 0; visibility: hidden; }
-  .sb-btn.touch-tooltip-show::after { opacity: 1 !important; visibility: visible !important; }
-}
+/* iPad touch: tooltip gestito via JS (classe sb-touch sul body) */
+body.sb-touch .sb-btn:hover::after { opacity: 0 !important; visibility: hidden !important; }
+body.sb-touch .sb-btn.sb-tip::after { opacity: 1 !important; visibility: visible !important; }
 
 /* Theme toggle btn in sidebar */
 .theme-btn {
@@ -1097,10 +1096,8 @@ body {
 }
 .theme-btn:hover::after { opacity: 1; visibility: visible; }
 
-@media (hover: none) {
-  .theme-btn:hover::after { opacity: 0; visibility: hidden; }
-  .theme-btn.touch-tooltip-show::after { opacity: 1 !important; visibility: visible !important; }
-}
+body.sb-touch .theme-btn:hover::after { opacity: 0 !important; visibility: hidden !important; }
+body.sb-touch .theme-btn.sb-tip::after { opacity: 1 !important; visibility: visible !important; }
 
 /* ── BODY OFFSET WHEN SIDEBAR VISIBLE ── */
 body.has-sidebar { padding-left: 56px; }
@@ -3160,37 +3157,55 @@ document.getElementById('storiaModal').addEventListener('click', function(e) {
   if (e.target === this) this.style.display = 'none';
 });
 
-// ── iPad: tooltip sidebar auto-hide dopo 1.5s su touch ──
+// ── iPad: tooltip sidebar — appare al tap, sparisce da solo dopo 1.5s ──
 (function() {
-  var tooltipTimer = null;
-  var lastBtn = null;
+  // Solo su dispositivi touch
+  var hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  if (!hasTouch) return;
 
-  function isTouchSidebar() {
-    return ('ontouchstart' in window || navigator.maxTouchPoints > 0)
-      && window.innerWidth > 768;
-  }
+  var timer = null, tip = null;
 
-  function clearTooltip() {
-    if (lastBtn) {
-      lastBtn.classList.remove('touch-tooltip-show');
-      lastBtn = null;
-    }
-    if (tooltipTimer) {
-      clearTimeout(tooltipTimer);
-      tooltipTimer = null;
-    }
-  }
-
-  document.addEventListener('touchend', function(e) {
-    if (!isTouchSidebar()) return;
-    var btn = e.target.closest('.sb-btn, .theme-btn');
-    if (btn && btn.getAttribute('data-tooltip')) {
-      clearTooltip();
-      lastBtn = btn;
-      btn.classList.add('touch-tooltip-show');
-      tooltipTimer = setTimeout(clearTooltip, 1500);
+  // Aggiunge/rimuove classe al body in base alla larghezza (sidebar visibile > 768px)
+  function setMode() {
+    if (window.innerWidth > 768) {
+      document.body.classList.add('sb-touch');
     } else {
-      clearTooltip();
+      document.body.classList.remove('sb-touch');
+      hide();
+    }
+  }
+
+  function hide() {
+    if (tip) { tip.classList.remove('sb-tip'); tip = null; }
+    if (timer) { clearTimeout(timer); timer = null; }
+  }
+
+  // Risale il DOM senza usare closest() per compatibilità con iOS più vecchi
+  function findSidebarBtn(el) {
+    while (el && el !== document.body) {
+      if (el.getAttribute && el.getAttribute('data-tooltip')) {
+        var cn = el.className || '';
+        if (cn.indexOf('sb-btn') !== -1 || cn.indexOf('theme-btn') !== -1) {
+          return el;
+        }
+      }
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  setMode();
+  window.addEventListener('resize', setMode);
+
+  // touchstart: immediato, prima del click
+  document.addEventListener('touchstart', function(e) {
+    if (!document.body.classList.contains('sb-touch')) return;
+    var btn = findSidebarBtn(e.target);
+    hide(); // nasconde eventuale tooltip precedente
+    if (btn) {
+      tip = btn;
+      btn.classList.add('sb-tip');
+      timer = setTimeout(hide, 1500); // sparisce dopo 1.5 secondi
     }
   }, { passive: true });
 })();
