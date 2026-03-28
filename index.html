@@ -640,7 +640,7 @@ document.addEventListener('focusin', function(e) {
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 10px 14px;
-    color: var(--gold);
+    color: var(--text);
     font-family: 'Inter', sans-serif;
     font-size: 14px;
     font-weight: 700;
@@ -1311,8 +1311,9 @@ body.has-sidebar { padding-left: 56px; }
 #pageCSP .field input {
   background: var(--tv-bg);
   border-color: var(--tv-bord);
-  color: var(--tv-gold);
+  color: var(--tv-text);
   font-family: 'Inter', sans-serif;
+  font-weight: 400;
   border-radius: 6px;
   transition: background .25s, border-color .25s, color .25s;
 }
@@ -1323,8 +1324,9 @@ body.has-sidebar { padding-left: 56px; }
 #pageCSP select {
   background: var(--tv-bg) !important;
   border-color: var(--tv-bord) !important;
-  color: var(--tv-gold) !important;
+  color: var(--tv-text) !important;
   font-family: 'Inter', sans-serif !important;
+  font-weight: 400 !important;
   transition: background .25s, border-color .25s;
 }
 #pageCSP .output-card,
@@ -1436,8 +1438,9 @@ body.has-sidebar { padding-left: 56px; }
 #pageCC .field input {
   background: var(--tv-bg);
   border-color: var(--tv-bord);
-  color: var(--tv-gold);
+  color: var(--tv-text);
   font-family: 'Inter', sans-serif;
+  font-weight: 400;
   border-radius: 6px;
   transition: background .25s, border-color .25s, color .25s;
 }
@@ -1448,8 +1451,9 @@ body.has-sidebar { padding-left: 56px; }
 #pageCC select {
   background: var(--tv-bg) !important;
   border-color: var(--tv-bord) !important;
-  color: var(--tv-gold) !important;
+  color: var(--tv-text) !important;
   font-family: 'Inter', sans-serif !important;
+  font-weight: 400 !important;
   transition: background .25s, border-color .25s;
 }
 #pageCC .output-card,
@@ -1878,13 +1882,13 @@ input[type="number"]:focus {
     <div style="margin-bottom:20px;">
       <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--tv-bord);">💰 Fiscalità</div>
       <label style="font-size:11px;color:var(--tv-muted);display:block;margin-bottom:5px;">Capital Gain (%)</label>
-      <input id="s_capitalGain" type="text" value="26" style="width:100%;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:9px 13px;color:var(--tv-gold);font-family:'Inter',sans-serif;font-size:14px;font-weight:700;outline:none;box-sizing:border-box;">
+      <input id="s_capitalGain" type="text" value="26" style="width:100%;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:9px 13px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;box-sizing:border-box;">
       <div style="font-size:11px;color:var(--tv-muted);margin-top:4px;">Default: 26% (Italia)</div>
     </div>
     <div style="margin-bottom:20px;">
       <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--tv-bord);">🏦 Commissioni</div>
       <label style="font-size:11px;color:var(--tv-muted);display:block;margin-bottom:5px;">Commissione per contratto (€)</label>
-      <input id="s_commissioni" type="text" value="1.14" style="width:100%;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:9px 13px;color:var(--tv-gold);font-family:'Inter',sans-serif;font-size:14px;font-weight:700;outline:none;box-sizing:border-box;">
+      <input id="s_commissioni" type="text" value="1.14" style="width:100%;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:9px 13px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;box-sizing:border-box;">
       <div style="font-size:11px;color:var(--tv-muted);margin-top:4px;">Default: €1.14/contratto</div>
     </div>
     <div style="margin-bottom:24px;">
@@ -2041,8 +2045,8 @@ function getResults(tab) {
 
 function updateOutputs(tab) {
   const res = getResults(tab);
-  const annuoNettoBar = res ? Math.min(res.rendAnnuoNetto * 100 / 30, 100) : 0;
-  const annuoLordoBar = res ? Math.min(res.rendAnnuoLordo * 100 / 30, 100) : 0;
+  const annuoNettoBar = res ? Math.min(res.rendAnnuoNetto * 100 / 0.8, 100) : 0;
+  const annuoLordoBar = res ? Math.min(res.rendAnnuoLordo * 100 / 0.8, 100) : 0;
   const c = document.getElementById('panelsContainer');
   const set = (sel, val) => { const el = c.querySelector('[data-out="'+sel+'"]'); if (el) el.textContent = val; };
   const setW = (sel, w) => { const el = c.querySelector('[data-bar="'+sel+'"]'); if (el) el.style.width = w; };
@@ -2092,8 +2096,8 @@ function renderPanels() {
   const d = tab.data;
   const res = getResults(tab);
 
-  const annuoNettoBar = res ? Math.min(res.rendAnnuoNetto * 100 / 30, 100) : 0;
-  const annuoLordoBar = res ? Math.min(res.rendAnnuoLordo * 100 / 30, 100) : 0;
+  const annuoNettoBar = res ? Math.min(res.rendAnnuoNetto * 100 / 0.8, 100) : 0;
+  const annuoLordoBar = res ? Math.min(res.rendAnnuoLordo * 100 / 0.8, 100) : 0;
 
   container.innerHTML = `
     <div class="panel">
@@ -2122,14 +2126,14 @@ function renderPanels() {
             </div>
             <div class="field full">
               <label>Quantità per Opzione<span class="tip"><span class="tip-i">i</span><span class="tip-box">Azioni per contratto. In Italia solitamente 100, 500 o 1000.</span></span></label>
-              <select data-field="quantitaOpz_sel" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--gold);font-family:'Inter',sans-serif;font-size:14px;font-weight:700;outline:none;cursor:pointer;width:100%;transition:border-color 0.2s;">
+              <select data-field="quantitaOpz_sel" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;cursor:pointer;width:100%;transition:border-color 0.2s;">
                 <option value="" ${!d.quantitaOpz&&!d._qtaCustom?'selected':''} disabled>— seleziona —</option>
                 <option value="100"  ${d.quantitaOpz==100&&!d._qtaCustom?'selected':''}>100</option>
                 <option value="500"  ${d.quantitaOpz==500&&!d._qtaCustom?'selected':''}>500</option>
                 <option value="1000" ${d.quantitaOpz==1000&&!d._qtaCustom?'selected':''}>1000</option>
                 <option value="custom" ${d._qtaCustom?'selected':''}>✏️ Valore libero…</option>
               </select>
-              ${d._qtaCustom ? `<input type="text" inputmode="numeric" placeholder="es. 2000" data-field="quantitaOpz" value="${d.quantitaOpz}" style="margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--gold);font-family:'Inter',sans-serif;font-size:14px;font-weight:700;outline:none;width:100%;transition:all 0.2s;">` : ''}
+              ${d._qtaCustom ? `<input type="text" inputmode="numeric" placeholder="es. 2000" data-field="quantitaOpz" value="${d.quantitaOpz}" style="margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;width:100%;transition:all 0.2s;">` : ''}
             </div>
             <div class="field full" style="display:flex;gap:8px;margin-top:4px;">
               <button onclick="goToCC()" style="flex:1;padding:8px 12px;background:transparent;border:1px solid rgba(240,180,41,0.2);border-radius:6px;color:rgba(240,180,41,0.5);font-family:'Inter',sans-serif;font-size:11px;font-weight:500;cursor:pointer;transition:all 0.25s;letter-spacing:0.3px;display:flex;align-items:center;justify-content:center;gap:4px;"
@@ -2488,8 +2492,8 @@ function ccUpdateOutputs(tab) {
   if (!c) return;
   const set  = (k, v) => { const el = c.querySelector(`[data-out="${k}"]`);  if (el) el.textContent = v; };
   const setW = (k, v) => { const el = c.querySelector(`[data-bar="${k}"]`); if (el) el.style.width = v; };
-  const aln = res ? Math.min(res.rendAnnuoLordo * 100 / 30, 100) : 0;
-  const ann = res ? Math.min(res.rendAnnuoNetto * 100 / 30, 100) : 0;
+  const aln = res ? Math.min(res.rendAnnuoLordo * 100 / 0.8, 100) : 0;
+  const ann = res ? Math.min(res.rendAnnuoNetto * 100 / 0.8, 100) : 0;
   set('ccPL',  res ? fmt(res.premioLordo)  : '—');
   set('ccPS',  res ? 'Controvalore: ' + fmt(res.controvalore) + '  ·  Cash: ' + fmt(res.cash) : 'Inserisci i dati per calcolare');
   set('ccPN',  res ? fmt(res.premioNetto)  : '—');
@@ -2510,8 +2514,8 @@ function ccRenderPanel() {
   if (!tab) { container.innerHTML = ''; return; }
   const d   = tab.data;
   const res = ccGetResults(tab);
-  const aln = res ? Math.min(res.rendAnnuoLordo * 100 / 30, 100) : 0;
-  const ann = res ? Math.min(res.rendAnnuoNetto * 100 / 30, 100) : 0;
+  const aln = res ? Math.min(res.rendAnnuoLordo * 100 / 0.8, 100) : 0;
+  const ann = res ? Math.min(res.rendAnnuoNetto * 100 / 0.8, 100) : 0;
 
   container.innerHTML = `
     <div class="panel">
@@ -2537,14 +2541,14 @@ function ccRenderPanel() {
             </div>
             <div class="field full">
               <label>Quantità per Opzione<span class="tip"><span class="tip-i">i</span><span class="tip-box">Azioni per contratto. Deve corrispondere al lotto minimo del titolo.</span></span></label>
-              <select data-field="quantitaOpz_sel" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--gold);font-family:'Inter',sans-serif;font-size:14px;font-weight:700;outline:none;cursor:pointer;width:100%;transition:border-color 0.2s;">
+              <select data-field="quantitaOpz_sel" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;cursor:pointer;width:100%;transition:border-color 0.2s;">
                 <option value="" ${!d.quantitaOpz&&!d._qc?'selected':''} disabled>— seleziona —</option>
                 <option value="100"  ${d.quantitaOpz==100&&!d._qc?'selected':''}>100</option>
                 <option value="500"  ${d.quantitaOpz==500&&!d._qc?'selected':''}>500</option>
                 <option value="1000" ${d.quantitaOpz==1000&&!d._qc?'selected':''}>1000</option>
                 <option value="custom" ${d._qc?'selected':''}>✏️ Valore libero…</option>
               </select>
-              ${d._qc ? `<input type="text" inputmode="numeric" placeholder="es. 2000" data-field="quantitaOpz" value="${d.quantitaOpz}" style="margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--gold);font-family:'Inter',sans-serif;font-size:14px;font-weight:700;outline:none;width:100%;">` : ''}
+              ${d._qc ? `<input type="text" inputmode="numeric" placeholder="es. 2000" data-field="quantitaOpz" value="${d.quantitaOpz}" style="margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;width:100%;">` : ''}
             </div>
             <div class="field full" style="margin-top:4px;">
               <button onclick="salvaCcCorrente()" style="width:100%;padding:8px 12px;background:transparent;border:1px solid rgba(38,166,154,0.2);border-radius:6px;color:rgba(38,166,154,0.5);font-family:'Inter',sans-serif;font-size:11px;font-weight:500;cursor:pointer;transition:all 0.25s;letter-spacing:0.3px;display:flex;align-items:center;justify-content:center;gap:4px;"
@@ -2601,7 +2605,7 @@ function ccRenderPanel() {
               <div class="field full">
                 <label>Importo Dividendo per Azione (€)<span class="tip"><span class="tip-i">i</span><span class="tip-box">Dividendo distribuito per singola azione. Trovi questo dato nel comunicato ufficiale o su Borsa Italiana.</span></span></label>
                 <input type="text" inputmode="decimal" placeholder="es. 1.00" id="ccDivImporto" data-divfield="importo"
-                  style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--gold);font-family:'Inter',sans-serif;font-size:14px;font-weight:700;outline:none;width:100%;transition:border-color 0.2s;"
+                  style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;width:100%;transition:border-color 0.2s;"
                   oninput="ccCalcDividendi()">
               </div>
             </div>
@@ -2622,7 +2626,7 @@ function ccRenderPanel() {
               </div>
               <div class="output-mini">
                 <div class="out-label">Rend. % Lordo su Investimento<span class="tip"><span class="tip-i">i</span><span class="tip-box">Rendimento lordo: Utile Lordo ÷ (Contratti × Quantità × Strike). Non include il capital gain del 26%.</span></span></div>
-                <div class="out-value" id="ccDivRend" style="color:var(--tv-gold);">—</div>
+                <div class="out-value" id="ccDivRend">—</div>
               </div>
             </div>
           </div>
@@ -3096,14 +3100,14 @@ function storiaOpenModal(id) {
       ['Cash',          d.cash      ? '€' + d.cash   : '—'],
       ['Premio',        d.premio    || '—'],
       ['Qtà per opz.',  d.quantitaOpz || '—'],
-    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] + '</td><td style="padding:8px 12px;color:var(--tv-gold);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + row[1] + '</td></tr>'; }).join('');
+    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] + '</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:400;">' + row[1] + '</td></tr>'; }).join('');
   } else {
     inputRows = [
       ['Strike',        d.strike    ? '€' + d.strike : '—'],
       ['Premio',        d.premio    || '—'],
       ['Contratti',     d.contratti || '—'],
       ['Qtà per opz.',  d.quantitaOpz || '—'],
-    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] + '</td><td style="padding:8px 12px;color:var(--tv-gold);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + row[1] + '</td></tr>'; }).join('');
+    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] + '</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:400;">' + row[1] + '</td></tr>'; }).join('');
   }
 
   var resultRows = '';
@@ -3135,11 +3139,11 @@ function storiaOpenModal(id) {
       '<div style="margin-top:12px;">' +
         '<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:8px;">💰 Dividendi</div>' +
         '<table style="width:100%;border-collapse:collapse;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;overflow:hidden;">' +
-          '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">Dividendo per azione</td><td style="padding:8px 12px;color:var(--tv-gold);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">€' + fmtDec(d._dividendi.importo, 4) + '</td></tr>' +
-          '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">Quantità azioni</td><td style="padding:8px 12px;color:var(--tv-gold);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + fmtInt(d._dividendi.quantita) + '</td></tr>' +
+          '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">Dividendo per azione</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:400;">€' + fmtDec(d._dividendi.importo, 4) + '</td></tr>' +
+          '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">Quantità azioni</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:400;">' + fmtInt(d._dividendi.quantita) + '</td></tr>' +
           '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">Utile lordo</td><td style="padding:8px 12px;color:#26a69a;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + fmt(d._dividendi.utileLordo) + '</td></tr>' +
           '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">Utile netto (−26%)</td><td style="padding:8px 12px;color:#26a69a;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + fmt(d._dividendi.utileNetto) + '</td></tr>' +
-          (d._dividendi.rendPct !== null ? '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">Rend. lordo %</td><td style="padding:8px 12px;color:var(--tv-gold);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + fmtDec(d._dividendi.rendPct, 2) + '%</td></tr>' : '') +
+          (d._dividendi.rendPct !== null ? '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">Rend. lordo %</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:400;">' + fmtDec(d._dividendi.rendPct, 2) + '%</td></tr>' : '') +
         '</table>' +
       '</div>'
     ) : '');
