@@ -77,7 +77,7 @@
 <script>
 // goPage defined first — always available
 function goPage(p) {
-  ['Home','Screener','CSP','CC','Storia'].forEach(function(n) {
+  ['Home','Screener','CSP','CC','BOT','Storia','Centro'].forEach(function(n) {
     var pg = document.getElementById('page' + n);
     var nb = document.getElementById('nav'  + n);
     var lc = n.toLowerCase();
@@ -103,7 +103,7 @@ function goPage(p) {
 
 function goHome() {
   if (!sessionValid()) return;
-  ['pageHome','pageScreener','pageCSP','pageCC','pageStoria'].forEach(function(id) {
+  ['pageHome','pageScreener','pageCSP','pageCC','pageBOT','pageStoria','pageCentro'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -343,8 +343,8 @@ function showApp(displayName) {
     };
     nav.appendChild(logoutBtn);
   }
-  // Go directly to CSP page
-  _origGoPage('csp');
+  // Show home page after login
+  goHome();
 }
 
 function authInit() {
@@ -1483,6 +1483,120 @@ body.has-sidebar { padding-left: 56px; }
 #pageCC .green-val { color: var(--tv-green); }
 #pageCC .gold-val  { color: var(--tv-gold); }
 
+/* ── pageCentro styles ── */
+#pageCentro .logo-area h1 {
+  background: #7aa3ff;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-family: 'Inter', sans-serif;
+  font-size: 24px;
+  letter-spacing: -0.5px;
+}
+#pageCentro .logo-area p {
+  font-family: 'Inter', sans-serif;
+  color: var(--tv-muted);
+  letter-spacing: 1.5px;
+  margin-top: 2px;
+}
+#pageCentro .panel {
+  background: var(--tv-surf);
+  border-color: var(--tv-bord);
+  border-radius: 8px;
+  transition: background .25s;
+}
+#pageCentro .section-title {
+  color: var(--tv-muted);
+  font-family: 'Inter', sans-serif;
+}
+#pageCentro .field label {
+  color: var(--tv-muted);
+  font-family: 'Inter', sans-serif;
+}
+#pageCentro .field input {
+  background: var(--tv-bg);
+  border-color: var(--tv-bord);
+  color: var(--tv-text);
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
+  border-radius: 6px;
+  transition: background .25s, border-color .25s, color .25s;
+}
+#pageCentro .field input:focus {
+  border-color: rgba(192,132,252,0.7);
+  box-shadow: 0 0 0 2px rgba(192,132,252,0.15);
+}
+#pageCentro .field input.centro-yellow {
+  background: rgba(240,180,41,0.05);
+  border-color: rgba(240,180,41,0.3);
+}
+#pageCentro .field input.centro-yellow:focus {
+  border-color: rgba(240,180,41,0.7);
+  box-shadow: 0 0 0 2px rgba(240,180,41,0.15);
+}
+#pageCentro .output-card,
+#pageCentro .output-mini {
+  background: var(--tv-bg);
+  border-color: var(--tv-bord);
+  transition: background .25s;
+}
+#pageCentro .output-card.supporto-card {
+  border-color: rgba(38,166,154,.3);
+  background: rgba(38,166,154,.04);
+}
+#pageCentro .output-card.resistenza-card {
+  border-color: rgba(239,83,80,.3);
+  background: rgba(239,83,80,.04);
+}
+#pageCentro .out-value.supporto-val { color: var(--tv-green); }
+#pageCentro .out-value.resistenza-val { color: var(--tv-red); }
+#pageCentro .out-value { color: var(--tv-green); font-family: 'Inter', sans-serif; }
+#pageCentro .out-label,
+#pageCentro .out-sub { color: var(--tv-muted); font-family: 'Inter', sans-serif; }
+#pageCentro .gear-btn { border-color: var(--tv-bord); color: var(--tv-muted); }
+#pageCentro .gear-btn:hover { border-color: rgba(192,132,252,0.6); color: #c084fc; background: rgba(192,132,252,.08); }
+#pageCentro .centro-sub-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(192,132,252,0.7);
+  font-family: 'Inter', sans-serif;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--tv-bord);
+}
+#pageCentro .centro-divider {
+  height: 1px;
+  background: var(--tv-bord);
+  margin: 20px 0;
+}
+#pageCentro .centro-mm-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(192,132,252,0.9);
+  font-family: 'Inter', sans-serif;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(192,132,252,0.2);
+}
+[data-theme="light"] #pageCentro .field input.centro-yellow {
+  background: rgba(240,180,41,0.08);
+  border-color: rgba(200,140,0,0.35);
+}
+[data-theme="light"] #pageCentro .output-card.supporto-card { background: rgba(38,166,154,.06); }
+[data-theme="light"] #pageCentro .output-card.resistenza-card { background: rgba(239,83,80,.06); }
+
+/* centro page input yellow focus auto-select */
+#pageCentro .centro-yellow { background: rgba(240,180,41,0.05); border-color: rgba(240,180,41,0.3); }
+
+@media (max-width: 768px) {
+  #pageCentro .panel-grid { grid-template-columns: 1fr !important; }
+  #pageCentro .output-row  { grid-template-columns: 1fr 1fr !important; }
+}
+
 /* Settings modal */
 #settingsOverlay { backdrop-filter: blur(8px); }
 
@@ -1575,8 +1689,159 @@ input[type="number"]:focus {
 [data-theme="light"] .tip-box { background: #ffffff; border-color: #e0e3eb; color: #131722; box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
 [data-theme="light"] .tip-box::after { border-top-color: #e0e3eb; }
 
+/* ── pageBOT styles ── */
+#pageBOT .logo-area h1 {
+  background: #7aa3ff;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-family: 'Inter', sans-serif;
+  font-size: 24px;
+  letter-spacing: -0.5px;
+}
+#pageBOT .logo-area p {
+  font-family: 'Inter', sans-serif;
+  color: var(--tv-muted);
+  letter-spacing: 1.5px;
+  margin-top: 2px;
+}
+#pageBOT .tab {
+  background: var(--tv-surf);
+  border-color: var(--tv-bord);
+  font-family: 'Inter', sans-serif;
+  color: var(--tv-muted);
+  transition: background .25s, border-color .25s;
+}
+#pageBOT .tab.active {
+  background: var(--tv-surf2);
+  color: var(--tv-blue);
+  border-color: var(--tv-bord);
+  border-bottom-color: var(--tv-surf2);
+}
+#pageBOT .tab.active::after { background: var(--tv-surf2); }
+#pageBOT .add-tab-btn { border-color: var(--tv-bord); color: var(--tv-muted); }
+#pageBOT .add-tab-btn:hover { border-color: var(--tv-blue); color: var(--tv-blue); background: rgba(41,98,255,.08); }
+#pageBOT .compare-btn { border-color: rgba(41,98,255,.4); background: rgba(41,98,255,.08); color: var(--tv-blue); }
+#pageBOT .panel {
+  background: var(--tv-surf);
+  border-color: var(--tv-bord);
+  border-radius: 0 8px 8px 8px;
+  transition: background .25s;
+}
+#pageBOT .section-title { color: var(--tv-muted); font-family: 'Inter', sans-serif; }
+#pageBOT .field label { color: var(--tv-muted); font-family: 'Inter', sans-serif; }
+#pageBOT .field input {
+  background: var(--tv-bg);
+  border-color: var(--tv-bord);
+  color: var(--tv-text);
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
+  border-radius: 6px;
+  transition: background .25s, border-color .25s, color .25s;
+}
+#pageBOT .field input:focus { border-color: var(--tv-blue); box-shadow: 0 0 0 2px rgba(41,98,255,.15); }
+#pageBOT .field input.bot-yellow { background: rgba(240,180,41,0.05); border-color: rgba(240,180,41,0.3); }
+#pageBOT .field input.bot-yellow:focus { border-color: rgba(240,180,41,0.7); box-shadow: 0 0 0 2px rgba(240,180,41,0.15); }
+[data-theme="light"] #pageBOT .field input.bot-yellow { background: rgba(240,180,41,0.08); border-color: rgba(200,140,0,0.35); }
+
+/* ── HOME NAV HOVER DROPDOWN ── */
+.home-nav-trigger { display: inline-block; position: relative; }
+
+.home-nav-icon-btn {
+  width: 52px; height: 52px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 14px;
+  border: 1px solid rgba(240,180,41,0.25);
+  background: rgba(240,180,41,0.06);
+  color: rgba(240,180,41,0.6);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(.4,0,.2,1);
+}
+.home-nav-trigger:hover .home-nav-icon-btn {
+  color: rgba(240,180,41,0.95);
+  background: rgba(240,180,41,0.12);
+  border-color: rgba(240,180,41,0.5);
+  box-shadow: 0 0 28px rgba(240,180,41,0.15);
+}
+
+.home-nav-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 50%; transform: translateX(-50%);
+  width: 210px;
+  /* invisible top padding = bridge between icon and visual panel, prevents hover gap */
+  padding-top: 14px;
+  opacity: 0; visibility: hidden;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(-4px);
+  transition: opacity 0.2s cubic-bezier(.4,0,.2,1), transform 0.2s cubic-bezier(.4,0,.2,1), visibility 0.2s;
+  z-index: 100;
+}
+.home-nav-trigger:hover .home-nav-dropdown {
+  opacity: 1; visibility: visible; pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* visible glass panel inside the dropdown */
+.home-nav-dropdown-inner {
+  background: rgba(19,23,34,0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 8px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04);
+  position: relative;
+}
+
+/* small arrow */
+.home-nav-dropdown-inner::before {
+  content: '';
+  position: absolute;
+  top: -6px; left: 50%; transform: translateX(-50%) rotate(45deg);
+  width: 10px; height: 10px;
+  background: rgba(19,23,34,0.82);
+  border-left: 1px solid rgba(255,255,255,0.08);
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.home-nav-item {
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px; font-weight: 600;
+  color: rgba(209,212,220,0.75);
+  transition: background 0.15s, color 0.15s;
+  letter-spacing: 0.2px;
+}
+.home-nav-item:hover {
+  background: rgba(255,255,255,0.06);
+  color: #d1d4dc;
+}
+.home-nav-item-icon {
+  width: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.home-nav-divider {
+  height: 1px; background: rgba(255,255,255,0.07); margin: 5px 4px;
+}
+[data-theme="light"] .home-nav-dropdown-inner {
+  background: rgba(255,255,255,0.88);
+  border-color: rgba(0,0,0,0.1);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05);
+}
+[data-theme="light"] .home-nav-dropdown-inner::before {
+  background: rgba(255,255,255,0.88);
+  border-color: rgba(0,0,0,0.1);
+}
+[data-theme="light"] .home-nav-item { color: rgba(19,23,34,0.7); }
+[data-theme="light"] .home-nav-item:hover { background: rgba(0,0,0,0.05); color: #131722; }
+[data-theme="light"] .home-nav-divider { background: rgba(0,0,0,0.08); }
+[data-theme="light"] .home-nav-icon-btn { border-color: rgba(180,134,11,0.3); background: rgba(180,134,11,0.07); color: rgba(180,134,11,0.7); }
+[data-theme="light"] .home-nav-trigger:hover .home-nav-icon-btn { color: #b8860b; background: rgba(180,134,11,0.14); border-color: rgba(180,134,11,0.5); }
+
 </style>
-</head>
 <body>
 
 <!-- Mobile Top Bar (visible only on small screens when logged in) -->
@@ -1612,6 +1877,14 @@ input[type="number"]:focus {
     <span class="mob-nav-icon"><svg width="14" height="13" viewBox="0 0 14 13" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.5" y="6.5" width="3" height="6" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="5.5" y="3.5" width="3" height="9" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="10.5" y="0.5" width="3" height="12" rx="0.6" fill="currentColor" opacity="0.75"/></svg></span>
     Covered Call
   </button>
+  <button class="mob-nav-btn" id="mobNavCentro" onclick="goPage('centro');closeMobileSidebar()">
+    <span class="mob-nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3" opacity="0.85"/><line x1="7" y1="1.5" x2="7" y2="12.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/><line x1="1.5" y1="7" x2="12.5" y2="7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/></svg></span>
+    Sup-Res MM
+  </button>
+  <button class="mob-nav-btn" id="mobNavBOT" onclick="goPage('bot');closeMobileSidebar()">
+    <span class="mob-nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2" opacity="0.8"/><line x1="4" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.7"/><line x1="4" y1="7.5" x2="10" y2="7.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.7"/><line x1="4" y1="10" x2="7.5" y2="10" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.7"/></svg></span>
+    Rendimento BOT
+  </button>
   <button class="mob-nav-btn" id="mobNavStoria" onclick="goPage('storia');closeMobileSidebar()">
     <span class="mob-nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="5.8" stroke="currentColor" stroke-width="1.2" opacity="0.8"/><path d="M7 4V7.2L9.2 9.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/></svg></span>
     Storico Simulazioni
@@ -1641,6 +1914,12 @@ input[type="number"]:focus {
   </button>
   <button class="sb-btn" id="navCC" onclick="goPage('cc')" data-tooltip="Covered Call">
     <svg width="14" height="13" viewBox="0 0 14 13" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.5" y="6.5" width="3" height="6" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="5.5" y="3.5" width="3" height="9" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="10.5" y="0.5" width="3" height="12" rx="0.6" fill="currentColor" opacity="0.75"/></svg>
+  </button>
+  <button class="sb-btn" id="navCentro" onclick="goPage('centro')" data-tooltip="Sup-Res MM">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3" opacity="0.85"/><line x1="7" y1="1.5" x2="7" y2="12.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/><line x1="1.5" y1="7" x2="12.5" y2="7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/></svg>
+  </button>
+  <button class="sb-btn" id="navBOT" onclick="goPage('bot')" data-tooltip="Rendimento BOT">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2" opacity="0.8"/><line x1="4" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.7"/><line x1="4" y1="7.5" x2="10" y2="7.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.7"/><line x1="4" y1="10" x2="7.5" y2="10" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.7"/></svg>
   </button>
   <button class="sb-btn" id="navStoria" onclick="goPage('storia')" data-tooltip="Storico Simulazioni">
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="5.8" stroke="currentColor" stroke-width="1.2" opacity="0.8"/><path d="M7 4V7.2L9.2 9.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/></svg>
@@ -1738,27 +2017,68 @@ input[type="number"]:focus {
       Analisi professionale di <span style="color:#f0b429;font-weight:600;">Cash Secured Put</span> e <span style="color:#f0b429;font-weight:600;">Covered Call</span> — calcola premi, rendimenti e dividendi in tempo reale.
     </div>
 
-    <div style="display:flex;gap:10px;justify-content:center;align-items:stretch;width:90%;max-width:560px;margin:0 auto;">
-      <button class="home-btn" onclick="goPage('screener')" style="flex:1;padding:13px 8px;background:rgba(41,98,255,0.15);border:1px solid rgba(41,98,255,0.4);border-radius:8px;color:#2962ff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;"
-        onmouseover="this.style.background='rgba(41,98,255,0.25)';this.style.transform='translateY(-2px)'"
-        onmouseout="this.style.background='rgba(41,98,255,0.15)';this.style.transform='none'">
-        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-1px;margin-right:5px"><rect x="0.5" y="0.5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="0.5" y="5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="0.5" y="9.5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/></svg>Screener
-      </button>
-      <button class="home-btn" onclick="goPage('csp')" style="flex:1;padding:13px 8px;background:rgba(38,166,154,0.15);border:1px solid rgba(38,166,154,0.4);border-radius:8px;color:#26a69a;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;white-space:nowrap;"
-        onmouseover="this.style.background='rgba(38,166,154,0.25)';this.style.transform='translateY(-2px)'"
-        onmouseout="this.style.background='rgba(38,166,154,0.15)';this.style.transform='none'">
-        <svg width="11" height="14" viewBox="0 0 11 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-2px;margin-right:5px"><path d="M6.5 0.5L0.5 7.5H5.5L4.5 13.5L10.5 6.5H5.5L6.5 0.5Z" fill="currentColor" opacity="0.8"/></svg>Cash Secured Put
-      </button>
-      <button class="home-btn" onclick="goPage('cc')" style="flex:1;padding:13px 8px;background:rgba(240,180,41,0.1);border:1px solid rgba(240,180,41,0.35);border-radius:8px;color:#f0b429;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;"
-        onmouseover="this.style.background='rgba(240,180,41,0.2)';this.style.transform='translateY(-2px)'"
-        onmouseout="this.style.background='rgba(240,180,41,0.1)';this.style.transform='none'">
-        <svg width="14" height="13" viewBox="0 0 14 13" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-1px;margin-right:5px"><rect x="0.5" y="6.5" width="3" height="6" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="5.5" y="3.5" width="3" height="9" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="10.5" y="0.5" width="3" height="12" rx="0.6" fill="currentColor" opacity="0.75"/></svg>Covered Call
-      </button>
-      <button class="home-btn" onclick="goPage('storia')" style="flex:1;padding:13px 8px;background:rgba(120,123,134,0.1);border:1px solid rgba(120,123,134,0.3);border-radius:8px;color:#787b86;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;"
-        onmouseover="this.style.background='rgba(120,123,134,0.2)';this.style.transform='translateY(-2px)'"
-        onmouseout="this.style.background='rgba(120,123,134,0.1)';this.style.transform='none'">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-2px;margin-right:5px"><circle cx="7" cy="7" r="5.8" stroke="currentColor" stroke-width="1.2" opacity="0.8"/><path d="M7 4V7.2L9.2 9.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/></svg>Storico
-      </button>
+    <div style="display:flex;justify-content:center;margin-top:8px;">
+      <div class="home-nav-trigger" style="position:relative;display:inline-block;">
+
+        <!-- Trigger symbol -->
+        <div class="home-nav-icon-btn">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="5.5" cy="5.5" r="2.2" fill="currentColor" opacity="0.75"/>
+            <circle cx="11" cy="5.5" r="2.2" fill="currentColor" opacity="0.75"/>
+            <circle cx="16.5" cy="5.5" r="2.2" fill="currentColor" opacity="0.75"/>
+            <circle cx="5.5" cy="11" r="2.2" fill="currentColor" opacity="0.75"/>
+            <circle cx="11" cy="11" r="2.2" fill="currentColor" opacity="0.75"/>
+            <circle cx="16.5" cy="11" r="2.2" fill="currentColor" opacity="0.75"/>
+            <circle cx="5.5" cy="16.5" r="2.2" fill="currentColor" opacity="0.75"/>
+            <circle cx="11" cy="16.5" r="2.2" fill="currentColor" opacity="0.75"/>
+            <circle cx="16.5" cy="16.5" r="2.2" fill="currentColor" opacity="0.75"/>
+          </svg>
+        </div>
+
+        <!-- Dropdown panel -->
+        <div class="home-nav-dropdown">
+          <div class="home-nav-dropdown-inner">
+          <div class="home-nav-item" onclick="goPage('screener')">
+            <span class="home-nav-item-icon" style="color:#2962ff;">
+              <svg width="14" height="14" viewBox="0 0 13 13" fill="none"><rect x="0.5" y="0.5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.9"/><rect x="0.5" y="5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.9"/><rect x="0.5" y="9.5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.9"/></svg>
+            </span>
+            <span>Screener</span>
+          </div>
+          <div class="home-nav-item" onclick="goPage('csp')">
+            <span class="home-nav-item-icon" style="color:#26a69a;">
+              <svg width="12" height="15" viewBox="0 0 11 14" fill="none"><path d="M6.5 0.5L0.5 7.5H5.5L4.5 13.5L10.5 6.5H5.5L6.5 0.5Z" fill="currentColor" opacity="0.9"/></svg>
+            </span>
+            <span>Cash Secured Put</span>
+          </div>
+          <div class="home-nav-item" onclick="goPage('cc')">
+            <span class="home-nav-item-icon" style="color:#f0b429;">
+              <svg width="15" height="14" viewBox="0 0 14 13" fill="none"><rect x="0.5" y="6.5" width="3" height="6" rx="0.6" fill="currentColor" opacity="0.9"/><rect x="5.5" y="3.5" width="3" height="9" rx="0.6" fill="currentColor" opacity="0.9"/><rect x="10.5" y="0.5" width="3" height="12" rx="0.6" fill="currentColor" opacity="0.9"/></svg>
+            </span>
+            <span>Covered Call</span>
+          </div>
+          <div class="home-nav-item" onclick="goPage('centro')">
+            <span class="home-nav-item-icon" style="color:#c084fc;">
+              <svg width="15" height="15" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.4" opacity="0.9"/><line x1="7" y1="1.5" x2="7" y2="12.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity="0.7"/><line x1="1.5" y1="7" x2="12.5" y2="7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity="0.7"/></svg>
+            </span>
+            <span>Sup-Res MM</span>
+          </div>
+          <div class="home-nav-item" onclick="goPage('bot')">
+            <span class="home-nav-item-icon" style="color:#7aa3ff;">
+              <svg width="15" height="15" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2" opacity="0.9"/><line x1="4" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.8"/><line x1="4" y1="7.5" x2="10" y2="7.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.8"/><line x1="4" y1="10" x2="7.5" y2="10" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.8"/></svg>
+            </span>
+            <span>Rendimento BOT</span>
+          </div>
+          <div class="home-nav-divider"></div>
+          <div class="home-nav-item" onclick="goPage('storia')">
+            <span class="home-nav-item-icon" style="color:#787b86;">
+              <svg width="15" height="15" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.8" stroke="currentColor" stroke-width="1.2" opacity="0.9"/><path d="M7 4V7.2L9.2 9.2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/></svg>
+            </span>
+            <span>Storico</span>
+          </div>
+          </div><!-- end inner -->
+        </div>
+
+      </div>
     </div>
   </div>
 </div>
@@ -1827,6 +2147,73 @@ input[type="number"]:focus {
 </div>
 </div>
 
+<!-- ════ BOT PAGE ════ -->
+<div id="pageBOT" style="display:none;">
+<div class="container" style="max-width:900px;">
+
+  <header>
+    <div class="logo-area">
+      <h1>Rendimento BOT</h1>
+      <p>Calcolatore Buoni Ordinari del Tesoro</p>
+    </div>
+    <button class="gear-btn" id="botGearBtn" title="Impostazioni">⚙</button>
+  </header>
+
+  <div class="tabs-row" id="botTabsRow">
+    <button class="add-tab-btn" id="botAddTabBtn" title="Aggiungi BOT">+</button>
+    <button class="compare-btn" id="botCompareBtn">⊞ Confronta tutti</button>
+  </div>
+
+  <div id="botPanelsContainer"></div>
+  <div id="botCompareSection" style="display:none;"></div>
+
+</div>
+</div><!-- end pageBOT -->
+
+<!-- ════ BOT GEAR MODAL ════ -->
+<div id="botGearOverlay" style="display:none;position:fixed;inset:0;background:rgba(9,11,17,.92);z-index:9999;backdrop-filter:blur(8px);">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(520px,95vw);max-height:90vh;overflow-y:auto;background:var(--tv-surf);border:1px solid var(--tv-bord);border-radius:12px;padding:32px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+      <div>
+        <div style="font-size:17px;font-weight:700;color:var(--tv-text);">⚙ Impostazioni BOT</div>
+        <div style="font-size:11px;color:var(--tv-muted);margin-top:3px;">Parametri modificabili e formule</div>
+      </div>
+      <button onclick="document.getElementById('botGearOverlay').style.display='none'" style="background:rgba(239,83,80,.12);border:1px solid rgba(239,83,80,.3);color:var(--tv-red);border-radius:6px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;">✕ Chiudi</button>
+    </div>
+
+    <!-- Rimborso -->
+    <div style="margin-bottom:20px;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--tv-bord);">💰 Rimborso</div>
+      <label style="font-size:11px;color:var(--tv-muted);display:block;margin-bottom:5px;">Valore di rimborso a scadenza</label>
+      <input id="bot_s_rimborso" type="text" value="1" style="width:100%;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:9px 13px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;box-sizing:border-box;">
+      <div style="font-size:11px;color:var(--tv-muted);margin-top:4px;">Default: 1 (= 100% — rimborso standard BOT)</div>
+    </div>
+
+    <!-- Commissioni -->
+    <div style="margin-bottom:20px;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--tv-bord);">🏦 Commissioni fisse</div>
+      <label style="font-size:11px;color:var(--tv-muted);display:block;margin-bottom:5px;">Commissione per operazione (€)</label>
+      <input id="bot_s_comm" type="text" value="5" style="width:100%;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:9px 13px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;box-sizing:border-box;">
+      <div style="font-size:11px;color:var(--tv-muted);margin-top:4px;">Default: €5 per operazione</div>
+    </div>
+
+    <!-- Formule -->
+    <div style="margin-bottom:24px;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--tv-bord);">🔢 Formule</div>
+      <div style="display:flex;flex-direction:column;gap:7px;">
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">Δ PREZZO</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:rgba(122,163,255,0.9);">= Rimborso − Prezzo acquisto</div></div>
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">INVESTIMENTO</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:rgba(122,163,255,0.9);">= Prezzo × N° titoli</div></div>
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">GAIN LORDO</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:rgba(122,163,255,0.9);">= Δ Prezzo × N° titoli</div></div>
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">CAPITAL GAIN</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-red);">= Gain × 12,5% (aliquota agevolata BOT)</div></div>
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">UTILE NETTO</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-green);">= Gain − Capital Gain − Commissioni</div></div>
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">ROE</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-gold);">= Utile Netto ÷ Investimento</div></div>
+      </div>
+    </div>
+
+    <button id="botSaveSettings" style="width:100%;padding:12px;background:var(--tv-blue);border:none;border-radius:6px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">✓ Salva e Applica</button>
+  </div>
+</div>
+
 <!-- ════ STORIA PAGE ════ -->
 <div id="pageStoria" style="display:none;">
 <div class="sc-wrap" style="max-width:1200px;">
@@ -1834,12 +2221,13 @@ input[type="number"]:focus {
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
     <div>
       <h2 style="font-size:24px;font-weight:800;letter-spacing:-.5px;background:#7aa3ff;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-family:'Inter',sans-serif;">Storico Simulazioni</h2>
-      <p style="font-size:12px;color:var(--tv-muted);margin-top:3px;">Le simulazioni salvate manualmente da CSP e CC</p>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <button id="storiaFilterAll"  onclick="storiaSetFilter('all')"  class="storia-filter-btn storia-filter-active" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-blue);color:#fff;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;">Tutti</button>
-      <button id="storiaFilterCSP"  onclick="storiaSetFilter('csp')"  class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;">⚡ CSP</button>
-      <button id="storiaFilterCC"   onclick="storiaSetFilter('cc')"   class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;">📊 CC</button>
+      <button id="storiaFilterCSP"  onclick="storiaSetFilter('csp')"  class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;"><span style="filter:grayscale(1);margin-right:4px;">⚡</span>CSP</button>
+      <button id="storiaFilterCC"   onclick="storiaSetFilter('cc')"   class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 13" fill="none" style="flex-shrink:0"><rect x="0.5" y="6.5" width="3" height="6" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="5.5" y="3.5" width="3" height="9" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="10.5" y="0.5" width="3" height="12" rx="0.6" fill="currentColor" opacity="0.75"/></svg>CC</button>
+      <button id="storiaFilterCentro" onclick="storiaSetFilter('centro')" class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3" opacity="0.85"/><line x1="7" y1="1.5" x2="7" y2="12.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/><line x1="1.5" y1="7" x2="12.5" y2="7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/></svg>Sup-Res MM</button>
+      <button id="storiaFilterBOT" onclick="storiaSetFilter('bot')" class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/><line x1="4" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><line x1="4" y1="7.5" x2="10" y2="7.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><line x1="4" y1="10" x2="7.5" y2="10" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>BOT</button>
       <button onclick="storiaClearAll()" style="padding:6px 14px;border-radius:6px;border:1px solid rgba(239,83,80,.3);background:rgba(239,83,80,.08);color:var(--tv-red);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;margin-left:8px;">🗑 Cancella tutto</button>
     </div>
   </div>
@@ -1849,6 +2237,135 @@ input[type="number"]:focus {
   </div>
 
 </div>
+</div>
+
+<!-- ════ CENTRO DEL FOGLIO PAGE ════ -->
+<div id="pageCentro" style="display:none;">
+<div class="container">
+
+  <header>
+    <div class="logo-area">
+      <h1>Sup-Res MM</h1>
+      <p>Supporto e Resistenza del Market Maker di S&amp;P 500</p>
+    </div>
+    <button class="gear-btn" id="centroGearBtn" title="Informazioni formule">⚙</button>
+  </header>
+
+  <!-- ── FUTURES block ─────────────────────────────────── -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="centro-sub-title" style="color:rgba(192,132,252,0.8);font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;font-family:'Inter',sans-serif;margin-bottom:18px;padding-bottom:10px;border-bottom:1px solid var(--tv-bord);">
+      ◉ Futures ES
+    </div>
+
+    <div class="panel-grid">
+      <!-- INPUTS -->
+      <div>
+        <div class="section-title" style="margin-bottom:16px;">Parametri</div>
+        <div class="input-grid">
+
+          <div class="field">
+            <label>Call ATM
+              <span class="tip"><span class="tip-i">i</span><span class="tip-box">Premio della Call ATM al settlement.</span></span>
+            </label>
+            <input type="text" inputmode="decimal" placeholder="es. 20.25" id="fut_callSettle" class="centro-yellow" oninput="centroCalc()">
+          </div>
+
+          <div class="field">
+            <label>Put ATM
+              <span class="tip"><span class="tip-i">i</span><span class="tip-box">Premio della Put ATM al settlement.</span></span>
+            </label>
+            <input type="text" inputmode="decimal" placeholder="19.70" id="fut_putSettle" class="centro-yellow" oninput="centroCalc()">
+          </div>
+
+          <div class="field full">
+            <label>Strike
+              <span class="tip"><span class="tip-i">i</span><span class="tip-box">Strike price del future.</span></span>
+            </label>
+            <input type="text" inputmode="decimal" placeholder="6960" id="fut_strike" class="centro-yellow" oninput="centroFmtThousands(this);centroCalc()">
+          </div>
+
+          <!-- Formule intermedie (read-only) -->
+          <div class="field">
+            <label style="opacity:0.55;">Δ (put − call)</label>
+            <input type="text" id="fut_delta" readonly tabindex="-1"
+              style="opacity:0.5;cursor:default;background:var(--tv-bg);border:1px solid var(--tv-bord);color:var(--tv-muted);"
+              placeholder="—">
+          </div>
+
+          <div class="field">
+            <label style="opacity:0.55;">Σ (call + put)</label>
+            <input type="text" id="fut_sigma" readonly tabindex="-1"
+              style="opacity:0.5;cursor:default;background:var(--tv-bg);border:1px solid var(--tv-bord);color:var(--tv-muted);"
+              placeholder="—">
+          </div>
+
+          <div class="field full" style="margin-top:4px;">
+            <button onclick="salvacentroCorrente()" id="centroBtnSalva"
+              style="width:100%;padding:9px 12px;background:transparent;border:1px solid rgba(192,132,252,0.2);border-radius:6px;color:rgba(192,132,252,0.5);font-family:'Inter',sans-serif;font-size:11px;font-weight:500;cursor:pointer;transition:all 0.25s;letter-spacing:0.3px;display:flex;align-items:center;justify-content:center;gap:4px;"
+              onmouseover="this.style.background='rgba(192,132,252,0.06)';this.style.borderColor='rgba(192,132,252,0.4)';this.style.color='rgba(192,132,252,0.85)'"
+              onmouseout="this.style.background='transparent';this.style.borderColor='rgba(192,132,252,0.2)';this.style.color='rgba(192,132,252,0.5)'">
+              💾 Salva storico
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- OUTPUTS -->
+      <div class="output-section">
+        <div class="section-title" style="margin-bottom:16px;">Risultati</div>
+
+        <div class="output-card" style="margin-bottom:12px;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;padding:16px 18px;">
+          <div class="out-label" style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:6px;">Settlement / Centro</div>
+          <div class="out-value" id="fut_out_settlement" style="font-size:26px;font-weight:800;color:#c084fc;font-family:'Inter',sans-serif;">—</div>
+          
+        </div>
+
+        <div class="output-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+          <div class="output-card supporto-card" style="border-radius:8px;padding:16px 18px;">
+            <div class="out-label" style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:6px;">Supporto</div>
+            <div class="out-value supporto-val" id="fut_out_supporto" style="font-size:22px;font-weight:800;font-family:'Inter',sans-serif;">—</div>
+            
+          </div>
+          <div class="output-card resistenza-card" style="border-radius:8px;padding:16px 18px;">
+            <div class="out-label" style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:6px;">Resistenza</div>
+            <div class="out-value resistenza-val" id="fut_out_resistenza" style="font-size:22px;font-weight:800;font-family:'Inter',sans-serif;">—</div>
+            
+          </div>
+        </div>
+
+        <div class="output-card" style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;padding:14px 18px;">
+          <div class="out-label" style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:6px;">Movimento Atteso %</div>
+          <div class="out-value" id="fut_out_movPct" style="font-size:20px;font-weight:700;color:var(--tv-gold);font-family:'Inter',sans-serif;">—</div>
+          
+        </div>
+
+      </div>
+    </div>
+  </div><!-- end panel Futures -->
+
+
+</div><!-- end .container -->
+</div><!-- end pageCentro -->
+
+<!-- ════ CENTRO GEAR MODAL ════ -->
+<div id="centroGearOverlay" style="display:none;position:fixed;inset:0;background:rgba(9,11,17,.92);z-index:9999;backdrop-filter:blur(8px);">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,95vw);max-height:90vh;overflow-y:auto;background:var(--tv-surf);border:1px solid var(--tv-bord);border-radius:12px;padding:32px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+      <div>
+        <div style="font-size:17px;font-weight:700;color:var(--tv-text);">⚙ Formule — Sup-Res MM</div>
+        <div style="font-size:11px;color:var(--tv-muted);margin-top:3px;">Logica di calcolo supporto e resistenza</div>
+      </div>
+      <button onclick="document.getElementById('centroGearOverlay').style.display='none'" style="background:rgba(239,83,80,.12);border:1px solid rgba(239,83,80,.3);color:var(--tv-red);border-radius:6px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;">✕ Chiudi</button>
+    </div>
+    <div style="margin-bottom:20px;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--tv-bord);">📋 Descrizione</div>
+      <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:14px;font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-text);line-height:1.65;">
+        Questa tabella consente di trovare il centro del foglio quindi il reale valore delle ATM per ES. Il procedimento è il seguente: andare sul sito del CME dopo il login andare sui derivati e su ES a quel punto in alto a destra selezionare opzioni e il giorno della settimana in cui ci si trova. Dopo nei riquadri inferiori a sinistra selezionare nel primo la settimana del mese in cui si vive e a destra il giorno precedente a quello in cui si vive. Scorrere fino a quando il settle CALL e PUT non sono uguali o il più simili possibile. A quel punto compilare la tabella inserendo i valori nelle rispettive caselle ricordandosi di inserire anche lo strike.
+      </div>
+    </div>
+    </div>
+  </div>
 </div>
 
 <!-- ════ STORIA DETAIL MODAL ════ -->
@@ -2554,7 +3071,7 @@ function ccRenderPanel() {
               <button onclick="salvaCcCorrente()" style="width:100%;padding:8px 12px;background:transparent;border:1px solid rgba(38,166,154,0.2);border-radius:6px;color:rgba(38,166,154,0.5);font-family:'Inter',sans-serif;font-size:11px;font-weight:500;cursor:pointer;transition:all 0.25s;letter-spacing:0.3px;display:flex;align-items:center;justify-content:center;gap:4px;"
                 onmouseover="this.style.background='rgba(38,166,154,0.06)';this.style.borderColor='rgba(38,166,154,0.4)';this.style.color='rgba(38,166,154,0.85)'"
                 onmouseout="this.style.background='transparent';this.style.borderColor='rgba(38,166,154,0.2)';this.style.color='rgba(38,166,154,0.5)'">
-                💾 Salva nello storico
+                💾 Salva storico
               </button>
             </div>
           </div>
@@ -3008,13 +3525,13 @@ function storiaClearAll() {
 
 function storiaSetFilter(f) {
   storiaFilterCur = f;
-  ['All','CSP','CC'].forEach(function(n) {
+  ['All','CSP','CC','Centro','BOT'].forEach(function(n) {
     var btn = document.getElementById('storiaFilter'+n);
     if (!btn) return;
     var active = (f === n.toLowerCase());
-    btn.style.background = active ? 'var(--tv-blue)' : 'var(--tv-surf2)';
-    btn.style.color      = active ? '#fff' : 'var(--tv-muted)';
-    btn.style.borderColor= active ? 'var(--tv-blue)' : 'var(--tv-bord)';
+    btn.style.background  = active ? 'var(--tv-blue)' : 'var(--tv-surf2)';
+    btn.style.color       = active ? '#fff' : 'var(--tv-muted)';
+    btn.style.borderColor = active ? 'var(--tv-blue)' : 'var(--tv-bord)';
   });
   renderStoria();
 }
@@ -3036,7 +3553,7 @@ function renderStoria() {
     container.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--tv-muted);font-family:\'Inter\',sans-serif;font-size:13px;">' +
       '<div style="font-size:40px;margin-bottom:16px;">📭</div>' +
       '<div style="font-weight:600;margin-bottom:6px;">Nessuna simulazione salvata</div>' +
-      '<div style="font-size:12px;">Vai su CSP o CC, inserisci i dati e premi 💾 Salva nello storico</div></div>';
+      '<div style="font-size:12px;">Vai su CSP o CC, inserisci i dati e premi 💾 Salva storico</div></div>';
     return;
   }
 
@@ -3046,7 +3563,7 @@ function renderStoria() {
     var accentColor = isCsp ? '#26a69a' : '#f0b429';
     var accentBg    = isCsp ? 'rgba(38,166,154,0.1)' : 'rgba(240,180,41,0.1)';
     var accentBord  = isCsp ? 'rgba(38,166,154,0.3)' : 'rgba(240,180,41,0.3)';
-    var typeLabel   = isCsp ? '⚡ CSP' : '📊 CC';
+    var typeLabel   = isCsp ? 'CSP' : 'CC';
     var ticker = (entry.data && entry.data.ticker) ? entry.data.ticker.toUpperCase() : '—';
     var rendAnnuo = entry.results ? (entry.results.rendAnnuoNetto * 100).toFixed(2).replace('.',',') + '%' : '—';
     var premioNetto = entry.results ? fmt(entry.results.premioNetto) : '—';
@@ -3083,8 +3600,53 @@ function storiaOpenModal(id) {
   storiaModalCurrentId = id;
 
   var isCsp = entry.tipo === 'csp';
+  var isBot = entry.tipo === 'bot';
+
+  // ── BOT modal
+  if (isBot) {
+    var d = entry.data || {};
+    var r = entry.results || {};
+    var tick = (d.ticker || 'BOT').toUpperCase();
+    document.getElementById('storiaModalTitle').textContent = 'BOT — ' + tick;
+    document.getElementById('storiaModalMeta').textContent = 'Salvata il ' + fmtDate(entry.savedAt);
+    var inputRows = [
+      ['Ticker', tick],
+      ['Prezzo acquisto', d.price || '—'],
+      ['N° titoli', d.qty || '—'],
+      ['Rimborso', d.rimborso || '1'],
+      ['Commissioni', d.comm ? '€' + d.comm : '—'],
+    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] + '</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:400;">' + row[1] + '</td></tr>'; }).join('');
+    var resultRows = [
+      ['Investimento', r.investimento != null ? botFmtEur(r.investimento) : '—'],
+      ['Gain Lordo',   r.gain        != null ? botFmtEur(r.gain)         : '—'],
+      ['Capital Gain', r.capGain     != null ? botFmtEur(r.capGain)      : '—'],
+      ['Utile Netto',  r.utile       != null ? botFmtEur(r.utile)        : '—'],
+      ['Rendimento Netto', r.roe     != null ? botFmtPct(r.roe)          : '—'],
+    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] + '</td><td style="padding:8px 12px;color:#7aa3ff;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + row[1] + '</td></tr>'; }).join('');
+    document.getElementById('storiaModalBody').innerHTML =
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:4px;">' +
+        '<div><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:8px;">Parametri</div>' +
+          '<table style="width:100%;border-collapse:collapse;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;overflow:hidden;">' + inputRows + '</table></div>' +
+        '<div><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:8px;">Risultati</div>' +
+          '<table style="width:100%;border-collapse:collapse;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;overflow:hidden;">' + resultRows + '</table></div>' +
+      '</div>';
+    document.getElementById('storiaModalLoad').onclick = function() {
+      document.getElementById('storiaModal').style.display = 'none';
+      goPage('bot');
+      var tab = botTabs.find(function(t){ return t.id === botActiveTab; });
+      if (tab) { tab.data.ticker = d.ticker || ''; tab.data.price = d.price || ''; tab.data.qty = d.qty || ''; }
+      botRenderAll();
+    };
+    document.getElementById('storiaModalDelete').onclick = function() {
+      if (confirm('Eliminare questa simulazione?')) { storiaDelete(id); document.getElementById('storiaModal').style.display = 'none'; renderStoria(); }
+    };
+    document.getElementById('storiaModal').style.display = 'block';
+    return;
+  }
+
+  // ── CSP / CC modal (original logic)
   var accentColor = isCsp ? '#26a69a' : '#f0b429';
-  var typeLabel = isCsp ? '⚡ Cash Secured Put' : '📊 Covered Call';
+  var typeLabel = isCsp ? 'Cash Secured Put' : 'Covered Call';
   var ticker = (entry.data && entry.data.ticker) ? entry.data.ticker.toUpperCase() : '—';
 
   document.getElementById('storiaModalTitle').textContent = typeLabel + ' — ' + ticker;
@@ -3295,6 +3857,589 @@ function salvaCcCorrente() {
     btn.style.borderColor = 'rgba(38,166,154,0.4)';
     setTimeout(function(){ btn.innerHTML = orig; btn.style.color = 'rgba(38,166,154,0.5)'; btn.style.borderColor = 'rgba(38,166,154,0.2)'; }, 1500);
   }
+}
+
+</script>
+
+<script>
+// ════════════════════════════════════════
+//  CENTRO DEL FOGLIO — logica di calcolo
+// ════════════════════════════════════════
+
+// Auto-format thousands separator helpers
+function centroFmtThousands(input) {
+  var pos = input.selectionStart;
+  var raw = input.value.replace(/\./g, '').replace(',', '.');
+  var n = parseFloat(raw);
+  if (!isNaN(n) && input.value.length > 3 && input.value.indexOf(',') === -1) {
+    var formatted = Math.floor(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    var diff = formatted.length - input.value.length;
+    input.value = formatted;
+    try { input.setSelectionRange(pos + diff, pos + diff); } catch(e){}
+  }
+}
+function botFmtThousands(input) {
+  var pos = input.selectionStart;
+  var raw = input.value.replace(/\./g, '');
+  var n = parseInt(raw, 10);
+  if (!isNaN(n) && raw.length > 3) {
+    var formatted = n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    var diff = formatted.length - input.value.length;
+    input.value = formatted;
+    try { input.setSelectionRange(pos + diff, pos + diff); } catch(e){}
+  }
+}
+
+function centroParseNum(v) {
+  var s = String(v || '').trim();
+  if (!s) return NaN;
+  if (s.indexOf(',') > -1) s = s.replace(/\./g, '').replace(',', '.');
+  else if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+  return parseFloat(s);
+}
+
+function centroFmt(n, dec) {
+  if (isNaN(n) || !isFinite(n)) return '—';
+  dec = dec !== undefined ? dec : 2;
+  var parts = n.toFixed(dec).split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return dec > 0 ? parts[0] + ',' + parts[1] : parts[0];
+}
+function centroFmtPct(n) {
+  if (isNaN(n) || !isFinite(n)) return '—';
+  return (n * 100).toFixed(3).replace('.', ',') + '%';
+}
+
+function setEl(id, val) {
+  var el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+function setVal(id, val) {
+  var el = document.getElementById(id);
+  if (el) el.value = val;
+}
+
+// ══════════════════════════════════════
+// BOT CALCULATOR — TAB SYSTEM
+// ══════════════════════════════════════
+var BOT_RIMBORSO = 1;
+var BOT_COMM     = 5;
+var botTabs = [];
+var botActiveTab = null;
+var botTabCounter = 0;
+var botCompareVisible = false;
+
+function botParseNum(s) {
+  if (s === null || s === undefined || s === '') return NaN;
+  var str = String(s).trim();
+  // Italian format: '.' = thousands separator, ',' = decimal
+  if (str.indexOf(',') > -1) {
+    str = str.replace(/\./g, '').replace(',', '.');
+  } else if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(str)) {
+    str = str.replace(/\./g, '');
+  }
+  return parseFloat(str);
+}
+function botFmtEur(n) {
+  if (isNaN(n) || !isFinite(n)) return '—';
+  var neg = n < 0;
+  var abs = Math.abs(n).toFixed(2).split('.');
+  abs[0] = abs[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return (neg ? '−' : '') + '€' + abs[0] + ',' + abs[1];
+}
+function botFmtPct(n) {
+  if (isNaN(n) || !isFinite(n)) return '—';
+  return (n * 100).toFixed(4).replace('.', ',') + '%';
+}
+function botFmtNum(n, dec) {
+  if (isNaN(n) || !isFinite(n)) return '—';
+  var parts = n.toFixed(dec !== undefined ? dec : 4).split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return parts[0] + ',' + parts[1];
+}
+
+function botGetResults(tab) {
+  var price = botParseNum(tab.data.price);
+  var qty   = botParseNum(tab.data.qty);
+  if (isNaN(price) || isNaN(qty)) return null;
+  var delta        = BOT_RIMBORSO - price;
+  var investimento = price * qty;
+  var gain         = delta * qty;
+  var capGain      = gain * 0.125;
+  var utile        = gain - capGain - BOT_COMM;
+  var roe          = investimento !== 0 ? utile / investimento : NaN;
+  return { delta, investimento, gain, capGain, utile, roe };
+}
+
+function createBotTab(data) {
+  botTabCounter++;
+  var tab = { id: 'btab_' + botTabCounter, data: data || { ticker: '', price: '', qty: '' } };
+  botTabs.push(tab);
+  botActiveTab = tab.id;
+  botRenderAll();
+}
+
+function removeBotTab(id) {
+  botTabs = botTabs.filter(function(t){ return t.id !== id; });
+  if (botActiveTab === id) botActiveTab = botTabs.length > 0 ? botTabs[botTabs.length - 1].id : null;
+  if (botTabs.length === 0) createBotTab();
+  else botRenderAll();
+}
+
+function setBotActive(id) { botActiveTab = id; botRenderAll(); }
+
+function botRenderAll() {
+  botRenderTabs();
+  botRenderPanel();
+  if (botCompareVisible) botRenderCompare();
+}
+
+function botRenderTabs() {
+  var row = document.getElementById('botTabsRow');
+  var addBtn = document.getElementById('botAddTabBtn');
+  var cmpBtn = document.getElementById('botCompareBtn');
+  if (!row) return;
+  row.querySelectorAll('.tab').forEach(function(el){ el.remove(); });
+  botTabs.forEach(function(tab) {
+    var el = document.createElement('div');
+    el.className = 'tab' + (tab.id === botActiveTab ? ' active' : '');
+    var label = (tab.data.ticker || ('T' + (botTabs.indexOf(tab)+1))).toUpperCase();
+    el.innerHTML = '<span class="tab-ticker">' + label + '</span>' +
+      (botTabs.length > 1 ? '<span class="close-btn" data-id="' + tab.id + '">×</span>' : '');
+    el.addEventListener('click', function(e) {
+      if (e.target.classList.contains('close-btn')) removeBotTab(tab.id);
+      else setBotActive(tab.id);
+    });
+    row.insertBefore(el, addBtn);
+  });
+}
+
+function botRenderPanel() {
+  var container = document.getElementById('botPanelsContainer');
+  if (!container) return;
+  var tab = botTabs.find(function(t){ return t.id === botActiveTab; });
+  if (!tab) { container.innerHTML = ''; return; }
+  var d = tab.data;
+  var res = botGetResults(tab);
+
+  container.innerHTML =
+    '<div class="panel" style="margin-bottom:20px;">' +
+      '<div class="panel-grid">' +
+        '<div>' +
+          '<div class="section-title" style="margin-bottom:18px;">Parametri</div>' +
+          '<div class="input-grid">' +
+            '<div class="field full">' +
+              '<label>Ticker<span class="tip"><span class="tip-i">i</span><span class="tip-box">Codice identificativo del BOT (es. BOT 14MZ26).</span></span></label>' +
+              '<input type="text" id="bot_ticker" class="bot-yellow" placeholder="es. BOT 14MZ26" value="' + (d.ticker||'') + '" style="text-transform:uppercase;" oninput="botUpdateField(\'' + tab.id + '\',\'ticker\',this.value.toUpperCase());this.value=this.value.toUpperCase();">' +
+            '</div>' +
+            '<div class="field">' +
+              '<label>Prezzo acquisto<span class="tip"><span class="tip-i">i</span><span class="tip-box">Prezzo in decimali (0.9638 = 96,38%). Usa la virgola per i decimali.</span></span></label>' +
+              '<input type="text" inputmode="decimal" id="bot_price" class="bot-yellow" placeholder="0.9638" value="' + (d.price||'') + '" oninput="botUpdateField(\'' + tab.id + '\',\'price\',this.value)">' +
+            '</div>' +
+            '<div class="field">' +
+              '<label>N° titoli<span class="tip"><span class="tip-i">i</span><span class="tip-box">Quantità di titoli. Multiplo di 1.000. Usa il punto come separatore delle migliaia (es. 40.000).</span></span></label>' +
+              '<input type="text" inputmode="numeric" id="bot_qty" class="bot-yellow" placeholder="40.000" value="' + (d.qty||'') + '" oninput="botFmtThousands(this);botUpdateField(\'' + tab.id + '\',\'qty\',this.value)">' +
+            '</div>' +
+            '<div class="field full" style="margin-top:4px;">' +
+              '<button onclick="salvaBotCorrente()" id="botBtnSalva" style="width:100%;padding:9px 12px;background:transparent;border:1px solid rgba(41,98,255,0.2);border-radius:6px;color:rgba(41,98,255,0.5);font-family:\'Inter\',sans-serif;font-size:11px;font-weight:500;cursor:pointer;transition:all 0.25s;letter-spacing:0.3px;display:flex;align-items:center;justify-content:center;gap:5px;" onmouseover="this.style.background=\'rgba(41,98,255,0.06)\';this.style.borderColor=\'rgba(41,98,255,0.4)\';this.style.color=\'rgba(41,98,255,0.85)\'" onmouseout="this.style.background=\'transparent\';this.style.borderColor=\'rgba(41,98,255,0.2)\';this.style.color=\'rgba(41,98,255,0.5)\'">💾 Salva storico</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="output-section">' +
+          '<div class="section-title" style="margin-bottom:16px;">Risultati</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">' +
+            '<div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;padding:14px 16px;">' +
+              '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:5px;">Investimento</div>' +
+              '<div data-bot-out="investimento" style="font-size:20px;font-weight:800;color:var(--tv-green);font-family:\'Inter\',sans-serif;">' + (res ? botFmtEur(res.investimento) : '—') + '</div>' +
+            '</div>' +
+            '<div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;padding:14px 16px;">' +
+              '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:5px;">Gain lordo</div>' +
+              '<div data-bot-out="gain" style="font-size:20px;font-weight:800;color:var(--tv-green);font-family:\'Inter\',sans-serif;">' + (res ? botFmtEur(res.gain) : '—') + '</div>' +
+            '</div>' +
+            '<div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;padding:14px 16px;">' +
+              '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:5px;">Capital Gain (12,5%)</div>' +
+              '<div data-bot-out="capGain" style="font-size:20px;font-weight:800;color:var(--tv-red);font-family:\'Inter\',sans-serif;">' + (res ? botFmtEur(res.capGain) : '—') + '</div>' +
+            '</div>' +
+            '<div style="background:rgba(38,166,154,0.06);border:1px solid rgba(38,166,154,0.3);border-radius:8px;padding:14px 16px;">' +
+              '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:5px;">Utile Netto</div>' +
+              '<div data-bot-out="utile" style="font-size:24px;font-weight:800;color:var(--tv-green);font-family:\'Inter\',sans-serif;">' + (res ? botFmtEur(res.utile) : '—') + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;padding:14px 16px;">' +
+            '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:5px;">Rendimento Netto</div>' +
+            '<div data-bot-out="roe" style="font-size:22px;font-weight:800;color:var(--tv-gold);font-family:\'Inter\',sans-serif;">' + (res ? botFmtPct(res.roe) : '—') + '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+}
+
+function botUpdateField(tabId, field, value) {
+  var tab = botTabs.find(function(t){ return t.id === tabId; });
+  if (!tab) return;
+  tab.data[field] = value;
+  // NEVER re-render the panel — only update output nodes
+  var res = botGetResults(tab);
+  var container = document.getElementById('botPanelsContainer');
+  if (!container) return;
+  var set = function(attr, val) {
+    var el = container.querySelector('[data-bot-out="' + attr + '"]');
+    if (el) el.textContent = val;
+  };
+  set('investimento', res ? botFmtEur(res.investimento) : '—');
+  set('gain',         res ? botFmtEur(res.gain)         : '—');
+  set('capGain',      res ? botFmtEur(res.capGain)      : '—');
+  set('utile',        res ? botFmtEur(res.utile)        : '—');
+  set('roe',          res ? botFmtPct(res.roe)          : '—');
+  // Rename tab label when ticker changes
+  if (field === 'ticker') botRenderTabs();
+}
+
+function salvaBotCorrente() {
+  var tab = botTabs.find(function(t){ return t.id === botActiveTab; });
+  if (!tab) return;
+  var price = botParseNum(tab.data.price);
+  var qty   = botParseNum(tab.data.qty);
+  if (isNaN(price) || isNaN(qty)) {
+    alert('Inserisci almeno Prezzo e N° titoli prima di salvare.');
+    return;
+  }
+  var res    = botGetResults(tab);
+  var ticker = (tab.data.ticker || '').trim();
+  storiaAdd('bot', { ticker: ticker, price: tab.data.price, rimborso: String(BOT_RIMBORSO), qty: tab.data.qty, comm: String(BOT_COMM) }, res, ticker || 'BOT');
+  var btn = document.getElementById('botBtnSalva');
+  if (btn) {
+    var orig = btn.innerHTML;
+    btn.innerHTML = '✓ Salvato!';
+    btn.style.color = 'rgba(41,98,255,0.9)';
+    btn.style.borderColor = 'rgba(41,98,255,0.5)';
+    setTimeout(function() { btn.innerHTML = orig; btn.style.color = 'rgba(41,98,255,0.5)'; btn.style.borderColor = 'rgba(41,98,255,0.2)'; }, 1500);
+  }
+}
+
+function botRenderCompare() {
+  var sec = document.getElementById('botCompareSection');
+  if (!sec) return;
+  if (botTabs.length < 2) { sec.style.display = 'none'; botCompareVisible = false; var cb = document.getElementById('botCompareBtn'); if(cb) cb.classList.remove('active'); return; }
+  var html = '<div class="panel" style="margin-top:16px;overflow-x:auto;">' +
+    '<div class="section-title" style="margin-bottom:16px;">Confronto BOT</div>' +
+    '<table class="compare-table" style="width:100%;border-collapse:collapse;font-family:\'Inter\',sans-serif;font-size:13px;">' +
+    '<thead><tr style="border-bottom:2px solid var(--tv-bord);">' +
+    '<th style="text-align:left;padding:8px 12px;color:var(--tv-muted);font-size:10px;letter-spacing:1px;text-transform:uppercase;font-weight:700;white-space:nowrap;border-bottom:1px solid var(--tv-bord);">Metrica</th>';
+  botTabs.forEach(function(tab) {
+    html += '<th style="text-align:right;padding:8px 12px;color:var(--tv-muted);font-size:10px;letter-spacing:1px;text-transform:uppercase;font-weight:700;border-bottom:1px solid var(--tv-bord);">' +
+      '<span class="ticker-badge">' + ((tab.data.ticker||'BOT '+(botTabs.indexOf(tab)+1)).toUpperCase()) + '</span></th>';
+  });
+  html += '</tr></thead><tbody>';
+  var rows = [
+    ['Prezzo', function(r,d){ return d.price || '—'; }],
+    ['N° Titoli', function(r,d){ return d.qty ? Number(d.qty).toLocaleString('it-IT') : '—'; }],
+    ['Investimento', function(r){ return r ? botFmtEur(r.investimento) : '—'; }],
+    ['Gain Lordo', function(r){ return r ? botFmtEur(r.gain) : '—'; }],
+    ['Capital Gain', function(r){ return r ? botFmtEur(r.capGain) : '—'; }],
+    ['Utile Netto', function(r){ return r ? '<span class="green-val">' + botFmtEur(r.utile) + '</span>' : '—'; }],
+    ['Rendimento Netto', function(r){ return r ? '<span class="gold-val">' + botFmtPct(r.roe) + '</span>' : '—'; }],
+  ];
+  rows.forEach(function(row, i) {
+    var bg = i % 2 === 0 ? '' : 'background:rgba(255,255,255,0.02)';
+    html += '<tr style="' + bg + '">' +
+      '<td style="padding:9px 12px;color:var(--tv-muted);font-size:12px;font-weight:600;white-space:nowrap;border-bottom:1px solid rgba(42,46,57,0.3);">' + row[0] + '</td>';
+    botTabs.forEach(function(tab) {
+      var res = botGetResults(tab);
+      html += '<td style="padding:9px 12px;text-align:right;color:var(--tv-text);font-size:13px;font-weight:500;border-bottom:1px solid rgba(42,46,57,0.3);">' + row[1](res, tab.data) + '</td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  sec.innerHTML = html;
+  sec.style.display = 'block';
+}
+
+// Gear modal
+document.getElementById('botGearBtn').addEventListener('click', function() {
+  document.getElementById('bot_s_rimborso').value = String(BOT_RIMBORSO);
+  document.getElementById('bot_s_comm').value     = String(BOT_COMM);
+  document.getElementById('botGearOverlay').style.display = 'block';
+});
+document.getElementById('botGearOverlay').addEventListener('click', function(e) {
+  if (e.target === this) this.style.display = 'none';
+});
+document.getElementById('botSaveSettings').addEventListener('click', function() {
+  var r = botParseNum(document.getElementById('bot_s_rimborso').value);
+  var c = botParseNum(document.getElementById('bot_s_comm').value);
+  if (!isNaN(r) && r > 0) BOT_RIMBORSO = r;
+  if (!isNaN(c) && c >= 0) BOT_COMM = c;
+  document.getElementById('botGearOverlay').style.display = 'none';
+  botRenderAll();
+});
+
+// Add tab / compare buttons
+document.getElementById('botAddTabBtn').addEventListener('click', function() { createBotTab(); });
+document.getElementById('botCompareBtn').addEventListener('click', function() {
+  botCompareVisible = !botCompareVisible;
+  document.getElementById('botCompareBtn').classList.toggle('active', botCompareVisible);
+  if (botCompareVisible) botRenderCompare();
+  else { var s = document.getElementById('botCompareSection'); if(s) s.style.display='none'; }
+});
+
+// Init first tab
+createBotTab();
+
+function centroCalc() {
+  // ── FUTURES ──────────────────────────────────
+  var futCall   = centroParseNum(document.getElementById('fut_callSettle').value);
+  var futPut    = centroParseNum(document.getElementById('fut_putSettle').value);
+  var futStrike = centroParseNum(document.getElementById('fut_strike').value);
+
+  var futDelta, futSigma, futSettle, futSup, futRes, futMov;
+  var futReady = !isNaN(futCall) && !isNaN(futPut) && !isNaN(futStrike);
+
+  if (futReady) {
+    futDelta  = futPut - futCall;
+    futSigma  = futCall + futPut;
+    futSettle = futStrike - futDelta;
+    futSup    = futSettle - futSigma;
+    futRes    = futSettle + futSigma;
+    futMov    = futSigma / futSettle;
+  }
+
+  setVal('fut_delta', futReady ? centroFmt(futDelta, 3) : '');
+  setVal('fut_sigma', futReady ? centroFmt(futSigma, 3) : '');
+  setEl('fut_out_settlement', futReady ? centroFmt(futSettle, 3) : '—');
+  setEl('fut_out_supporto',   futReady ? centroFmt(futSup, 3)    : '—');
+  setEl('fut_out_resistenza', futReady ? centroFmt(futRes, 3)    : '—');
+  setEl('fut_out_movPct',     futReady ? centroFmtPct(futMov)    : '—');
+
+}
+
+// ── Gear modal
+document.getElementById('centroGearBtn').addEventListener('click', function() {
+  document.getElementById('centroGearOverlay').style.display = 'block';
+});
+document.getElementById('centroGearOverlay').addEventListener('click', function(e) {
+  if (e.target === this) this.style.display = 'none';
+});
+
+// ── Salva in storico
+function salvacentroCorrente() {
+  var futCall   = centroParseNum(document.getElementById('fut_callSettle').value);
+  var futPut    = centroParseNum(document.getElementById('fut_putSettle').value);
+  var futStrike = centroParseNum(document.getElementById('fut_strike').value);
+
+  var hasAny = !isNaN(futStrike);
+  if (!hasAny) { alert('Inserisci almeno un valore prima di salvare.'); return; }
+
+  var inputData = {
+    futCallSettle: document.getElementById('fut_callSettle').value,
+    futPutSettle:  document.getElementById('fut_putSettle').value,
+    futStrike:     document.getElementById('fut_strike').value,
+  };
+
+  var results = {};
+  var futReady = !isNaN(futCall) && !isNaN(futPut) && !isNaN(futStrike);
+  if (futReady) {
+    var futDelta  = futPut - futCall;
+    var futSigma  = futCall + futPut;
+    var futSettle = futStrike - futDelta;
+    results.futSettlement  = futSettle;
+    results.futSupporto    = futSettle - futSigma;
+    results.futResistenza  = futSettle + futSigma;
+    results.futMovPct      = futSigma / futSettle;
+  }
+
+  storiaAdd('centro', inputData, results, '');
+
+  // Feedback visivo sul bottone
+  var btn = document.getElementById('centroBtnSalva');
+  if (btn) {
+    var orig = btn.innerHTML;
+    btn.innerHTML = '✓ Salvato!';
+    btn.style.color = 'rgba(192,132,252,0.9)';
+    btn.style.borderColor = 'rgba(192,132,252,0.5)';
+    setTimeout(function() {
+      btn.innerHTML = orig;
+      btn.style.color = 'rgba(192,132,252,0.5)';
+      btn.style.borderColor = 'rgba(192,132,252,0.2)';
+    }, 1500);
+  }
+}
+
+// ── renderStoria — handles all entry types (CSP, CC, BOT, Centro)
+var _origRenderStoria = renderStoria;
+renderStoria = function() {
+  var container = document.getElementById('storiaContainer');
+  if (!container) return;
+  var list = storiaLoad();
+  if (storiaFilterCur !== 'all') {
+    list = list.filter(function(e){ return e.tipo === storiaFilterCur; });
+  }
+  if (list.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--tv-muted);font-family:\'Inter\',sans-serif;font-size:13px;">' +
+      '<div style="font-size:40px;margin-bottom:16px;">📭</div>' +
+      '<div style="font-weight:600;margin-bottom:6px;">Nessuna simulazione salvata</div>' +
+      '<div style="font-size:12px;">Vai su CSP, CC o Centro del Foglio, inserisci i dati e premi 💾 Salva storico</div></div>';
+    return;
+  }
+
+  var html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">';
+  list.forEach(function(entry) {
+    var isCsp    = entry.tipo === 'csp';
+    var isCentro = entry.tipo === 'centro';
+    var isBot    = entry.tipo === 'bot';
+    var accentColor = isCsp ? '#26a69a' : (isCentro ? '#c084fc' : (isBot ? '#7aa3ff' : '#f0b429'));
+    var accentBg    = isCsp ? 'rgba(38,166,154,0.1)' : (isCentro ? 'rgba(192,132,252,0.1)' : (isBot ? 'rgba(122,163,255,0.1)' : 'rgba(240,180,41,0.1)'));
+    var accentBord  = isCsp ? 'rgba(38,166,154,0.3)' : (isCentro ? 'rgba(192,132,252,0.3)' : (isBot ? 'rgba(122,163,255,0.3)' : 'rgba(240,180,41,0.3)'));
+    var typeLabel   = isCsp ? 'CSP' : (isCentro ? 'Sup-Res MM' : (isBot ? '<svg width="11" height="11" viewBox="0 0 14 14" fill="none" style="vertical-align:-1px;margin-right:3px"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/><line x1="4" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><line x1="4" y1="7.5" x2="10" y2="7.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><line x1="4" y1="10" x2="7.5" y2="10" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>BOT' : 'CC'));
+
+    if (isCentro) {
+      var d = entry.data || {};
+      var r = entry.results || {};
+      var strikeLbl = d.futStrike || d.spxStrikeES || '—';
+      var supVal  = r.futSupporto   != null ? centroFmt(r.futSupporto, 2)   : (r.mmSupporto   != null ? centroFmt(r.mmSupporto, 2)   : '—');
+      var resVal  = r.futResistenza != null ? centroFmt(r.futResistenza, 2) : (r.mmResistenza != null ? centroFmt(r.mmResistenza, 2) : '—');
+      html += '<div onclick="centrioStoriaOpenModal(\'' + entry.id + '\')" style="cursor:pointer;background:var(--tv-surf);border:1px solid ' + accentBord + ';border-radius:10px;padding:18px;transition:transform 0.15s,box-shadow 0.15s;" ' +
+        'onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 8px 24px rgba(0,0,0,0.25)\'" ' +
+        'onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'none\'">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+          '<span style="background:' + accentBg + ';color:' + accentColor + ';border:1px solid ' + accentBord + ';padding:3px 9px;border-radius:5px;font-family:\'Inter\',sans-serif;font-size:11px;font-weight:700;">' + typeLabel + '</span>' +
+          '<span style="font-family:\'Inter\',sans-serif;font-size:11px;color:var(--tv-muted);">' + fmtDate(entry.savedAt) + '</span>' +
+        '</div>' +
+        '<div style="font-size:16px;font-weight:800;color:var(--tv-text);font-family:\'Inter\',sans-serif;letter-spacing:1px;margin-bottom:10px;">Strike: ' + strikeLbl + '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+          '<div style="background:rgba(38,166,154,0.06);border:1px solid rgba(38,166,154,0.2);border-radius:7px;padding:10px;">' +
+            '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:3px;">Supporto</div>' +
+            '<div style="font-family:\'Inter\',sans-serif;font-size:15px;font-weight:700;color:#26a69a;">' + supVal + '</div>' +
+          '</div>' +
+          '<div style="background:rgba(239,83,80,0.06);border:1px solid rgba(239,83,80,0.2);border-radius:7px;padding:10px;">' +
+            '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:3px;">Resistenza</div>' +
+            '<div style="font-family:\'Inter\',sans-serif;font-size:15px;font-weight:700;color:#ef5350;">' + resVal + '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    } else if (isBot) {
+      var d = entry.data || {};
+      var r = entry.results || {};
+      var botTick = (d.ticker || 'BOT').toUpperCase();
+      var botUtile = r.utile != null ? botFmtEur(r.utile) : '—';
+      var botRoe   = r.roe   != null ? botFmtPct(r.roe)   : '—';
+      html += '<div onclick="storiaOpenModal(\'' + entry.id + '\')" style="cursor:pointer;background:var(--tv-surf);border:1px solid ' + accentBord + ';border-radius:10px;padding:18px;transition:transform 0.15s,box-shadow 0.15s;" ' +
+        'onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 8px 24px rgba(0,0,0,0.25)\'" ' +
+        'onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'none\'">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+          '<span style="background:' + accentBg + ';color:' + accentColor + ';border:1px solid ' + accentBord + ';padding:3px 9px;border-radius:5px;font-family:\'Inter\',sans-serif;font-size:11px;font-weight:700;">' + typeLabel + '</span>' +
+          '<span style="font-family:\'Inter\',sans-serif;font-size:11px;color:var(--tv-muted);">' + fmtDate(entry.savedAt) + '</span>' +
+        '</div>' +
+        '<div style="font-size:20px;font-weight:800;color:var(--tv-text);font-family:\'Inter\',sans-serif;letter-spacing:1px;margin-bottom:10px;">' + botTick + '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+          '<div style="background:rgba(38,166,154,0.06);border:1px solid rgba(38,166,154,0.2);border-radius:7px;padding:10px;">' +
+            '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:3px;">Utile Netto</div>' +
+            '<div style="font-family:\'Inter\',sans-serif;font-size:15px;font-weight:700;color:#26a69a;">' + botUtile + '</div>' +
+          '</div>' +
+          '<div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:7px;padding:10px;">' +
+            '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:3px;">ROE</div>' +
+            '<div style="font-family:\'Inter\',sans-serif;font-size:15px;font-weight:700;color:var(--tv-gold);">' + botRoe + '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    } else {
+      var ticker    = (entry.data && entry.data.ticker) ? entry.data.ticker.toUpperCase() : '—';
+      var rendAnnuo = entry.results ? (entry.results.rendAnnuoNetto * 100).toFixed(2).replace('.',',') + '%' : '—';
+      var premioNetto = entry.results ? fmt(entry.results.premioNetto) : '—';
+      html += '<div onclick="storiaOpenModal(\'' + entry.id + '\')" style="cursor:pointer;background:var(--tv-surf);border:1px solid ' + accentBord + ';border-radius:10px;padding:18px;transition:transform 0.15s,box-shadow 0.15s;" ' +
+        'onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 8px 24px rgba(0,0,0,0.25)\'" ' +
+        'onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'none\'">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+          '<span style="background:' + accentBg + ';color:' + accentColor + ';border:1px solid ' + accentBord + ';padding:3px 9px;border-radius:5px;font-family:\'Inter\',sans-serif;font-size:11px;font-weight:700;">' + typeLabel + '</span>' +
+          '<span style="font-family:\'Inter\',sans-serif;font-size:11px;color:var(--tv-muted);">' + fmtDate(entry.savedAt) + '</span>' +
+        '</div>' +
+        '<div style="font-size:22px;font-weight:800;color:var(--tv-text);font-family:\'Inter\',sans-serif;letter-spacing:1px;margin-bottom:10px;">' + ticker + '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+          '<div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:7px;padding:10px;">' +
+            '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:3px;">Premio Netto</div>' +
+            '<div style="font-family:\'Inter\',sans-serif;font-size:15px;font-weight:700;color:' + accentColor + ';">' + premioNetto + '</div>' +
+          '</div>' +
+          '<div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:7px;padding:10px;">' +
+            '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:3px;">Rend. Annuo</div>' +
+            '<div style="font-family:\'Inter\',sans-serif;font-size:15px;font-weight:700;color:' + accentColor + ';">' + rendAnnuo + '</div>' +
+          '</div>' +
+        '</div>' +
+        (entry.label ? '<div style="margin-top:10px;font-size:11px;color:var(--tv-muted);font-family:\'Inter\',sans-serif;font-style:italic;">' + entry.label + '</div>' : '') +
+      '</div>';
+    }
+  });
+  html += '</div>';
+  container.innerHTML = html;
+};
+
+// ── Centro entry modal (detail view)
+function centrioStoriaOpenModal(id) {
+  var list = storiaLoad();
+  var entry = list.find(function(e){ return e.id === id; });
+  if (!entry) return;
+  storiaModalCurrentId = id;
+
+  document.getElementById('storiaModalTitle').textContent = 'Sup-Res MM';
+  document.getElementById('storiaModalMeta').textContent  = 'Salvata il ' + fmtDate(entry.savedAt);
+
+  var d = entry.data || {};
+  var r = entry.results || {};
+
+  var rows = [
+    ['Call ATM (Fut)', d.futCallSettle || '—'],
+    ['Put ATM (Fut)',  d.futPutSettle  || '—'],
+    ['Strike Futures',        d.futStrike     || '—'],
+    ['Call ATM ES',           d.spxCallES     || '—'],
+    ['Put ATM ES',            d.spxPutES      || '—'],
+    ['Strike ES',             d.spxStrikeES   || '—'],
+    ['Setlement CME',         d.spxSettlCME   || '—'],
+    ['Call ATM SPX',          d.spxCallSPX    || '—'],
+    ['Put ATM SPX',           d.spxPutSPX     || '—'],
+    ['Strike SPX',            d.spxStrikeSPX  || '—'],
+  ].map(function(row){
+    return '<tr><td style="padding:7px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] +
+           '</td><td style="padding:7px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:400;">' + row[1] + '</td></tr>';
+  }).join('');
+
+  var resRows = [
+    ['Settlement Futures', r.futSettlement  != null ? centroFmt(r.futSettlement, 3)  : '—'],
+    ['Supporto Futures',   r.futSupporto    != null ? centroFmt(r.futSupporto, 3)    : '—'],
+    ['Resistenza Futures', r.futResistenza  != null ? centroFmt(r.futResistenza, 3)  : '—'],
+    ['Mov. Atteso %',      r.futMovPct      != null ? centroFmtPct(r.futMovPct)      : '—'],
+    ['Centro ES (MM)',     r.mmCentroES     != null ? centroFmt(r.mmCentroES, 3)     : '—'],
+    ['Supporto MM',        r.mmSupporto     != null ? centroFmt(r.mmSupporto, 3)     : '—'],
+    ['Resistenza MM',      r.mmResistenza   != null ? centroFmt(r.mmResistenza, 3)   : '—'],
+  ].map(function(row){
+    return '<tr><td style="padding:7px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] +
+           '</td><td style="padding:7px 12px;color:#c084fc;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + row[1] + '</td></tr>';
+  }).join('');
+
+  document.getElementById('storiaModalBody').innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:4px;">' +
+      '<div><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:8px;">Parametri</div>' +
+        '<table style="width:100%;border-collapse:collapse;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;overflow:hidden;">' + rows + '</table></div>' +
+      '<div><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:8px;">Risultati</div>' +
+        '<table style="width:100%;border-collapse:collapse;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;overflow:hidden;">' + resRows + '</table></div>' +
+    '</div>';
+
+  // Wire ricarica button: reload values back into Centro page
+  document.getElementById('storiaModalLoad').onclick = function() {
+    document.getElementById('storiaModal').style.display = 'none';
+    goPage('centro');
+    var setInp = function(id, v){ var el=document.getElementById(id); if(el) el.value=v||''; };
+    setInp('fut_callSettle', d.futCallSettle);
+    setInp('fut_putSettle',  d.futPutSettle);
+    setInp('fut_strike',     d.futStrike);
+    centroCalc();
+  };
+  document.getElementById('storiaModalDelete').onclick = function() {
+    if (confirm('Eliminare questa simulazione?')) {
+      storiaDelete(id);
+      document.getElementById('storiaModal').style.display = 'none';
+      renderStoria();
+    }
+  };
+
+  document.getElementById('storiaModal').style.display = 'block';
 }
 
 </script>
