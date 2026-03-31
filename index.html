@@ -563,23 +563,31 @@ document.addEventListener('focusin', function(e) {
   }
   .add-tab-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
 
-  /* COMPARE BTN */
+  /* COMPARE BTN — styled as first tab */
   .compare-btn {
-    margin-left: auto;
-    padding: 8px 16px;
-    border-radius: 8px;
-    border: 1px solid rgba(61,155,255,0.4);
-    background: rgba(61,155,255,0.08);
-    color: var(--blue);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 8px 8px 0 0;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    background: var(--surface);
+    color: var(--text-dim);
     cursor: pointer;
     font-family: var(--sans);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.5px;
-    transition: all 0.2s;
+    transition: color 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
-  .compare-btn:hover { background: rgba(61,155,255,0.15); border-color: var(--blue); }
-  .compare-btn.active { background: rgba(61,155,255,0.2); color: #fff; }
+  .compare-btn:hover { color: var(--text); }
+  .compare-btn.active { color: var(--blue); }
+
+  /* TABS ROW */
+  .tabs-row { position: relative; }
 
   /* PANEL */
   .panel {
@@ -875,6 +883,13 @@ document.addEventListener('focusin', function(e) {
     .input-grid { grid-template-columns: 1fr; }
     .field.full { grid-column: span 1; }
     .output-row { grid-template-columns: 1fr; }
+
+  /* ── TABS MOBILE ── */
+  .tabs-row { flex-wrap: wrap; gap: 4px; }
+  .tab { padding: 6px 11px; font-size: 11px; flex-shrink: 0; }
+  .tab .tab-ticker { font-size: 10px; letter-spacing: 0.5px; }
+  .add-tab-btn { padding: 6px 10px; font-size: 16px; flex-shrink: 0; }
+  .pendant-btn { font-size: 11px; padding: 7px 12px; }
 
   /* Mobile: hide desktop sidebar, show mobile top bar */
   .sidebar { display: none !important; }
@@ -1694,6 +1709,19 @@ input[type="number"]:focus {
 [data-theme="light"] .tip-box { background: #ffffff; border-color: #e0e3eb; color: #131722; box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
 [data-theme="light"] .tip-box::after { border-top-color: #e0e3eb; }
 
+#pageCSP .compare-btn, #pageCC .compare-btn, #pageBOT .compare-btn {
+  background: var(--tv-surf);
+  border-color: var(--tv-bord);
+  color: var(--tv-muted);
+  font-family: 'Inter', sans-serif;
+}
+#pageCSP .compare-btn:hover, #pageCC .compare-btn:hover, #pageBOT .compare-btn:hover {
+  color: var(--tv-text);
+}
+#pageCSP .compare-btn.active, #pageCC .compare-btn.active, #pageBOT .compare-btn.active {
+  color: var(--tv-blue);
+}
+
 /* ── pageBOT styles ── */
 #pageBOT .logo-area h1 {
   background: #7aa3ff;
@@ -1748,6 +1776,16 @@ input[type="number"]:focus {
 #pageBOT .field input.bot-yellow { background: rgba(240,180,41,0.05); border-color: rgba(240,180,41,0.3); }
 #pageBOT .field input.bot-yellow:focus { border-color: rgba(240,180,41,0.7); box-shadow: 0 0 0 2px rgba(240,180,41,0.15); }
 [data-theme="light"] #pageBOT .field input.bot-yellow { background: rgba(240,180,41,0.08); border-color: rgba(200,140,0,0.35); }
+
+/* Sidebar icon colors matching home dropdown */
+#navScreener { color: #2962ff; }
+#navCSP      { color: #26a69a; }
+#navCC       { color: #f0b429; }
+#navCentro   { color: #c084fc; }
+#navBOT      { color: #7aa3ff; }
+#navStoria   { color: #787b86; }
+#navScreener:hover, #navCSP:hover, #navCC:hover,
+#navCentro:hover, #navBOT:hover, #navStoria:hover { opacity: 0.85; }
 
 /* ── HOME NAV HOVER DROPDOWN ── */
 .home-nav-trigger { display: inline-block; position: relative; }
@@ -2121,15 +2159,12 @@ input[type="number"]:focus {
   </header>
 
   <div class="tabs-row" id="tabsRow">
+    <button class="compare-btn" id="compareBtn">⊞ Confronta</button>
     <!-- tabs injected here -->
     <button class="add-tab-btn" id="addTabBtn" title="Aggiungi titolo">+</button>
-    <button class="compare-btn" id="compareBtn">⊞ Confronta tutti</button>
   </div>
 
-  <div id="panelsContainer">
-    <!-- panels injected here -->
-  </div>
-
+  <div id="panelsContainer"></div>
   <div id="compareSection" style="display:none"></div>
 </div>
 </div>
@@ -2144,10 +2179,11 @@ input[type="number"]:focus {
     <button class="gear-btn" id="ccGearBtn" title="Impostazioni">⚙</button>
   </header>
   <div class="tabs-row" id="ccTabsRow">
+    <button class="compare-btn" id="ccCompareBtn">⊞ Confronta</button>
     <button class="add-tab-btn" id="ccAddTabBtn" title="Aggiungi titolo">+</button>
-    <button class="compare-btn" id="ccCompareBtn">⊞ Confronta tutti</button>
   </div>
   <div id="ccPanelsContainer"></div>
+  <div id="ccDivContainer"></div>
   <div id="ccCompareSection" style="display:none"></div>
 </div>
 </div>
@@ -2165,8 +2201,8 @@ input[type="number"]:focus {
   </header>
 
   <div class="tabs-row" id="botTabsRow">
+    <button class="compare-btn" id="botCompareBtn">⊞ Confronta</button>
     <button class="add-tab-btn" id="botAddTabBtn" title="Aggiungi BOT">+</button>
-    <button class="compare-btn" id="botCompareBtn">⊞ Confronta tutti</button>
   </div>
 
   <div id="botPanelsContainer"></div>
@@ -2229,10 +2265,10 @@ input[type="number"]:focus {
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <button id="storiaFilterAll"  onclick="storiaSetFilter('all')"  class="storia-filter-btn storia-filter-active" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-blue);color:#fff;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;">Tutti</button>
-      <button id="storiaFilterCSP"  onclick="storiaSetFilter('csp')"  class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;"><span style="filter:grayscale(1);margin-right:4px;">⚡</span>CSP</button>
-      <button id="storiaFilterCC"   onclick="storiaSetFilter('cc')"   class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 13" fill="none" style="flex-shrink:0"><rect x="0.5" y="6.5" width="3" height="6" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="5.5" y="3.5" width="3" height="9" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="10.5" y="0.5" width="3" height="12" rx="0.6" fill="currentColor" opacity="0.75"/></svg>CC</button>
-      <button id="storiaFilterCentro" onclick="storiaSetFilter('centro')" class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3" opacity="0.85"/><line x1="7" y1="1.5" x2="7" y2="12.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/><line x1="1.5" y1="7" x2="12.5" y2="7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/></svg>Sup-Res MM</button>
-      <button id="storiaFilterBOT" onclick="storiaSetFilter('bot')" class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/><line x1="4" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><line x1="4" y1="7.5" x2="10" y2="7.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><line x1="4" y1="10" x2="7.5" y2="10" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>BOT</button>
+      <button id="storiaFilterCSP"  onclick="storiaSetFilter('csp')"  class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><span style="color:#26a69a;">⚡</span>CSP</button>
+      <button id="storiaFilterCC"   onclick="storiaSetFilter('cc')"   class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 13" fill="none" style="flex-shrink:0;color:#f0b429"><rect x="0.5" y="6.5" width="3" height="6" rx="0.6" fill="currentColor" opacity="0.9"/><rect x="5.5" y="3.5" width="3" height="9" rx="0.6" fill="currentColor" opacity="0.9"/><rect x="10.5" y="0.5" width="3" height="12" rx="0.6" fill="currentColor" opacity="0.9"/></svg>CC</button>
+      <button id="storiaFilterCentro" onclick="storiaSetFilter('centro')" class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;color:#c084fc"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3" opacity="0.85"/><line x1="7" y1="1.5" x2="7" y2="12.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/><line x1="1.5" y1="7" x2="12.5" y2="7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/></svg>Sup-Res MM</button>
+      <button id="storiaFilterBOT" onclick="storiaSetFilter('bot')" class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;color:#7aa3ff"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/><line x1="4" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><line x1="4" y1="7.5" x2="10" y2="7.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><line x1="4" y1="10" x2="7.5" y2="10" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>BOT</button>
       <button onclick="storiaClearAll()" style="padding:6px 14px;border-radius:6px;border:1px solid rgba(239,83,80,.3);background:rgba(239,83,80,.08);color:var(--tv-red);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;margin-left:8px;">🗑 Cancella tutto</button>
     </div>
   </div>
@@ -2890,6 +2926,65 @@ createTab();
 function buildScreener(theme) {
   var mount = document.getElementById('screenerMount');
   if (!mount) return;
+
+  // ── Intercept TradingView widget navigation → open in new tab ──
+  // TV widget navigates parent window via location.assign or direct href set.
+  // We override location methods once so every left-click opens a new tab.
+  if (!window._tvNavIntercepted) {
+    window._tvNavIntercepted = true;
+
+    // Override location.assign
+    try {
+      var _origAssign = window.location.assign.bind(window.location);
+      window.location.assign = function(url) {
+        if (url && url.indexOf('tradingview.com') > -1) {
+          window.open(url, '_blank', 'noopener');
+        } else {
+          _origAssign(url);
+        }
+      };
+    } catch(e) {}
+
+    // Override location.replace
+    try {
+      var _origReplace = window.location.replace.bind(window.location);
+      window.location.replace = function(url) {
+        if (url && url.indexOf('tradingview.com') > -1) {
+          window.open(url, '_blank', 'noopener');
+        } else {
+          _origReplace(url);
+        }
+      };
+    } catch(e) {}
+
+    // Catch postMessage from TV iframe (symbol click event)
+    window.addEventListener('message', function(e) {
+      if (!e.data) return;
+      try {
+        var d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+        // TV sends {name:'symbol', params:{symbol:'...'}} or similar
+        var sym = (d.params && d.params.symbol) || (d.symbol);
+        if (sym && (d.name === 'symbol' || d.type === 'symbol')) {
+          window.open('https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(sym), '_blank', 'noopener');
+        }
+        // TV sends navigate event with url
+        if (d.name === 'navigate' && d.params && d.params.url) {
+          window.open(d.params.url, '_blank', 'noopener');
+        }
+      } catch(ex) {}
+    });
+
+    // Fast interval fallback: if page starts navigating to TV, catch it and open new tab
+    var _origHref = window.location.href;
+    setInterval(function() {
+      if (window.location.href !== _origHref &&
+          window.location.href.indexOf('tradingview.com') > -1) {
+        var dest = window.location.href;
+        try { history.replaceState(null, '', _origHref); } catch(e) {}
+        window.open(dest, '_blank', 'noopener');
+      }
+    }, 30);
+  }
   // Remove old widget completely
   mount.innerHTML = '';
   mount.style.background = theme === 'dark' ? '#1e222d' : '#ffffff';
@@ -3132,10 +3227,14 @@ function ccRenderPanel() {
         </div>
       </div>
     </div>
-        </div>
-      </div>
     </div>
+    </div>
+  `;
 
+  // Render dividendi into separate container so pendant stays above them
+  var divCont = document.getElementById('ccDivContainer');
+  if (divCont) {
+    divCont.innerHTML = `
     <button class="div-toggle-btn" id="ccDivBtn" onclick="ccToggleDividendi(this)">
       💰 Dividendi <span class="div-arrow">▼</span>
     </button>
@@ -3179,6 +3278,7 @@ function ccRenderPanel() {
         </div>
       </div>
     </div>`;
+  } // end divCont
 
   // Bind inputs (no re-render on typing — only update outputs)
   container.querySelectorAll('input[data-field]').forEach(input => {
