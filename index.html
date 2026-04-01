@@ -350,6 +350,8 @@ function showApp(displayName) {
   }
   // Show home page after login
   goHome();
+  // Sync Firestore → localStorage
+  fsSyncOnLogin(match.displayName);
 }
 
 function authInit() {
@@ -364,6 +366,7 @@ function authInit() {
   if (sessionValid()) {
     var s = sessionGet();
     showApp(s.user);
+    fsSyncOnLogin(s.user);
   }
   // Pre-focus username field
   setTimeout(function() {
@@ -375,7 +378,7 @@ function authInit() {
 // Shake keyframe
 (function(){
   var style = document.createElement('style');
-  style.textContent = '@keyframes loginShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}';
+  style.textContent = '@keyframes loginShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}} @keyframes galaxySlide{0%{background-position:100% center}100%{background-position:0% center}}';
   document.head.appendChild(style);
 })();
 
@@ -1992,15 +1995,15 @@ input[type="number"]:focus {
     </div>
 
     <!-- Login fields — no box, full transparency, navicelle visible behind -->
-    <div style="padding:8px 0;">
+    <div style="padding:8px 0;max-width:280px;margin:0 auto;">
 
       <!-- Username -->
       <div style="margin-bottom:14px;">
         <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(120,123,134,0.9);font-family:'Inter',sans-serif;margin-bottom:7px;text-shadow:0 1px 4px rgba(0,0,0,0.8);">Username</label>
-        <input id="loginUser" type="text" autocomplete="username" placeholder="username"
-          style="width:100%;background:rgba(10,14,26,0.45);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:13px 16px;color:#e2eaf8;font-family:'Inter',sans-serif;font-size:16px;font-weight:500;outline:none;transition:all 0.2s;box-sizing:border-box;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);"
-          onfocus="this.style.borderColor='#2962ff';this.style.boxShadow='0 0 0 3px rgba(41,98,255,0.2)';this.style.background='rgba(10,14,26,0.65)'"
-          onblur="this.style.borderColor='rgba(255,255,255,0.12)';this.style.boxShadow='none';this.style.background='rgba(10,14,26,0.45)'"
+        <input id="loginUser" type="text" autocomplete="username" placeholder=""
+          style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:13px 16px;color:#e2eaf8;font-family:'Inter',sans-serif;font-size:16px;font-weight:500;outline:none;transition:all 0.2s;box-sizing:border-box;"
+          onfocus="this.style.borderColor='#2962ff';this.style.boxShadow='0 0 0 3px rgba(41,98,255,0.2)';this.style.background='rgba(255,255,255,0.08)'"
+          onblur="this.style.borderColor='rgba(255,255,255,0.1)';this.style.boxShadow='none';this.style.background='rgba(255,255,255,0.04)'"
           onkeydown="if(event.key==='Enter')document.getElementById('loginPsw').focus()">
       </div>
 
@@ -2008,10 +2011,10 @@ input[type="number"]:focus {
       <div style="margin-bottom:8px;">
         <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(120,123,134,0.9);font-family:'Inter',sans-serif;margin-bottom:7px;text-shadow:0 1px 4px rgba(0,0,0,0.8);">Password</label>
         <div style="position:relative;">
-          <input id="loginPsw" type="password" autocomplete="current-password" placeholder="••••••••"
-            style="width:100%;background:rgba(10,14,26,0.45);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:13px 44px 13px 16px;color:#e2eaf8;font-family:'Inter',sans-serif;font-size:16px;font-weight:500;outline:none;transition:all 0.2s;box-sizing:border-box;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);"
-            onfocus="this.style.borderColor='#2962ff';this.style.boxShadow='0 0 0 3px rgba(41,98,255,0.2)';this.style.background='rgba(10,14,26,0.65)'"
-            onblur="this.style.borderColor='rgba(255,255,255,0.12)';this.style.boxShadow='none';this.style.background='rgba(10,14,26,0.45)'"
+          <input id="loginPsw" type="password" autocomplete="current-password" placeholder=""
+            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:13px 44px 13px 16px;color:#e2eaf8;font-family:'Inter',sans-serif;font-size:16px;font-weight:500;outline:none;transition:all 0.2s;box-sizing:border-box;"
+            onfocus="this.style.borderColor='#2962ff';this.style.boxShadow='0 0 0 3px rgba(41,98,255,0.2)';this.style.background='rgba(255,255,255,0.08)'"
+            onblur="this.style.borderColor='rgba(255,255,255,0.1)';this.style.boxShadow='none';this.style.background='rgba(255,255,255,0.04)'"
             onkeydown="if(event.key==='Enter')loginAttempt()">
           <button onclick="togglePswVisibility()" tabindex="-1"
             style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#787b86;font-size:14px;padding:4px;line-height:1;"
@@ -2020,17 +2023,19 @@ input[type="number"]:focus {
       </div>
 
       <!-- Error message -->
-      <div id="loginError" style="display:none;background:rgba(239,83,80,0.12);border:1px solid rgba(239,83,80,0.35);border-radius:8px;padding:9px 13px;margin-bottom:12px;font-size:12px;color:#ef5350;font-family:'Inter',sans-serif;backdrop-filter:blur(6px);"></div>
+      <div id="loginError" style="display:none;background:rgba(239,83,80,0.12);border:1px solid rgba(239,83,80,0.35);border-radius:8px;padding:9px 13px;margin-bottom:12px;font-size:12px;color:#ef5350;font-family:'Inter',sans-serif;"></div>
 
       <!-- Lock message -->
-      <div id="loginLock" style="display:none;background:rgba(240,180,41,0.1);border:1px solid rgba(240,180,41,0.3);border-radius:8px;padding:9px 13px;margin-bottom:12px;font-size:12px;color:#f0b429;font-family:'Inter',sans-serif;backdrop-filter:blur(6px);"></div>
+      <div id="loginLock" style="display:none;background:rgba(240,180,41,0.1);border:1px solid rgba(240,180,41,0.3);border-radius:8px;padding:9px 13px;margin-bottom:12px;font-size:12px;color:#f0b429;font-family:'Inter',sans-serif;"></div>
 
       <!-- Submit -->
       <button onclick="loginAttempt()" id="loginBtn"
-        style="width:100%;margin-top:20px;padding:13px;background:rgba(41,98,255,0.85);border:1px solid rgba(41,98,255,0.5);border-radius:10px;color:#fff;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s;letter-spacing:0.3px;backdrop-filter:blur(6px);"
-        onmouseover="this.style.background='rgba(41,98,255,1)';this.style.boxShadow='0 0 20px rgba(41,98,255,0.4)'"
-        onmouseout="this.style.background='rgba(41,98,255,0.85)';this.style.boxShadow='none'">
-        Accedi →
+        style="width:100%;margin-top:20px;padding:13px;background:rgba(41,98,255,0.18);border:1px solid rgba(41,98,255,0.35);border-radius:10px;color:rgba(255,255,255,0.85);font-family:'Inter',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s;letter-spacing:0.3px;"
+        onmouseover="this.style.background='rgba(41,98,255,0.35)';this.style.borderColor='rgba(41,98,255,0.6)'"
+        onmouseout="this.style.background='rgba(41,98,255,0.18)';this.style.borderColor='rgba(41,98,255,0.35)'">
+        <span style="display:inline-block;overflow:hidden;position:relative;vertical-align:middle;">
+          <span style="display:inline-block;background:linear-gradient(90deg,#c084fc,#818cf8,#60a5fa,#a78bfa,#e879f9,#c084fc,#818cf8,#60a5fa,#a78bfa);background-size:300% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:galaxySlide 1.8s linear infinite;font-weight:800;letter-spacing:1px;white-space:nowrap;">Accedi &nbsp;&#8594;</span>
+        </span>
       </button>
     </div>
 
@@ -3624,6 +3629,8 @@ function storiaLoad() {
 }
 function storiaSave(list) {
   localStorage.setItem(STORIA_KEY, JSON.stringify(list));
+  fsCloudSave(list); // sync to cloud
+
 }
 
 function storiaAdd(tipo, inputData, results, label) {
@@ -4029,14 +4036,14 @@ function centroParseNum(v) {
 
 function centroFmt(n, dec) {
   if (isNaN(n) || !isFinite(n)) return '—';
-  dec = dec !== undefined ? dec : 2;
+  dec = 2; // always 2 decimals
   var parts = n.toFixed(dec).split('.');
   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  return dec > 0 ? parts[0] + ',' + parts[1] : parts[0];
+  return parts[0] + ',' + parts[1];
 }
 function centroFmtPct(n) {
   if (isNaN(n) || !isFinite(n)) return '—';
-  return (n * 100).toFixed(3).replace('.', ',') + '%';
+  return (n * 100).toFixed(2).replace('.', ',') + '%';
 }
 
 function setEl(id, val) {
@@ -4082,7 +4089,7 @@ function botFmtPct(n) {
 }
 function botFmtNum(n, dec) {
   if (isNaN(n) || !isFinite(n)) return '—';
-  var parts = n.toFixed(dec !== undefined ? dec : 4).split('.');
+  var parts = n.toFixed(dec !== undefined ? dec : 2).split('.');
   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   return parts[0] + ',' + parts[1];
 }
@@ -4734,6 +4741,92 @@ function centrioStoriaOpenModal(id) {
   document.getElementById('storiaModal').style.display = 'block';
 }
 
+</script>
+
+<!-- ════ FIREBASE ════ -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script>
+(function() {
+  // Stubs — active only if Firebase CDN loaded
+  window.fsCloudSave = function() {};
+  window.fsSyncOnLogin = function() {};
+  window.fsAddSyncIndicator = function() {};
+
+  if (typeof firebase === 'undefined') {
+    return; // offline mode, stubs handle all calls silently
+  }
+
+  var firebaseConfig = {
+    apiKey: "AIzaSyCMSW5QP6JaXov8UjrcDMZ1bcQO0Lc_Adw",
+    authDomain: "oros-analytics.firebaseapp.com",
+    projectId: "oros-analytics",
+    storageBucket: "oros-analytics.firebasestorage.app",
+    messagingSenderId: "563482808426",
+    appId: "1:563482808426:web:2840e21372115c1b63fa13"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  var _db = firebase.firestore();
+  window._orosUserId = null;
+
+  window.fsCloudSave = function(list) {
+    if (!window._orosUserId) return;
+    _db.collection('users').doc(window._orosUserId)
+      .collection('data').doc('storia')
+      .set({ list: list, updatedAt: new Date().toISOString() })
+      .catch(function(e){ console.warn('Firestore save error:', e); });
+  };
+
+  window.fsAddSyncIndicator = function() {
+    if (document.getElementById('orosSyncStatus')) return;
+    var el = document.createElement('div');
+    el.id = 'orosSyncStatus';
+    el.style.cssText = 'font-size:9px;color:var(--tv-muted);text-align:center;padding:2px 6px 6px;font-family:\'Inter\',sans-serif;letter-spacing:0.3px;';
+    var nav = document.getElementById('mainNav');
+    if (nav) {
+      var spacer = nav.querySelector('.sb-spacer');
+      if (spacer) nav.insertBefore(el, spacer); else nav.appendChild(el);
+    }
+  };
+
+  window.fsSyncOnLogin = function(userId) {
+    window._orosUserId = userId.toLowerCase().replace(/\s+/g, '_');
+    window.fsAddSyncIndicator();
+    var syncEl = document.getElementById('orosSyncStatus');
+    if (syncEl) syncEl.textContent = '☁ Sincronizzazione…';
+
+    _db.collection('users').doc(window._orosUserId)
+      .collection('data').doc('storia').get()
+      .then(function(doc) {
+        var cloudList = doc.exists ? (doc.data().list || []) : null;
+        var local = JSON.parse(localStorage.getItem('oros_storia_v1') || '[]');
+
+        if (cloudList === null) {
+          if (local.length > 0) window.fsCloudSave(local);
+          if (syncEl) { syncEl.textContent = '☁ Sincronizzato'; setTimeout(function(){ syncEl.textContent=''; }, 3000); }
+          return;
+        }
+
+        var merged = cloudList.slice();
+        local.forEach(function(e) {
+          if (!merged.find(function(c){ return c.id === e.id; })) merged.push(e);
+        });
+        merged.sort(function(a,b){ return new Date(b.savedAt) - new Date(a.savedAt); });
+        localStorage.setItem('oros_storia_v1', JSON.stringify(merged));
+        if (merged.length > cloudList.length) window.fsCloudSave(merged);
+
+        if (syncEl) {
+          syncEl.textContent = '☁ ' + merged.length + (merged.length === 1 ? ' simulazione' : ' simulazioni');
+          setTimeout(function(){ syncEl.textContent = ''; }, 4000);
+        }
+      })
+      .catch(function(e) {
+        console.warn('Firestore sync error:', e);
+        if (syncEl) syncEl.textContent = '';
+      });
+  };
+})();
 </script>
 
 </body>
