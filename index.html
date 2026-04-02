@@ -351,7 +351,7 @@ function showApp(displayName) {
   // Show home page after login
   goHome();
   // Sync Firestore → localStorage
-  fsSyncOnLogin(match.displayName);
+  fsSyncOnLogin(displayName);
 }
 
 function authInit() {
