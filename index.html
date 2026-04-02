@@ -4792,7 +4792,7 @@ function centrioStoriaOpenModal(id) {
 
   window.fsSyncOnLogin = function(userId) {
     window._orosUserId = userId.toLowerCase().replace(/\s+/g, '_');
-    window.fsAddSyncIndicator();
+    console.warn('OROS Firebase userId:', window._orosUserId);
     var syncEl = document.getElementById('orosSyncStatus');
     if (syncEl) syncEl.textContent = '☁ Sincronizzazione…';
 
