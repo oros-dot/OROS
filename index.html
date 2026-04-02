@@ -961,7 +961,15 @@ document.addEventListener('focusin', function(e) {
 
 /* ── BASE ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body {
+html {
+  background: var(--tv-bg);
+  color: var(--tv-text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  min-height: 100vh;
+  transition: background .25s, color .25s;
+  max-width: 100%;
+}
+body {
   background: var(--tv-bg);
   color: var(--tv-text);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -995,7 +1003,7 @@ body {
   left: 0; top: 0;
   width: 56px;
   height: 100vh;
-  height: 100dvh; /* iOS Safari: altezza viewport dinamica, esclude chrome browser */
+  height: 100dvh;
   background: var(--tv-surf);
   border-right: 1px solid var(--tv-bord);
   display: flex;
@@ -1005,7 +1013,11 @@ body {
   z-index: 500;
   box-shadow: 1px 0 6px var(--tv-shadow);
   transition: background .25s, border-color .25s;
-  overflow: hidden; /* taglia contenuto eccedente; i tooltip position:fixed escono comunque */
+  overflow: hidden;
+  /* iOS fix: force GPU compositing to keep sidebar fixed while scrolling */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 .sb-logo {
