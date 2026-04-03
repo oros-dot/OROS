@@ -1070,9 +1070,15 @@ body {
 [data-theme="light"] .sb-btn:hover { background: rgba(0,0,0,.05); }
 [data-theme="light"] .sb-active { background: rgba(41,98,255,.1) !important; }
 
-/* Tooltip on hover — like Claude interface */
-.sb-btn::after {
-  content: attr(data-tooltip);
+/* Tooltip handled via JS div #sb-tooltip — ::after disabled */
+.sb-btn::after { content: none; }
+
+/* iPad touch: tooltip gestito via JS (classe sb-touch sul body) */
+body.sb-touch .sb-btn:hover::after { opacity: 0 !important; visibility: hidden !important; }
+body.sb-touch .sb-btn.sb-tip::after { opacity: 1 !important; visibility: visible !important; }
+
+/* ── JS-driven sidebar tooltip ── */
+#sb-tooltip {
   position: fixed;
   left: 68px;
   background: var(--tv-surf);
@@ -1083,19 +1089,13 @@ body {
   font-size: 12px; font-weight: 500;
   color: var(--tv-text);
   white-space: nowrap;
-  opacity: 0; visibility: hidden;
   pointer-events: none;
   z-index: 9999;
   box-shadow: 0 4px 14px var(--tv-shadow);
-  transition: opacity .15s, visibility .15s;
+  opacity: 0;
+  transition: opacity .15s;
   transform: translateY(-50%);
-  margin-top: 22px; /* vertically center relative to button */
 }
-.sb-btn:hover::after { opacity: 1; visibility: visible; }
-
-/* iPad touch: tooltip gestito via JS (classe sb-touch sul body) */
-body.sb-touch .sb-btn:hover::after { opacity: 0 !important; visibility: hidden !important; }
-body.sb-touch .sb-btn.sb-tip::after { opacity: 1 !important; visibility: visible !important; }
 
 /* Theme toggle btn in sidebar */
 .theme-btn {
@@ -1115,30 +1115,10 @@ body.sb-touch .sb-btn.sb-tip::after { opacity: 1 !important; visibility: visible
 }
 .theme-btn:hover { color: var(--tv-text); background: rgba(255,255,255,.06); }
 [data-theme="light"] .theme-btn:hover { background: rgba(0,0,0,.05); }
-.theme-btn::after {
-  content: attr(data-tooltip);
-  position: fixed;
-  left: 68px;
-  background: var(--tv-surf);
-  border: 1px solid var(--tv-bord);
-  border-radius: 7px;
-  padding: 6px 11px;
-  font-family: 'Inter', sans-serif;
-  font-size: 12px; font-weight: 500;
-  color: var(--tv-text);
-  white-space: nowrap;
-  opacity: 0; visibility: hidden;
-  pointer-events: none;
-  z-index: 9999;
-  box-shadow: 0 4px 14px var(--tv-shadow);
-  transition: opacity .15s, visibility .15s;
-  transform: translateY(-50%);
-  margin-top: 22px;
-}
-.theme-btn:hover::after { opacity: 1; visibility: visible; }
+/* Tooltip handled via JS div #sb-tooltip — ::after disabled */
+.theme-btn::after { content: none; }
 
-body.sb-touch .theme-btn:hover::after { opacity: 0 !important; visibility: hidden !important; }
-body.sb-touch .theme-btn.sb-tip::after { opacity: 1 !important; visibility: visible !important; }
+/* theme-btn touch handled by same #sb-tooltip JS logic */
 
 /* ── HOME PAGE: always fixed, full viewport, no body scroll ── */
 #pageHome {
@@ -4886,6 +4866,54 @@ function centrioStoriaOpenModal(id) {
         if (syncEl) syncEl.textContent = '';
       });
   };
+})();
+</script>
+
+<!-- ════ SIDEBAR TOOLTIP ════ -->
+<div id="sb-tooltip"></div>
+<script>
+(function() {
+  var tip = document.getElementById('sb-tooltip');
+  if (!tip) return;
+
+  function showTip(el) {
+    var label = el.getAttribute('data-tooltip');
+    if (!label) return;
+    var rect = el.getBoundingClientRect();
+    tip.textContent = label;
+    tip.style.top = (rect.top + rect.height / 2) + 'px';
+    tip.style.opacity = '1';
+  }
+
+  function hideTip() {
+    tip.style.opacity = '0';
+  }
+
+  document.addEventListener('mouseover', function(e) {
+    var el = e.target;
+    // Walk up the DOM to find the .sb-btn or .theme-btn ancestor
+    while (el && el !== document.body) {
+      if (el.classList && (el.classList.contains('sb-btn') || el.classList.contains('theme-btn'))) {
+        showTip(el);
+        return;
+      }
+      el = el.parentElement;
+    }
+    hideTip();
+  });
+
+  document.addEventListener('mouseout', function(e) {
+    var rel = e.relatedTarget;
+    // Hide only if leaving a sb-btn/theme-btn entirely
+    var el = e.target;
+    while (el && el !== document.body) {
+      if (el.classList && (el.classList.contains('sb-btn') || el.classList.contains('theme-btn'))) {
+        hideTip();
+        return;
+      }
+      el = el.parentElement;
+    }
+  });
 })();
 </script>
 
