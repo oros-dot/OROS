@@ -1140,6 +1140,26 @@ body.sb-touch .sb-btn.sb-tip::after { opacity: 1 !important; visibility: visible
 body.sb-touch .theme-btn:hover::after { opacity: 0 !important; visibility: hidden !important; }
 body.sb-touch .theme-btn.sb-tip::after { opacity: 1 !important; visibility: visible !important; }
 
+/* ── HOME PAGE: always fixed, full viewport, no body scroll ── */
+#pageHome {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* When home is active: body must NOT scroll */
+body:not(.has-sidebar) {
+  overflow: hidden;
+  height: 100%;
+}
+
+/* iPhone Safari: prevent elastic bounce on body */
+html, body {
+  overscroll-behavior: none;
+}
+
 /* ── BODY OFFSET WHEN SIDEBAR VISIBLE ── */
 body.has-sidebar {
   padding-left: 56px;
@@ -2013,7 +2033,7 @@ input[type="number"]:focus {
 <canvas id="spaceCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;"></canvas>
 
 <!-- LOGIN SCREEN -->
-<div id="loginScreen" style="position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;">
+<div id="loginScreen" style="position:relative;z-index:1;min-height:100%;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;box-sizing:border-box;">
 
   <div style="position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;" id="starsLayer"></div>
 
@@ -2076,7 +2096,7 @@ input[type="number"]:focus {
 </div>
 
 <!-- APP HOME (shown after login) -->
-<div id="appHome" style="display:none;position:relative;z-index:1;min-height:calc(100vh - 50px);display:none;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center;">
+<div id="appHome" style="display:none;position:relative;z-index:1;min-height:100%;min-height:100dvh;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center;box-sizing:border-box;">
 
   <div style="position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;"></div>
 
