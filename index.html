@@ -896,8 +896,14 @@ document.addEventListener('focusin', function(e) {
 
   /* Mobile: hide desktop sidebar, show mobile top bar */
   .sidebar { display: none !important; }
-  body.has-sidebar { padding-left: 0 !important; padding-top: 50px; }
+  body.has-sidebar { padding-left: 0 !important; padding-top: 50px; height: auto !important; overflow: auto !important; }
   body.has-sidebar #mobileTopBar { display: flex !important; }
+  body.has-sidebar #pageScreener,
+  body.has-sidebar #pageCSP,
+  body.has-sidebar #pageCC,
+  body.has-sidebar #pageBOT,
+  body.has-sidebar #pageStoria,
+  body.has-sidebar #pageCentro { height: auto !important; overflow: visible !important; }
   }
 
   /* EMPTY STATE */
@@ -1135,7 +1141,24 @@ body.sb-touch .theme-btn:hover::after { opacity: 0 !important; visibility: hidde
 body.sb-touch .theme-btn.sb-tip::after { opacity: 1 !important; visibility: visible !important; }
 
 /* ── BODY OFFSET WHEN SIDEBAR VISIBLE ── */
-body.has-sidebar { padding-left: 56px; }
+body.has-sidebar {
+  padding-left: 56px;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+/* Each page becomes the scroll container (not body) */
+body.has-sidebar #pageScreener,
+body.has-sidebar #pageCSP,
+body.has-sidebar #pageCC,
+body.has-sidebar #pageBOT,
+body.has-sidebar #pageStoria,
+body.has-sidebar #pageCentro {
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
 
 /* ── MOBILE TOP BAR ── */
 #mobileTopBar {
