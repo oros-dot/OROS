@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>OROS</title>
 <link rel="apple-touch-icon" sizes="180x180" id="atos-icon" href="">
+<link rel="icon" type="image/png" id="oros-favicon" href="">
 
 <script>
 (function(){
@@ -66,6 +67,8 @@
   // Set icon
   var link = document.getElementById('atos-icon');
   if(link) link.href = c.toDataURL('image/png');
+  var fav = document.getElementById('oros-favicon');
+  if(fav) fav.href = c.toDataURL('image/png');
 })();
 </script>
 
@@ -1927,8 +1930,21 @@ input[type="number"]:focus {
 [data-theme="light"] .home-nav-icon-btn { border-color: rgba(180,134,11,0.3); background: rgba(180,134,11,0.07); color: rgba(180,134,11,0.7); }
 [data-theme="light"] .home-nav-trigger:hover .home-nav-icon-btn { color: #b8860b; background: rgba(180,134,11,0.14); border-color: rgba(180,134,11,0.5); }
 
+/* ── iOS date input normalization ── */
+input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 44px;
+  line-height: 1.4;
+}
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+  padding: 0;
+  margin: 0;
+  min-height: 24px;
+}
+
 </style>
-<body>
 
 <!-- Mobile Top Bar (visible only on small screens when logged in) -->
 <div id="mobileTopBar">
