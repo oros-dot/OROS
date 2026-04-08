@@ -2370,8 +2370,20 @@ input[type="date"]::-webkit-date-and-time-value {
 
   <!-- Profit chart -->
   <div id="pfChartWrap" style="display:none;background:var(--tv-surf);border:1px solid var(--tv-bord);border-radius:8px;padding:20px 24px;margin-bottom:24px;">
-    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:14px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
       <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);">Andamento Profitti Cumulativi</div>
+      <button onclick="pfToggleDateFilter()" id="pfCalBtn" title="Filtra per data" style="width:32px;height:32px;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1" y="3" width="14" height="12" rx="2" stroke="var(--tv-muted)" stroke-width="1.3"/>
+          <path d="M1 6.5h14" stroke="var(--tv-muted)" stroke-width="1.3"/>
+          <path d="M5 1v3M11 1v3" stroke="var(--tv-muted)" stroke-width="1.3" stroke-linecap="round"/>
+          <rect x="4" y="9" width="2" height="2" rx="0.4" fill="var(--tv-muted)"/>
+          <rect x="7.5" y="9" width="2" height="2" rx="0.4" fill="var(--tv-muted)"/>
+          <rect x="11" y="9" width="2" height="2" rx="0.4" fill="var(--tv-muted)"/>
+        </svg>
+      </button>
+    </div>
+    <div id="pfDateFilterPanel" style="display:none;margin-bottom:14px;">
       <div style="display:grid;grid-template-columns:1fr 1fr auto;align-items:end;gap:8px;width:100%;">
         <div style="display:flex;flex-direction:column;gap:4px;">
           <label style="font-size:10px;color:var(--tv-muted);font-family:'Inter',sans-serif;">Dal</label>
@@ -4073,7 +4085,7 @@ function storiaOpenModal(id) {
       ['Rendimento Netto', r.roe     != null ? botFmtPct(r.roe)          : '—'],
     ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] + '</td><td style="padding:8px 12px;color:#7aa3ff;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + row[1] + '</td></tr>'; }).join('');
     document.getElementById('storiaModalBody').innerHTML =
-      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:4px;">' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:4px;">' +
         '<div><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:8px;">Parametri</div>' +
           '<table style="width:100%;border-collapse:collapse;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;overflow:hidden;">' + inputRows + '</table></div>' +
         '<div><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:8px;">Risultati</div>' +
@@ -4137,7 +4149,7 @@ function storiaOpenModal(id) {
   }
 
   document.getElementById('storiaModalBody').innerHTML =
-    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:4px;">' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:4px;">' +
       '<div>' +
         '<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:8px;">Parametri</div>' +
         '<table style="width:100%;border-collapse:collapse;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;overflow:hidden;">' + inputRows + '</table>' +
@@ -5050,7 +5062,7 @@ function centrioStoriaOpenModal(id) {
     mkRow('Mov. Atteso %',   r.futMovPct     != null ? centroFmtPct(r.futMovPct)     : '—', 'var(--tv-green)');
 
   document.getElementById('storiaModalBody').innerHTML =
-    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:4px;">' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:4px;">' +
       '<div>' +
         '<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:8px;">Parametri</div>' +
         '<table style="width:100%;border-collapse:collapse;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;overflow:hidden;">' + inputRows + '</table>' +
@@ -5550,11 +5562,24 @@ function pfFmtEur(n) {
 }
 
 // ── Render grafico profitti cumulativi
+function pfToggleDateFilter() {
+  var panel = document.getElementById('pfDateFilterPanel');
+  var btn   = document.getElementById('pfCalBtn');
+  if (!panel) return;
+  var open = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : 'block';
+  if (btn) btn.style.borderColor = open ? 'var(--tv-bord)' : '#26a69a';
+}
+
 function pfChartResetFilter() {
   var from = document.getElementById('pfChartFrom');
   var to   = document.getElementById('pfChartTo');
   if (from) from.value = '';
   if (to)   to.value   = '';
+  var panel = document.getElementById('pfDateFilterPanel');
+  var btn   = document.getElementById('pfCalBtn');
+  if (panel) panel.style.display = 'none';
+  if (btn)   btn.style.borderColor = 'var(--tv-bord)';
   pfRenderChartFiltered();
 }
 
@@ -6003,7 +6028,7 @@ function pfOpenDetailModal(id) {
   }
 
   var body =
-    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:4px;">' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:4px;">' +
       '<div><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:8px;">Parametri</div>' +
         '<table style="width:100%;border-collapse:collapse;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;overflow:hidden;">' + inputRows + '</table></div>' +
       '<div><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:8px;">Risultati</div>' +
