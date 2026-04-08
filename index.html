@@ -1103,6 +1103,16 @@ body.sb-touch .sb-btn.sb-tip::after { opacity: 1 !important; visibility: visible
   transition: opacity .15s;
   transform: translateY(-50%);
 }
+/* Animazione auto-hide per touch: appare subito, svanisce dopo 1.4s — nessun setTimeout */
+@keyframes sbTipAutoHide {
+  0%   { opacity: 1; }
+  75%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+#sb-tooltip.sb-touch-anim {
+  animation: sbTipAutoHide 1.8s ease forwards;
+  transition: none;
+}
 
 /* Theme toggle btn in sidebar */
 .theme-btn {
@@ -5217,37 +5227,48 @@ function centrioStoriaOpenModal(id) {
     return null;
   }
 
-  function show(el) {
-    var label = el.getAttribute('data-tooltip');
-    if (!label) return;
-    var rect = el.getBoundingClientRect();
-    tip.textContent = label;
-    tip.style.top = (rect.top + rect.height / 2) + 'px';
-    tip.style.opacity = '1';
-  }
-
-  function hide() { tip.style.opacity = '0'; }
-
   if (isTouch) {
-    // Touch (iPad/iPhone): mouseover viene sparato dal tap ma mouseout non arriva mai.
-    // Soluzione: intercettiamo touchstart, mostriamo il tooltip e avviamo un timer
-    // fire-and-forget (nessuna variabile che lo referenzia → nessuno può cancellarlo).
+    // iPad/iPhone: usa animazione CSS — non dipende da setTimeout che iOS può sospendere
     document.addEventListener('touchstart', function(e) {
+      if (window.innerWidth <= 768) return;
       var btn = findBtn(e.target);
-      hide(); // nascondi eventuale tooltip precedente
-      if (btn && window.innerWidth > 768) {
-        show(btn);
-        setTimeout(hide, 1500); // fire-and-forget: sparisce sempre dopo 1.5s
+      // Reset
+      tip.classList.remove('sb-touch-anim');
+      tip.style.animation = 'none';
+      void tip.offsetWidth; // forza reflow per riavviare animazione
+      tip.style.animation = '';
+      if (btn) {
+        var label = btn.getAttribute('data-tooltip');
+        if (!label) { tip.style.opacity = '0'; return; }
+        var rect = btn.getBoundingClientRect();
+        tip.textContent = label;
+        tip.style.top = (rect.top + rect.height / 2) + 'px';
+        tip.classList.add('sb-touch-anim');
+      } else {
+        tip.style.opacity = '0';
       }
     }, { passive: true });
+    tip.addEventListener('animationend', function() {
+      tip.classList.remove('sb-touch-anim');
+      tip.style.opacity = '0';
+    });
   } else {
-    // Desktop: hover normale
+    // Desktop: hover
     document.addEventListener('mouseover', function(e) {
       var btn = findBtn(e.target);
-      btn ? show(btn) : hide();
+      if (btn) {
+        var label = btn.getAttribute('data-tooltip');
+        if (!label) return;
+        var rect = btn.getBoundingClientRect();
+        tip.textContent = label;
+        tip.style.top = (rect.top + rect.height / 2) + 'px';
+        tip.style.opacity = '1';
+      } else {
+        tip.style.opacity = '0';
+      }
     });
     document.addEventListener('mouseout', function(e) {
-      if (findBtn(e.target)) hide();
+      if (findBtn(e.target)) tip.style.opacity = '0';
     });
   }
 })();
