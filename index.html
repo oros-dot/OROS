@@ -2370,22 +2370,22 @@ input[type="date"]::-webkit-date-and-time-value {
 
   <!-- Profit chart -->
   <div id="pfChartWrap" style="display:none;background:var(--tv-surf);border:1px solid var(--tv-bord);border-radius:8px;padding:20px 24px;margin-bottom:24px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:14px;">
       <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);">Andamento Profitti Cumulativi</div>
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <div style="display:flex;align-items:center;gap:6px;">
-          <label style="font-size:10px;color:var(--tv-muted);font-family:'Inter',sans-serif;white-space:nowrap;">Dal</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;align-items:end;gap:8px;width:100%;">
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:10px;color:var(--tv-muted);font-family:'Inter',sans-serif;">Dal</label>
           <input type="date" id="pfChartFrom"
-            style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:7px 10px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:13px;outline:none;cursor:pointer;"
+            style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;padding:10px 12px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:14px;outline:none;cursor:pointer;width:100%;box-sizing:border-box;min-height:42px;"
             oninput="pfRenderChartFiltered()">
         </div>
-        <div style="display:flex;align-items:center;gap:6px;">
-          <label style="font-size:10px;color:var(--tv-muted);font-family:'Inter',sans-serif;white-space:nowrap;">Al</label>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:10px;color:var(--tv-muted);font-family:'Inter',sans-serif;">Al</label>
           <input type="date" id="pfChartTo"
-            style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:7px 10px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:13px;outline:none;cursor:pointer;"
+            style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;padding:10px 12px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:14px;outline:none;cursor:pointer;width:100%;box-sizing:border-box;min-height:42px;"
             oninput="pfRenderChartFiltered()">
         </div>
-        <button onclick="pfChartResetFilter()" style="padding:7px 12px;background:transparent;border:1px solid var(--tv-bord);border-radius:6px;color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;cursor:pointer;">✕ Reset</button>
+        <button onclick="pfChartResetFilter()" style="padding:0 14px;background:transparent;border:1px solid var(--tv-bord);border-radius:8px;color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;cursor:pointer;min-height:42px;white-space:nowrap;align-self:end;">✕ Reset</button>
       </div>
     </div>
     <canvas id="pfProfitChart" height="90"></canvas>
