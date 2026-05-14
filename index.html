@@ -1039,10 +1039,8 @@ body {
 /* ── SIDEBAR NAV ── */
 .sidebar {
   position: fixed;
-  left: 0; top: 0;
+  left: 0; top: 0; bottom: 0;
   width: 56px;
-  height: 100vh;
-  height: 100dvh;
   background: var(--tv-surf);
   border-right: 1px solid var(--tv-bord);
   display: flex;
@@ -1052,7 +1050,9 @@ body {
   z-index: 500;
   box-shadow: 1px 0 6px var(--tv-shadow);
   transition: background .25s, border-color .25s;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   /* iOS fix: force GPU compositing to keep sidebar fixed while scrolling */
   -webkit-transform: translateZ(0);
   transform: translateZ(0);
