@@ -5156,22 +5156,44 @@ function centrioStoriaOpenModal(id) {
   var _db = firebase.firestore();
   window._orosUserId = null;
 
-  window.fsCloudSave = function(list) {
-    if (!window._orosUserId) return;
-    _db.collection('users').doc(window._orosUserId)
-      .collection('data').doc('storia')
-      .set({ list: list, updatedAt: new Date().toISOString() })
-      .catch(function(e){ console.warn('Firestore save error (storia):', e); });
-  };
+  // ── Helper: chiave localStorage del timestamp di sync ──
+  function _tsKey(docName) { return 'oros_' + docName + '_updatedAt'; }
 
-  // ── Portafoglio cloud save ──
-  window.fsPfCloudSave = function(list) {
+  // ── Salvataggio cloud con timestamp (mirror anche in locale) ──
+  function _cloudSave(docName, list) {
     if (!window._orosUserId) return;
+    var ts = new Date().toISOString();
+    localStorage.setItem(_tsKey(docName), ts);
     _db.collection('users').doc(window._orosUserId)
-      .collection('data').doc('portafoglio')
-      .set({ list: list, updatedAt: new Date().toISOString() })
-      .catch(function(e){ console.warn('Firestore save error (portafoglio):', e); });
-  };
+      .collection('data').doc(docName)
+      .set({ list: list, updatedAt: ts })
+      .catch(function(e){ console.warn('Firestore save error (' + docName + '):', e); });
+  }
+
+  window.fsCloudSave   = function(list) { _cloudSave('storia', list); };
+  window.fsPfCloudSave = function(list) { _cloudSave('portafoglio', list); };
+
+  // ── Listener real-time: propaga modifiche/cancellazioni da altri device ──
+  function _attachListener(docName, lsKey, renderFn) {
+    _db.collection('users').doc(window._orosUserId)
+      .collection('data').doc(docName)
+      .onSnapshot(function(snap) {
+        if (!snap.exists) return;
+        // Ignora gli aggiornamenti generati da questo stesso device
+        if (snap.metadata && snap.metadata.hasPendingWrites) return;
+        var data = snap.data() || {};
+        var cloudTs = data.updatedAt || '';
+        var localTs = localStorage.getItem(_tsKey(docName)) || '';
+        // Cloud più recente → adotta cloud (sostituzione completa, niente merge)
+        if (cloudTs && cloudTs > localTs) {
+          localStorage.setItem(lsKey, JSON.stringify(data.list || []));
+          localStorage.setItem(_tsKey(docName), cloudTs);
+          if (typeof renderFn === 'function') renderFn();
+          var syncEl = document.getElementById('orosSyncStatus');
+          if (syncEl) { syncEl.textContent = '☁ Aggiornato'; setTimeout(function(){ syncEl.textContent = ''; }, 2500); }
+        }
+      }, function(e){ console.warn('Firestore listener error (' + docName + '):', e); });
+  }
 
   window.fsAddSyncIndicator = function() {
     if (document.getElementById('orosSyncStatus')) return;
@@ -5191,70 +5213,39 @@ function centrioStoriaOpenModal(id) {
     var syncEl = document.getElementById('orosSyncStatus');
     if (syncEl) syncEl.textContent = '☁ Sincronizzazione…';
 
-    // ── STORIA sync ──
-    _db.collection('users').doc(window._orosUserId)
-      .collection('data').doc('storia').get()
-      .then(function(doc) {
-        var cloudList = doc.exists ? (doc.data().list || []) : null;
-        var local = JSON.parse(localStorage.getItem('oros_storia_v1') || '[]');
+    var docs = [
+      { name: 'storia',      ls: 'oros_storia_v1',      save: window.fsCloudSave,   render: function(){ if (typeof renderStoria === 'function') renderStoria(); } },
+      { name: 'portafoglio', ls: 'oros_portafoglio_v1', save: window.fsPfCloudSave, render: function(){ if (typeof portafoglioRender === 'function') portafoglioRender(); } }
+    ];
 
-        if (cloudList === null) {
-          if (local.length > 0) window.fsCloudSave(local);
-          return;
-        }
+    docs.forEach(function(cfg) {
+      _db.collection('users').doc(window._orosUserId)
+        .collection('data').doc(cfg.name).get()
+        .then(function(snap) {
+          var localTs   = localStorage.getItem(_tsKey(cfg.name)) || '';
+          var localList = JSON.parse(localStorage.getItem(cfg.ls) || '[]');
 
-        var merged = cloudList.slice();
-        local.forEach(function(e) {
-          if (!merged.find(function(c){ return c.id === e.id; })) merged.push(e);
+          if (!snap.exists) {
+            // Cloud vuoto → carica i dati locali
+            if (localList.length > 0) cfg.save(localList);
+          } else {
+            var cloudTs = (snap.data() || {}).updatedAt || '';
+            if (localTs && cloudTs && localTs > cloudTs) {
+              // Modifiche locali offline più recenti → vincono e sovrascrivono il cloud
+              cfg.save(localList);
+            }
+            // Altrimenti: cloud più recente (o uguale) → ci pensa il listener ad allinearlo
+          }
+          // Attiva il listener real-time per gli aggiornamenti continui
+          _attachListener(cfg.name, cfg.ls, cfg.render);
+        })
+        .catch(function(e) {
+          console.warn('Firestore sync error (' + cfg.name + '):', e);
+          _attachListener(cfg.name, cfg.ls, cfg.render);
         });
-        merged.sort(function(a,b){ return new Date(b.savedAt) - new Date(a.savedAt); });
-        localStorage.setItem('oros_storia_v1', JSON.stringify(merged));
-        if (merged.length > cloudList.length) window.fsCloudSave(merged);
+    });
 
-        // aggiorna UI storia se già aperta
-        if (typeof renderStoria === 'function') renderStoria();
-      })
-      .catch(function(e) { console.warn('Firestore sync error (storia):', e); });
-
-    // ── PORTAFOGLIO sync ──
-    _db.collection('users').doc(window._orosUserId)
-      .collection('data').doc('portafoglio').get()
-      .then(function(doc) {
-        var cloudList = doc.exists ? (doc.data().list || []) : null;
-        var local = JSON.parse(localStorage.getItem('oros_portafoglio_v1') || '[]');
-
-        if (cloudList === null) {
-          // primo accesso da questo device: carica dati locali sul cloud
-          if (local.length > 0) window.fsPfCloudSave(local);
-          if (syncEl) { syncEl.textContent = '☁ Sincronizzato'; setTimeout(function(){ syncEl.textContent=''; }, 3000); }
-          return;
-        }
-
-        // Merge: preferisce voci cloud, aggiunge locali mancanti
-        var merged = cloudList.slice();
-        local.forEach(function(e) {
-          if (!merged.find(function(c){ return c.id === e.id; })) merged.push(e);
-        });
-        // Mantieni ordine cronologico inverso (più recente prima)
-        merged.sort(function(a,b){
-          return new Date(b.addedAt || b.openDate || 0) - new Date(a.addedAt || a.openDate || 0);
-        });
-        localStorage.setItem('oros_portafoglio_v1', JSON.stringify(merged));
-        if (merged.length > cloudList.length) window.fsPfCloudSave(merged);
-
-        // aggiorna UI portafoglio se già aperta
-        if (typeof portafoglioRender === 'function') portafoglioRender();
-
-        if (syncEl) {
-          var nStoria = JSON.parse(localStorage.getItem('oros_storia_v1') || '[]').length;
-          syncEl.textContent = '☁ ' + nStoria + (nStoria === 1 ? ' sim.' : ' sim.') + ' · ' + merged.length + ' oper.';
-          setTimeout(function(){ syncEl.textContent = ''; }, 4000);
-        }
-      })
-      .catch(function(e) {
-        console.warn('Firestore sync error (portafoglio):', e);
-        if (syncEl) syncEl.textContent = '';
-      });
+    if (syncEl) { setTimeout(function(){ if (syncEl.textContent === '☁ Sincronizzazione…') syncEl.textContent = ''; }, 4000); }
   };
 })();
 </script>
