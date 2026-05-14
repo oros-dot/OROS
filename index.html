@@ -936,7 +936,7 @@ document.addEventListener('focusin', function(e) {
   body.has-sidebar #pageBOT,
   body.has-sidebar #pagePortafoglio,
   body.has-sidebar #pageStoria,
-  body.has-sidebar #pageCentro { height: auto !important; overflow: visible !important; }
+  body.has-sidebar #pageCentro { position: static !important; height: auto !important; overflow: visible !important; }
   }
 
   /* EMPTY STATE */
@@ -1195,8 +1195,11 @@ body.has-sidebar #pageBOT,
 body.has-sidebar #pagePortafoglio,
 body.has-sidebar #pageStoria,
 body.has-sidebar #pageCentro {
-  height: 100vh;
-  height: 100dvh;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 56px;
+  right: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
