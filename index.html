@@ -6,6 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="OROS">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta http-equiv="Content-Security-Policy-Report-Only" content="default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://www.gstatic.com https://s3.tradingview.com https://www.tradingview-widget.com https://s.tradingview.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://firestore.googleapis.com https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com; frame-src https://www.tradingview.com https://*.tradingview.com https://www.tradingview-widget.com https://s.tradingview.com">
 <title>OROS</title>
 <link rel="apple-touch-icon" sizes="180x180" id="atos-icon" href="">
 <link rel="icon" type="image/png" id="oros-favicon" href="">
@@ -76,6 +77,31 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 
 <script>
+// ── Helper di sicurezza / utilità globali ──
+// Escape HTML per ogni dato utente interpolato in innerHTML (anti-XSS)
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+// Escape per valori dentro attributi (value="...", ecc.)
+function escapeAttr(s) {
+  return escapeHtml(s);
+}
+// Debounce: ritarda l'esecuzione finché non si smette di chiamare
+function debounce(fn, wait) {
+  var t;
+  return function() {
+    var ctx = this, args = arguments;
+    clearTimeout(t);
+    t = setTimeout(function(){ fn.apply(ctx, args); }, wait || 250);
+  };
+}
+
 // goPage defined first — always available
 function goPage(p) {
   ['Home','Screener','CSP','CC','BOT','Portafoglio','Storia','Centro'].forEach(function(n) {
@@ -120,6 +146,43 @@ function goHome() {
   document.getElementById('mainNav').style.display = 'none';
   document.body.classList.remove('has-sidebar');
   closeMobileSidebar();
+  homeRenderStats();
+}
+
+// ── Dashboard riepilogo Home ──
+function homeRenderStats() {
+  var el = document.getElementById('homeQuickStats');
+  if (!el) return;
+  var pf = [], st = [];
+  try { pf = (typeof pfLoad === 'function') ? pfLoad() : []; } catch (e) { pf = []; }
+  try { st = (typeof storiaLoad === 'function') ? storiaLoad() : []; } catch (e) { st = []; }
+
+  var openOps   = pf.filter(function(e){ return e.status === 'open'; });
+  var closedOps = pf.filter(function(e){ return e.status === 'closed'; });
+  var totalPL = 0;
+  closedOps.forEach(function(e){ if (e.closedProfit != null) totalPL += e.closedProfit; });
+  var wins = closedOps.filter(function(e){ return (e.closedProfit || 0) > 0; }).length;
+  var winRate = closedOps.length > 0 ? Math.round(wins / closedOps.length * 100) : null;
+
+  var plColor = totalPL >= 0 ? '#26a69a' : '#ef5350';
+  var plSign  = totalPL >= 0 ? '+' : '−';
+  var plStr   = plSign + '€' + Math.abs(totalPL).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+  function card(label, value, color) {
+    return '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px 18px;min-width:110px;">' +
+      '<div style="font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#787b86;margin-bottom:6px;">' + label + '</div>' +
+      '<div style="font-size:22px;font-weight:800;color:' + color + ';font-family:\'Inter\',sans-serif;letter-spacing:-0.5px;">' + value + '</div>' +
+    '</div>';
+  }
+
+  el.innerHTML =
+    '<div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;">' +
+      card('Operazioni Aperte', openOps.length, '#3d9bff') +
+      card('P&amp;L Realizzato', plStr, plColor) +
+      (winRate !== null ? card('Win Rate', winRate + '%', winRate >= 50 ? '#26a69a' : '#ef5350') : '') +
+      card('Simulazioni', st.length, '#c084fc') +
+    '</div>';
+  el.style.display = 'block';
 }
 
 function toggleMobileSidebar() {
@@ -1178,6 +1241,19 @@ body.has-sidebar #pageCentro {
   -webkit-overflow-scrolling: touch;
 }
 
+/* ── Portafoglio: summary bar sticky in scroll ── */
+#pfSummaryRow {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--tv-bg);
+  margin: 0 -24px;
+  padding: 0 24px;
+}
+@media (max-width: 768px) {
+  #pfSummaryRow { position: static; margin: 0; padding: 0; }
+}
+
 /* ── MOBILE TOP BAR ── */
 #mobileTopBar {
   display: none;
@@ -2138,9 +2214,12 @@ input[type="date"]::-webkit-date-and-time-value {
       OROS
     </div>
 
-    <div style="font-size:clamp(13px,2vw,16px);color:#d1d4dc;line-height:1.6;margin-bottom:48px;font-family:'Inter',sans-serif;font-weight:400;letter-spacing:0.3px;text-align:center;">
+    <div style="font-size:clamp(13px,2vw,16px);color:#d1d4dc;line-height:1.6;margin-bottom:32px;font-family:'Inter',sans-serif;font-weight:400;letter-spacing:0.3px;text-align:center;">
       Analisi integrata di <span style="color:#f0b429;font-weight:600;">opzioni</span>, <span style="color:#f0b429;font-weight:600;">titoli di stato</span> e <span style="color:#f0b429;font-weight:600;">struttura del mercato</span> su un'unica piattaforma privata.
     </div>
+
+    <!-- Quick stats dashboard -->
+    <div id="homeQuickStats" style="display:none;margin-bottom:40px;"></div>
 
     <div style="display:flex;justify-content:center;margin-top:8px;">
       <div class="home-nav-trigger" style="position:relative;display:inline-block;">
@@ -2225,7 +2304,7 @@ input[type="date"]::-webkit-date-and-time-value {
 </div>
 
 <div id="pageScreener" style="display:none;">
-<div class="sc-wrap">
+<div class="sc-wrap" style="max-width:1200px;padding:32px 24px;">
   <div class="sc-bar">
     <div>
       <h2>Screener Azioni</h2>
@@ -2286,7 +2365,7 @@ input[type="date"]::-webkit-date-and-time-value {
 
 <!-- ════ BOT PAGE ════ -->
 <div id="pageBOT" style="display:none;">
-<div class="container" style="max-width:900px;">
+<div class="container" style="max-width:1200px;">
 
   <header>
     <div class="logo-area">
@@ -2353,7 +2432,7 @@ input[type="date"]::-webkit-date-and-time-value {
 
 <!-- ════ PORTAFOGLIO PAGE ════ -->
 <div id="pagePortafoglio" style="display:none;">
-<div class="sc-wrap" style="max-width:1200px;">
+<div class="sc-wrap" style="max-width:1200px;padding:32px 24px;">
 
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
     <div>
@@ -2362,6 +2441,9 @@ input[type="date"]::-webkit-date-and-time-value {
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <button id="pfFilterAll" onclick="pfSetFilter('all')" class="storia-filter-btn storia-filter-active" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-blue);color:#fff;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;">Tutti</button>
       <button onclick="pfManualOpen()" style="padding:6px 14px;border-radius:6px;border:1px solid rgba(0,229,160,0.3);background:rgba(0,229,160,0.08);color:#00e5a0;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;cursor:pointer;line-height:1;" title="Aggiungi operazione manuale">+</button>
+      <button onclick="dataExport('portafoglio')" style="padding:6px 12px;border-radius:6px;border:1px solid var(--tv-bord);background:transparent;color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;" title="Esporta backup JSON">↓ Export</button>
+      <button onclick="document.getElementById('pfImportFile').click()" style="padding:6px 12px;border-radius:6px;border:1px solid var(--tv-bord);background:transparent;color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;" title="Importa backup JSON">↑ Import</button>
+      <input type="file" id="pfImportFile" accept="application/json,.json" style="display:none;" onchange="dataImport('portafoglio', this)">
     </div>
   </div>
 
@@ -2564,7 +2646,7 @@ input[type="date"]::-webkit-date-and-time-value {
 
 <!-- ════ STORIA PAGE ════ -->
 <div id="pageStoria" style="display:none;">
-<div class="sc-wrap" style="max-width:1200px;">
+<div class="sc-wrap" style="max-width:1200px;padding:32px 24px;">
 
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
     <div>
@@ -2576,6 +2658,9 @@ input[type="date"]::-webkit-date-and-time-value {
       <button id="storiaFilterCC"   onclick="storiaSetFilter('cc')"   class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 13" fill="none" style="flex-shrink:0;color:#f0b429"><rect x="0.5" y="6.5" width="3" height="6" rx="0.6" fill="currentColor" opacity="0.9"/><rect x="5.5" y="3.5" width="3" height="9" rx="0.6" fill="currentColor" opacity="0.9"/><rect x="10.5" y="0.5" width="3" height="12" rx="0.6" fill="currentColor" opacity="0.9"/></svg>CC</button>
       <button id="storiaFilterCentro" onclick="storiaSetFilter('centro')" class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;color:#c084fc"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3" opacity="0.85"/><line x1="7" y1="1.5" x2="7" y2="12.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/><line x1="1.5" y1="7" x2="12.5" y2="7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/></svg>Sup-Res MM</button>
       <button id="storiaFilterBOT" onclick="storiaSetFilter('bot')" class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;color:#7aa3ff"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/><line x1="4" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><line x1="4" y1="7.5" x2="10" y2="7.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><line x1="4" y1="10" x2="7.5" y2="10" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>BOT</button>
+      <button onclick="dataExport('storia')" style="padding:6px 12px;border-radius:6px;border:1px solid var(--tv-bord);background:transparent;color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;" title="Esporta backup JSON">↓ Export</button>
+      <button onclick="document.getElementById('storiaImportFile').click()" style="padding:6px 12px;border-radius:6px;border:1px solid var(--tv-bord);background:transparent;color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;" title="Importa backup JSON">↑ Import</button>
+      <input type="file" id="storiaImportFile" accept="application/json,.json" style="display:none;" onchange="dataImport('storia', this)">
     </div>
   </div>
 
@@ -2869,12 +2954,6 @@ function fmtPct(n) {
   var parts = (n * 100).toFixed(2).split('.');
   return parts[0] + ',' + parts[1] + '%';
 }
-function fmtN(n) {
-  if (isNaN(n) || !isFinite(n)) return '—';
-  var parts = n.toFixed(2).split('.');
-  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  return parts[0] + ',' + parts[1];
-}
 function fmtInt(n) {
   if (isNaN(n) || !isFinite(n)) return '—';
   return Math.floor(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -2974,7 +3053,7 @@ function renderTabs() {
     const el = document.createElement('div');
     el.className = 'tab' + (tab.id === activeTab ? ' active' : '');
     const ticker = tab.data.ticker || `T${tabs.indexOf(tab)+1}`;
-    el.innerHTML = `<span class="tab-ticker">${ticker.toUpperCase()}</span>
+    el.innerHTML = `<span class="tab-ticker">${escapeHtml(ticker.toUpperCase())}</span>
       ${tabs.length > 1 ? `<span class="close-btn" data-id="${tab.id}">×</span>` : ''}`;
     el.addEventListener('click', (e) => {
       if (e.target.classList.contains('close-btn')) {
@@ -3009,7 +3088,7 @@ function renderPanels() {
           <div class="input-grid">
             <div class="field full ticker-field">
               <label>Ticker / Simbolo<span class="tip"><span class="tip-i">i</span><span class="tip-box">Simbolo del titolo. Es: MIL:SPMI per Borsa Italiana, AAPL per Nasdaq.</span></span></label>
-              <input type="text" placeholder="es. SPMI" value="${d.ticker}" data-field="ticker" maxlength="10">
+              <input type="text" placeholder="es. SPMI" value="${escapeAttr(d.ticker)}" data-field="ticker" maxlength="10">
             </div>
             <div class="field">
               <label>Strike Price<span class="tip"><span class="tip-i">i</span><span class="tip-box">Prezzo di esercizio della Put: ti impegni ad acquistare il titolo a questo prezzo se assegnato.</span></span></label>
@@ -3187,7 +3266,7 @@ function renderCompare() {
             ${results.map((r, i) => `
               <tr>
                 <td>
-                  <span class="ticker-badge">${r.ticker.toUpperCase()}</span>
+                  <span class="ticker-badge">${escapeHtml(r.ticker.toUpperCase())}</span>
                   ${i === bestIdx && r.res ? '<span class="best-badge">BEST</span>' : ''}
                 </td>
                 <td class="gold-val">${r.tab.data.strike ? '€' + fmtDec(parseNum(r.tab.data.strike), 3) : '—'}</td>
@@ -3282,6 +3361,8 @@ function buildScreener(theme) {
     // Catch postMessage from TV iframe (symbol click event)
     window.addEventListener('message', function(e) {
       if (!e.data) return;
+      // Sicurezza: accetta solo messaggi provenienti da TradingView
+      if (!e.origin || e.origin.indexOf('tradingview.com') === -1) return;
       try {
         var d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
         // TV sends {name:'symbol', params:{symbol:'...'}} or similar
@@ -3289,8 +3370,9 @@ function buildScreener(theme) {
         if (sym && (d.name === 'symbol' || d.type === 'symbol')) {
           window.open('https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(sym), '_blank', 'noopener');
         }
-        // TV sends navigate event with url
-        if (d.name === 'navigate' && d.params && d.params.url) {
+        // TV sends navigate event with url — solo URL TradingView
+        if (d.name === 'navigate' && d.params && d.params.url &&
+            String(d.params.url).indexOf('tradingview.com') > -1) {
           window.open(d.params.url, '_blank', 'noopener');
         }
       } catch(ex) {}
@@ -3440,7 +3522,7 @@ function ccRenderTabs() {
     const el = document.createElement('div');
     el.className = 'tab' + (tab.id === ccActiveTab ? ' active' : '');
     const tk = tab.data.ticker || ('T' + (idx + 1));
-    el.innerHTML = `<span class="tab-ticker">${tk.toUpperCase()}</span>${ccTabs.length > 1 ? `<span class="close-btn" data-id="${tab.id}">×</span>` : ''}`;
+    el.innerHTML = `<span class="tab-ticker">${escapeHtml(tk.toUpperCase())}</span>${ccTabs.length > 1 ? `<span class="close-btn" data-id="${tab.id}">×</span>` : ''}`;
     el.addEventListener('click', e => {
       if (e.target.classList.contains('close-btn')) ccRemoveTab(tab.id);
       else ccSetActive(tab.id);
@@ -3488,7 +3570,7 @@ function ccRenderPanel() {
           <div class="input-grid">
             <div class="field full ticker-field">
               <label>Ticker / Simbolo<span class="tip"><span class="tip-i">i</span><span class="tip-box">Simbolo del titolo su cui hai le azioni e vuoi vendere la Covered Call.</span></span></label>
-              <input type="text" placeholder="es. SPMI" value="${d.ticker}" data-field="ticker" maxlength="10">
+              <input type="text" placeholder="es. SPMI" value="${escapeAttr(d.ticker)}" data-field="ticker" maxlength="10">
             </div>
             <div class="field">
               <label>Strike Price<span class="tip"><span class="tip-i">i</span><span class="tip-box">Prezzo a cui ti impegni a cedere le azioni se il titolo sale oltre questo livello a scadenza.</span></span></label>
@@ -3657,7 +3739,7 @@ function ccRenderCompare() {
           <th>Titolo</th><th>Strike</th><th>Contratti</th><th>Premio Lordo</th><th>Premio Netto</th><th>Rend. Scad. Netto</th><th>Rend. Annuo Netto</th>
         </tr></thead><tbody>
         ${results.map((r, i) => `<tr>
-          <td><span class="ticker-badge">${r.ticker.toUpperCase()}</span>${i===bestIdx&&r.res?'<span class="best-badge">BEST</span>':''}</td>
+          <td><span class="ticker-badge">${escapeHtml(r.ticker.toUpperCase())}</span>${i===bestIdx&&r.res?'<span class="best-badge">BEST</span>':''}</td>
           <td class="gold-val">${r.tab.data.strike ? '€' + fmtDec(ccParseNum(r.tab.data.strike), 3) : '—'}</td>
           <td class="gold-val">${r.tab.data.contratti || '—'}</td>
           <td class="green-val">${r.res ? fmt(r.res.premioLordo)  : '—'}</td>
@@ -4045,7 +4127,7 @@ function renderStoria() {
           '<div style="font-family:\'Inter\',sans-serif;font-size:15px;font-weight:700;color:' + accentColor + ';">' + rendAnnuo + '</div>' +
         '</div>' +
       '</div>' +
-      (entry.label ? '<div style="margin-top:10px;font-size:11px;color:var(--tv-muted);font-family:\'Inter\',sans-serif;font-style:italic;">' + entry.label + '</div>' : '') +
+      (entry.label ? '<div style="margin-top:10px;font-size:11px;color:var(--tv-muted);font-family:\'Inter\',sans-serif;font-style:italic;">' + escapeHtml(entry.label) + '</div>' : '') +
     '</div>';
   });
   html += '</div>';
@@ -4076,14 +4158,14 @@ function storiaOpenModal(id) {
       ['N° titoli', d.qty || '—'],
       ['Rimborso', d.rimborso || '1'],
       ['Commissioni', d.comm ? '€' + d.comm : '—'],
-    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] + '</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:400;">' + row[1] + '</td></tr>'; }).join('');
+    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + escapeHtml(row[0]) + '</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:400;">' + escapeHtml(row[1]) + '</td></tr>'; }).join('');
     var resultRows = [
       ['Investimento', r.investimento != null ? botFmtEur(r.investimento) : '—'],
       ['Gain Lordo',   r.gain        != null ? botFmtEur(r.gain)         : '—'],
       ['Capital Gain', r.capGain     != null ? botFmtEur(r.capGain)      : '—'],
       ['Utile Netto',  r.utile       != null ? botFmtEur(r.utile)        : '—'],
       ['Rendimento Netto', r.roe     != null ? botFmtPct(r.roe)          : '—'],
-    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] + '</td><td style="padding:8px 12px;color:#7aa3ff;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + row[1] + '</td></tr>'; }).join('');
+    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + escapeHtml(row[0]) + '</td><td style="padding:8px 12px;color:#7aa3ff;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + escapeHtml(row[1]) + '</td></tr>'; }).join('');
     document.getElementById('storiaModalBody').innerHTML =
       '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:4px;">' +
         '<div><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:8px;">Parametri</div>' +
@@ -4124,14 +4206,14 @@ function storiaOpenModal(id) {
       ['Cash',          d.cash      ? '€' + d.cash   : '—'],
       ['Premio',        d.premio    || '—'],
       ['Qtà per opz.',  d.quantitaOpz || '—'],
-    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] + '</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:400;">' + row[1] + '</td></tr>'; }).join('');
+    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + escapeHtml(row[0]) + '</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:400;">' + escapeHtml(row[1]) + '</td></tr>'; }).join('');
   } else {
     inputRows = [
       ['Strike',        d.strike    ? '€' + d.strike : '—'],
       ['Premio',        d.premio    || '—'],
       ['Contratti',     d.contratti || '—'],
       ['Qtà per opz.',  d.quantitaOpz || '—'],
-    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] + '</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:400;">' + row[1] + '</td></tr>'; }).join('');
+    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + escapeHtml(row[0]) + '</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:400;">' + escapeHtml(row[1]) + '</td></tr>'; }).join('');
   }
 
   var resultRows = '';
@@ -4145,7 +4227,7 @@ function storiaOpenModal(id) {
       ['Rend. Annuo Lordo', fmtPct(r.rendAnnuoLordo)],
     ];
     if (!isCsp && r.cash) rows.unshift(['Controvalore Totale', fmt(r.cash)]);
-    resultRows = rows.map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] + '</td><td style="padding:8px 12px;color:' + accentColor + ';font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + row[1] + '</td></tr>'; }).join('');
+    resultRows = rows.map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + escapeHtml(row[0]) + '</td><td style="padding:8px 12px;color:' + accentColor + ';font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + escapeHtml(row[1]) + '</td></tr>'; }).join('');
   }
 
   document.getElementById('storiaModalBody').innerHTML =
@@ -4436,12 +4518,6 @@ function botFmtPct(n) {
   if (isNaN(n) || !isFinite(n)) return '—';
   return (n * 100).toFixed(2).replace('.', ',') + '%';
 }
-function botFmtNum(n, dec) {
-  if (isNaN(n) || !isFinite(n)) return '—';
-  var parts = n.toFixed(dec !== undefined ? dec : 2).split('.');
-  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  return parts[0] + ',' + parts[1];
-}
 
 function botGetResults(tab) {
   var price = botParseNum(tab.data.price);
@@ -4489,7 +4565,7 @@ function botRenderTabs() {
     var el = document.createElement('div');
     el.className = 'tab' + (tab.id === botActiveTab ? ' active' : '');
     var label = (tab.data.ticker || ('T' + (botTabs.indexOf(tab)+1))).toUpperCase();
-    el.innerHTML = '<span class="tab-ticker">' + label + '</span>' +
+    el.innerHTML = '<span class="tab-ticker">' + escapeHtml(label) + '</span>' +
       (botTabs.length > 1 ? '<span class="close-btn" data-id="' + tab.id + '">×</span>' : '');
     el.addEventListener('click', function(e) {
       if (e.target.classList.contains('close-btn')) removeBotTab(tab.id);
@@ -4629,7 +4705,7 @@ function botRenderCompare() {
   rows.forEach(function(row, i) {
     var bg = i % 2 === 0 ? '' : 'background:rgba(255,255,255,0.02)';
     html += '<tr style="' + bg + '">' +
-      '<td style="padding:9px 12px;color:var(--tv-muted);font-size:12px;font-weight:600;white-space:nowrap;border-bottom:1px solid rgba(42,46,57,0.3);">' + row[0] + '</td>';
+      '<td style="padding:9px 12px;color:var(--tv-muted);font-size:12px;font-weight:600;white-space:nowrap;border-bottom:1px solid rgba(42,46,57,0.3);">' + escapeHtml(row[0]) + '</td>';
     botTabs.forEach(function(tab) {
       var res = botGetResults(tab);
       html += '<td style="padding:9px 12px;text-align:right;color:var(--tv-text);font-size:13px;font-weight:500;border-bottom:1px solid rgba(42,46,57,0.3);">' + row[1](res, tab.data) + '</td>';
@@ -5015,7 +5091,7 @@ renderStoria = function() {
             '<div style="font-family:\'Inter\',sans-serif;font-size:15px;font-weight:700;color:' + accentColor + ';">' + rendAnnuo + '</div>' +
           '</div>' +
         '</div>' +
-        (entry.label ? '<div style="margin-top:10px;font-size:11px;color:var(--tv-muted);font-family:\'Inter\',sans-serif;font-style:italic;">' + entry.label + '</div>' : '') +
+        (entry.label ? '<div style="margin-top:10px;font-size:11px;color:var(--tv-muted);font-family:\'Inter\',sans-serif;font-style:italic;">' + escapeHtml(entry.label) + '</div>' : '') +
       '</div>';
     }
   });
@@ -5553,13 +5629,6 @@ function pfFmtDateTime(isoDateTime) {
   var min  = String(d.getMinutes()).padStart(2, '0');
   return dd + '/' + mm + '/' + yyyy + ' ' + hh + ':' + min;
 }
-function pfFmtEur(n) {
-  if (isNaN(n) || !isFinite(n)) return '—';
-  var neg = n < 0;
-  var abs = Math.abs(n).toFixed(2).split('.');
-  abs[0] = abs[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  return (neg ? '−' : '+') + '€' + abs[0] + ',' + abs[1];
-}
 
 // ── Render grafico profitti cumulativi
 function pfToggleDateFilter() {
@@ -5962,7 +6031,7 @@ function pfOpenDetailModal(id) {
       ['Quantità apertura',d.openQty   != null ? d.openQty  : '—'],
       ['Prezzo chiusura',  d.closePrice != null ? '€' + String(d.closePrice).replace('.', ',') : '—'],
       ['Quantità chiusura',d.closeQty  != null ? d.closeQty : '—'],
-    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] + '</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;">' + row[1] + '</td></tr>'; }).join('');
+    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + escapeHtml(row[0]) + '</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;">' + escapeHtml(row[1]) + '</td></tr>'; }).join('');
     if (r && r.net != null) {
       resultRows = [
         ['Guadagno lordo', pfManFmtEur(r.gross)],
@@ -5971,7 +6040,7 @@ function pfOpenDetailModal(id) {
         ['P&L Netto',      pfManFmtEur(r.net)],
       ].map(function(row){
         var isNet = row[0] === 'P&L Netto';
-        return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] + '</td><td style="padding:8px 12px;color:' + (isNet ? (r.net >= 0 ? '#26a69a' : 'var(--tv-red)') : '#00e5a0') + ';font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + row[1] + '</td></tr>';
+        return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + escapeHtml(row[0]) + '</td><td style="padding:8px 12px;color:' + (isNet ? (r.net >= 0 ? '#26a69a' : 'var(--tv-red)') : '#00e5a0') + ';font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + escapeHtml(row[1]) + '</td></tr>';
       }).join('');
     }
   } else if (isBot) {
@@ -5981,21 +6050,21 @@ function pfOpenDetailModal(id) {
       ['N° titoli',       d.qty     || '—'],
       ['Rimborso',        d.rimborso || '1'],
       ['Commissioni',     d.comm ? '€' + d.comm : '—'],
-    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] + '</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;">' + row[1] + '</td></tr>'; }).join('');
+    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + escapeHtml(row[0]) + '</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;">' + escapeHtml(row[1]) + '</td></tr>'; }).join('');
     resultRows = [
       ['Investimento',      r.investimento != null ? botFmtEur(r.investimento) : '—'],
       ['Gain Lordo',        r.gain         != null ? botFmtEur(r.gain)         : '—'],
       ['Capital Gain',      r.capGain      != null ? botFmtEur(r.capGain)      : '—'],
       ['Utile Netto',       r.utile        != null ? botFmtEur(r.utile)        : '—'],
       ['Rendimento Netto',  r.roe          != null ? botFmtPct(r.roe)          : '—'],
-    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] + '</td><td style="padding:8px 12px;color:#7aa3ff;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + row[1] + '</td></tr>'; }).join('');
+    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + escapeHtml(row[0]) + '</td><td style="padding:8px 12px;color:#7aa3ff;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + escapeHtml(row[1]) + '</td></tr>'; }).join('');
   } else if (isCsp) {
     inputRows = [
       ['Strike',        d.strike       ? '€' + d.strike       : '—'],
       ['Cash',          d.cash         ? '€' + d.cash         : '—'],
       ['Premio',        d.premio       || '—'],
       ['Qtà per opz.',  d.quantitaOpz  || '—'],
-    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] + '</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;">' + row[1] + '</td></tr>'; }).join('');
+    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + escapeHtml(row[0]) + '</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;">' + escapeHtml(row[1]) + '</td></tr>'; }).join('');
     if (r) {
       resultRows = [
         ['Premio Lordo',      fmt(r.premioLordo)],
@@ -6004,7 +6073,7 @@ function pfOpenDetailModal(id) {
         ['Rend. Annuo Netto', fmtPct(r.rendAnnuoNetto)],
         ['Rend. Scad. Lordo', fmtPct(r.rendScadLordo)],
         ['Rend. Annuo Lordo', fmtPct(r.rendAnnuoLordo)],
-      ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] + '</td><td style="padding:8px 12px;color:#26a69a;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + row[1] + '</td></tr>'; }).join('');
+      ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + escapeHtml(row[0]) + '</td><td style="padding:8px 12px;color:#26a69a;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + escapeHtml(row[1]) + '</td></tr>'; }).join('');
     }
   } else { // CC
     inputRows = [
@@ -6012,7 +6081,7 @@ function pfOpenDetailModal(id) {
       ['Premio',       d.premio      || '—'],
       ['Contratti',    d.contratti   || '—'],
       ['Qtà per opz.', d.quantitaOpz || '—'],
-    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] + '</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;">' + row[1] + '</td></tr>'; }).join('');
+    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + escapeHtml(row[0]) + '</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;">' + escapeHtml(row[1]) + '</td></tr>'; }).join('');
     if (r) {
       var ccRows = [
         ['Premio Lordo',      fmt(r.premioLordo)],
@@ -6023,7 +6092,7 @@ function pfOpenDetailModal(id) {
         ['Rend. Annuo Lordo', fmtPct(r.rendAnnuoLordo)],
       ];
       if (r.totaleNetto != null) ccRows.push(['Totale Netto (c/div.)', fmt(r.totaleNetto)]);
-      resultRows = ccRows.map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + row[0] + '</td><td style="padding:8px 12px;color:#f0b429;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + row[1] + '</td></tr>'; }).join('');
+      resultRows = ccRows.map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + escapeHtml(row[0]) + '</td><td style="padding:8px 12px;color:#f0b429;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + escapeHtml(row[1]) + '</td></tr>'; }).join('');
     }
   }
 
@@ -6284,6 +6353,85 @@ document.getElementById('pfGearModal').addEventListener('click', function(e) {
 document.getElementById('pfCloseModal').addEventListener('click', function(e) {
   if (e.target === this) this.style.display = 'none';
 });
+
+// ── Export / Import backup JSON (Portafoglio + Storico) ──
+function dataExport(which) {
+  var key, data, fname;
+  if (which === 'portafoglio') {
+    key = 'oros_portafoglio_v1'; data = pfLoad(); fname = 'oros_portafoglio';
+  } else {
+    key = 'oros_storia_v1'; data = storiaLoad(); fname = 'oros_storico';
+  }
+  var payload = {
+    _oros: which,
+    _version: 1,
+    exportedAt: new Date().toISOString(),
+    data: data
+  };
+  var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  var stamp = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = fname + '_' + stamp + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+
+function dataImport(which, inputEl) {
+  var file = inputEl.files && inputEl.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function() {
+    var parsed;
+    try {
+      parsed = JSON.parse(reader.result);
+    } catch (e) {
+      orosConfirm('File non valido: non è un JSON leggibile.', function(){});
+      inputEl.value = '';
+      return;
+    }
+    var list = parsed && parsed.data ? parsed.data : parsed;
+    if (!Array.isArray(list)) {
+      orosConfirm('File non valido: struttura dati non riconosciuta.', function(){});
+      inputEl.value = '';
+      return;
+    }
+    if (parsed && parsed._oros && parsed._oros !== which) {
+      orosConfirm('Attenzione: questo backup sembra di "' + parsed._oros + '", non di "' + which + '". Importare comunque?', function() {
+        _dataImportApply(which, list);
+        inputEl.value = '';
+      });
+      return;
+    }
+    orosConfirm('Importare ' + list.length + ' voci? I dati attuali verranno sostituiti.', function() {
+      _dataImportApply(which, list);
+      inputEl.value = '';
+    });
+  };
+  reader.readAsText(file);
+}
+
+function _dataImportApply(which, list) {
+  if (which === 'portafoglio') {
+    pfSave(list);
+    portafoglioRender();
+  } else {
+    storiaSave(list);
+    renderStoria();
+  }
+}
+
+// ── Service Worker (PWA offline) ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('sw.js').catch(function(e) {
+      console.warn('SW registration failed:', e);
+    });
+  });
+}
 </script>
 
 </body>
