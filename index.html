@@ -5621,8 +5621,8 @@ function pfRenderChart(closedList) {
   // Ordina per data chiusura (oldest first)
   var sorted = closedList.filter(function(e){ return e.closedProfit != null; })
     .sort(function(a, b){
-      var ta = new Date(a.addedAt || a.openDate).getTime();
-      var tb = new Date(b.addedAt || b.openDate).getTime();
+      var ta = new Date(a.closedAt || a.closeDate || a.addedAt || a.openDate).getTime();
+      var tb = new Date(b.closedAt || b.closeDate || b.addedAt || b.openDate).getTime();
       return ta - tb;
     });
 
