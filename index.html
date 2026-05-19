@@ -107,9 +107,11 @@ function goPage(p) {
   ['Home','Screener','CSP','CC','BOT','Portafoglio','Storia','Centro'].forEach(function(n) {
     var pg = document.getElementById('page' + n);
     var nb = document.getElementById('nav'  + n);
+    var mb = document.getElementById('mobNav' + n);
     var lc = n.toLowerCase();
     if (pg) pg.style.display = (lc === p) ? 'block' : 'none';
     if (nb) nb.className = 'sb-btn' + (lc === p ? ' sb-active' : '');
+    if (mb) mb.className = 'mob-nav-btn' + (lc === p ? ' mob-nav-active' : '');
   });
   var nav = document.getElementById('mainNav');
   var isHome = (p === 'home');
@@ -1310,6 +1312,13 @@ body.has-sidebar #pageCentro {
 }
 .mob-nav-btn:hover { color: var(--tv-text); background: rgba(255,255,255,.04); }
 .mob-nav-active { color: var(--tv-text) !important; background: rgba(41,98,255,.1) !important; font-weight: 600 !important; }
+#mobNavScreener:not(.mob-nav-active)    .mob-nav-icon { color: #2962ff; }
+#mobNavCSP:not(.mob-nav-active)         .mob-nav-icon { color: #26a69a; }
+#mobNavCC:not(.mob-nav-active)          .mob-nav-icon { color: #f0b429; }
+#mobNavCentro:not(.mob-nav-active)      .mob-nav-icon { color: #c084fc; }
+#mobNavBOT:not(.mob-nav-active)         .mob-nav-icon { color: #7aa3ff; }
+#mobNavPortafoglio:not(.mob-nav-active) .mob-nav-icon { color: #00e5a0; }
+#mobNavStoria:not(.mob-nav-active)      .mob-nav-icon { color: #787b86; }
 .mob-nav-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
 .mob-spacer { flex: 1; }
 .mob-bottom { border-top: 1px solid var(--tv-bord); padding-top: 8px; }
@@ -5322,6 +5331,32 @@ var PORTAFOGLIO_KEY = 'oros_portafoglio_v1';
 var pfFilterCur = 'all';
 var _pfChart = null;
 var _pfPendingEntry = null; // entry in attesa di conferma modal
+var pfSumMode = false;
+var pfSumSelected = {}; // { id: true }
+
+function pfEntryNetProfit(entry) {
+  if (!entry) return 0;
+  if (entry.status === 'closed') {
+    return (entry.closedProfit != null) ? entry.closedProfit : 0;
+  }
+  var r = entry.results || {};
+  if (entry.tipo === 'bot' && r.utile != null) return r.utile;
+  if (entry.tipo === 'manual' && r.net != null) return r.net;
+  if (r.premioNetto != null) return r.premioNetto;
+  return 0;
+}
+
+function pfToggleSumMode() {
+  pfSumMode = !pfSumMode;
+  if (!pfSumMode) pfSumSelected = {};
+  portafoglioRender({skipChart: true});
+}
+
+function pfToggleSumSelection(id) {
+  if (pfSumSelected[id]) delete pfSumSelected[id];
+  else pfSumSelected[id] = true;
+  portafoglioRender({skipChart: true});
+}
 
 function pfLoad() {
   try { return JSON.parse(localStorage.getItem(PORTAFOGLIO_KEY) || '[]'); } catch(e) { return []; }
@@ -5790,13 +5825,17 @@ function pfRenderSummary(list) {
   var closedList = list.filter(function(e){ return e.status === 'closed'; });
   var totalProfit = 0;
   closedList.forEach(function(e){ if (e.closedProfit != null) totalProfit += e.closedProfit; });
-  var profitPos = closedList.filter(function(e){ return (e.closedProfit || 0) > 0; }).length;
-  var profitNeg = closedList.filter(function(e){ return (e.closedProfit || 0) < 0; }).length;
-  var winRate = closedList.length > 0 ? (profitPos / closedList.length * 100) : null;
 
   var profitColor = totalProfit >= 0 ? '#26a69a' : 'var(--tv-red)';
   var profitSign  = totalProfit >= 0 ? '+' : '−';
   var profitAbs   = Math.abs(totalProfit).toFixed(2).replace('.', ',');
+
+  // Somma selezionati (modalità Σ)
+  var sumValue = 0;
+  list.forEach(function(e){ if (pfSumSelected[e.id]) sumValue += pfEntryNetProfit(e); });
+  var sumSign  = sumValue >= 0 ? '+' : '−';
+  var sumAbs   = Math.abs(sumValue).toFixed(2).replace('.', ',');
+  var sumColor = sumValue >= 0 ? '#26a69a' : 'var(--tv-red)';
 
   function pill(label, value, color, clickFilter, isActive) {
     var base = 'display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;border:1px solid ' +
@@ -5815,6 +5854,20 @@ function pfRenderSummary(list) {
     '</span>';
   }
 
+  function pillSum(isActive) {
+    var bord = isActive ? 'rgba(61,155,255,0.5)' : 'var(--tv-bord)';
+    var bg   = isActive ? 'rgba(61,155,255,0.08)' : 'transparent';
+    var sigmaColor = isActive ? '#3d9bff' : 'var(--tv-text)';
+    var base = 'display:inline-flex;align-items:center;gap:8px;padding:4px 12px;border-radius:20px;border:1px solid ' + bord +
+      ';background:' + bg + ';font-family:\'Inter\',sans-serif;font-size:12px;transition:all 0.15s;cursor:pointer;';
+    return '<span id="pfBoxSum" onclick="pfToggleSumMode()" style="' + base + '"' +
+      ' onmouseover="this.style.borderColor=\'rgba(61,155,255,0.5)\'"' +
+      ' onmouseout="this.style.borderColor=\'' + bord + '\'">' +
+      '<span style="color:' + sigmaColor + ';font-weight:700;font-size:16px;line-height:1;">Σ</span>' +
+      (isActive ? '<span style="color:' + sumColor + ';font-weight:700;">' + sumSign + '€' + sumAbs + '</span>' : '') +
+    '</span>';
+  }
+
   var sep = '<span style="color:var(--tv-bord);font-size:14px;margin:0 2px;">·</span>';
 
   summaryEl.innerHTML =
@@ -5823,20 +5876,22 @@ function pfRenderSummary(list) {
       pill('Chiuse', closedList.length, pfFilterCur === 'closed' ? '#3d9bff' : 'var(--tv-text)', 'closed', pfFilterCur === 'closed') +
       sep +
       pill('P&L Tot.', profitSign + '€' + profitAbs, profitColor, null, false) +
-      (winRate !== null ? sep + pill('Win Rate', winRate.toFixed(0) + '%', winRate >= 50 ? '#26a69a' : 'var(--tv-red)', null, false) : '') +
+      sep +
+      pillSum(pfSumMode) +
     '</div>';
 }
 
 
 // ── Render operazioni card
-function portafoglioRender() {
+function portafoglioRender(opts) {
+  opts = opts || {};
   var container  = document.getElementById('pfContainer');
   if (!container) return;
 
   var list = pfLoad();
 
   pfRenderSummary(list);
-  pfRenderChartFiltered();
+  if (!opts.skipChart) pfRenderChartFiltered();
 
   var filtered = list;
   if (pfFilterCur === 'open')   filtered = list.filter(function(e){ return e.status === 'open'; });
@@ -5926,13 +5981,24 @@ function portafoglioRender() {
       '</div>';
 
       var cardBord = isOpen ? accentBord : 'var(--tv-bord)';
+      var cardBg   = 'var(--tv-surf)';
+      var isSelected = pfSumMode && !!pfSumSelected[entry.id];
+      if (isSelected) {
+        cardBord = 'rgba(61,155,255,0.6)';
+        cardBg   = 'rgba(61,155,255,0.04)';
+      }
       var tickerColor = isOpen ? 'var(--tv-text)' : 'var(--tv-muted)';
+      var clickHandler = pfSumMode
+        ? 'pfToggleSumSelection(\'' + entry.id + '\')'
+        : 'pfOpenDetailModal(\'' + entry.id + '\')';
+      var hoverOn  = pfSumMode ? '' : 'this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 8px 24px rgba(0,0,0,0.25)\'';
+      var hoverOff = pfSumMode ? '' : 'this.style.transform=\'none\';this.style.boxShadow=\'none\'';
 
       html +=
-        '<div data-pf-id="' + entry.id + '" onclick="pfOpenDetailModal(\'' + entry.id + '\')" ' +
-        'style="cursor:pointer;background:var(--tv-surf);border:1px solid ' + cardBord + ';border-radius:10px;padding:16px 18px;transition:box-shadow 0.2s,transform 0.15s;" ' +
-        'onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 8px 24px rgba(0,0,0,0.25)\'" ' +
-        'onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'none\'">' +
+        '<div data-pf-id="' + entry.id + '" onclick="' + clickHandler + '" ' +
+        'style="cursor:pointer;background:' + cardBg + ';border:1px solid ' + cardBord + ';border-radius:10px;padding:16px 18px;transition:box-shadow 0.2s,transform 0.15s,border-color 0.15s,background 0.15s;" ' +
+        'onmouseover="' + hoverOn + '" ' +
+        'onmouseout="' + hoverOff + '">' +
           // Riga 1: badge a sinistra | date a destra
           '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;">' +
             badgeHtml +
