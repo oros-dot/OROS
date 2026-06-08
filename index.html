@@ -3035,6 +3035,54 @@ function renderTabs() {
   });
 }
 
+/* ── OROS · Lotti minimi Borsa Italiana (auto-fill nascosto "Quantità per Opzione") ── */
+const OROS_LOTTI = {A2A:5000,ACE:500,AMP:500,ARIS:500,AVIO:100,AZM:500,BGN:100,IF:100,BMED:500,BMPS:1000,BAMI:1000,BFF:500,BPE:1000,BRE:500,BC:100,BZU:100,CPR:1000,CRL:100,DAN:100,DLG:500,DIA:100,ENAV:500,ENEL:500,ENI:500,ERG:500,RACE:100,FCT:100,FBK:500,G:100,GEO:500,GVS:500,HER:1000,DNR:100,IP:100,ISP:1000,INW:500,IRE:1000,IG:1000,IVG:700,JUVE:100,LDO:500,LTMC:500,MAIRE:1000,MFEA:200,MFEB:200,MONC:500,MN:1000,NEXI:500,OVS:500,PIA:1000,PIRC:500,PST:500,PRY:100,RWAY:500,REC:100,REY:50,SFL:500,SPM:1000,SFER:500,SL:100,SESA:10,SRG:1000,STLAM:500,STM:500,TIP:500,TGYM:500,TPRO:500,TIT:1000,TEN:500,TRN:1000,UCG:500,UNI:500,WBD:1000};
+const OROS_NOMI = {"A2A":5000,"ACEA":500,"AMPLIFON":500,"ARISTON HOLDING":500,"AVIO":100,"AZIMUT HOLDING":500,"BANCA GENERALI":100,"BANCA IFIS":100,"BANCA MEDIOLANUM":500,"BANCA MONTE DEI PASCHI DI SIENA":1000,"BANCO BPM":1000,"BFF BANK":500,"BPER BANCA":1000,"BREMBO":500,"BRUNELLO CUCINELLI":100,"BUZZI":100,"CAMPARI":1000,"CAREL INDUSTRIES":100,"DANIELI C":100,"DE LONGHI":500,"DIASORIN":100,"ENAV":500,"ENEL":500,"ENI":500,"ERG":500,"FERRARI":100,"FINCANTIERI":100,"FINECOBANK":500,"GENERALI":100,"GEOX":500,"GVS":500,"HERA":1000,"INDUSTRIE DE NORA":100,"INTERPUMP GROUP":100,"INTESA SANPAOLO":1000,"INWIT":500,"IREN":1000,"ITALGAS":1000,"IVECO GROUP":700,"JUVENTUS FC":100,"LEONARDO":500,"LOTTOMATICA GROUP":500,"MAIRE":1000,"MFE A":200,"MFE B":200,"MONCLER":500,"MONDADORI":1000,"NEXI":500,"OVS":500,"PIAGGIO":1000,"PIRELLI C":500,"POSTE ITALIANE":500,"PRYSMIAN":100,"RAI WAY":500,"RECORDATI":100,"REPLY":50,"SAFILO GROUP":500,"SAIPEM":1000,"SALVATORE FERRAGAMO":500,"SANLORENZO":100,"SESA":10,"SNAM":1000,"STELLANTIS":500,"STMICROELECTRONICS":500,"TAMBURI INVESTMENT PARTNERS":500,"TECHNOGYM":500,"TECHNOPROBE":500,"TELECOM ITALIA":1000,"TENARIS":500,"TERNA":1000,"UNICREDIT":500,"UNIPOL":500,"WEBUILD":1000};
+function orosNormStr(s){return (s||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9]+/g,' ').trim();}
+function orosNormTicker(s){s=(s||'').toUpperCase().trim();if(s.indexOf(':')>=0)s=s.split(':').pop();s=s.replace(/\.(MI|MIL|IT)$/,'').trim();return s;}
+function orosLookupLot(raw){
+  const tk = orosNormTicker(raw);
+  if(OROS_LOTTI[tk]) return OROS_LOTTI[tk];
+  const nm = orosNormStr(raw);
+  if(!nm) return null;
+  if(OROS_NOMI[nm]) return OROS_NOMI[nm];
+  if(nm.length>=3){
+    let hit=null, count=0;
+    for(const k in OROS_NOMI){ if(k.indexOf(nm)===0){ hit=OROS_NOMI[k]; if(++count>1) break; } }
+    if(count===1) return hit;
+  }
+  return null;
+}
+function orosApplyLot(tab, container, customKey, onUpdate){
+  const lot = orosLookupLot(tab.data.ticker);
+  if(!lot) return;
+  const sel = container.querySelector('[data-field="quantitaOpz_sel"]');
+  if(!sel) return;
+  const parent = sel.parentElement;
+  let inp = parent.querySelector('input[data-field="quantitaOpz"]');
+  tab.data.quantitaOpz = lot;
+  if(lot===100||lot===500||lot===1000){
+    tab.data[customKey] = false;
+    sel.value = String(lot);
+    if(inp) inp.remove();
+  } else {
+    tab.data[customKey] = true;
+    sel.value = 'custom';
+    if(!inp){
+      inp = document.createElement('input');
+      inp.type = 'text';
+      inp.setAttribute('inputmode','numeric');
+      inp.setAttribute('placeholder','es. 2000');
+      inp.setAttribute('data-field','quantitaOpz');
+      inp.style.cssText = "margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;width:100%;transition:all 0.2s;";
+      inp.addEventListener('input', e => { tab.data.quantitaOpz = e.target.value; onUpdate(tab); });
+      parent.appendChild(inp);
+    }
+    inp.value = lot;
+  }
+  onUpdate(tab);
+}
+
 function renderPanels() {
   const container = document.getElementById('panelsContainer');
   const tab = tabs.find(t => t.id === activeTab);
@@ -3057,7 +3105,7 @@ function renderPanels() {
           <div class="input-grid">
             <div class="field full ticker-field">
               <label>Ticker / Simbolo<span class="tip"><span class="tip-i">i</span><span class="tip-box">Simbolo del titolo. Es: MIL:SPMI per Borsa Italiana, AAPL per Nasdaq.</span></span></label>
-              <input type="text" placeholder="es. SPMI" value="${escapeAttr(d.ticker)}" data-field="ticker" maxlength="10">
+              <input type="text" placeholder="es. SPMI" value="${escapeAttr(d.ticker)}" data-field="ticker" maxlength="40">
             </div>
             <div class="field">
               <label>Strike Price<span class="tip"><span class="tip-i">i</span><span class="tip-box">Prezzo di esercizio della Put: ti impegni ad acquistare il titolo a questo prezzo se assegnato.</span></span></label>
@@ -3170,7 +3218,7 @@ function renderPanels() {
       } else {
         tab.data[field] = e.target.value;
       }
-      if (field === 'ticker') renderTabs();
+      if (field === 'ticker') { renderTabs(); orosApplyLot(tab, container, '_qtaCustom', updateOutputs); }
       updateOutputs(tab);
     });
   });
@@ -3539,7 +3587,7 @@ function ccRenderPanel() {
           <div class="input-grid">
             <div class="field full ticker-field">
               <label>Ticker / Simbolo<span class="tip"><span class="tip-i">i</span><span class="tip-box">Simbolo del titolo su cui hai le azioni e vuoi vendere la Covered Call.</span></span></label>
-              <input type="text" placeholder="es. SPMI" value="${escapeAttr(d.ticker)}" data-field="ticker" maxlength="10">
+              <input type="text" placeholder="es. SPMI" value="${escapeAttr(d.ticker)}" data-field="ticker" maxlength="40">
             </div>
             <div class="field">
               <label>Strike Price<span class="tip"><span class="tip-i">i</span><span class="tip-box">Prezzo a cui ti impegni a cedere le azioni se il titolo sale oltre questo livello a scadenza.</span></span></label>
@@ -3662,7 +3710,7 @@ function ccRenderPanel() {
   container.querySelectorAll('input[data-field]').forEach(input => {
     input.addEventListener('input', e => {
       tab.data[e.target.dataset.field] = e.target.value;
-      if (e.target.dataset.field === 'ticker') ccRenderTabs();
+      if (e.target.dataset.field === 'ticker') { ccRenderTabs(); orosApplyLot(tab, container, '_qc', function(t){ ccUpdateOutputs(t); setTimeout(ccCalcDividendi, 0); }); }
       ccUpdateOutputs(tab);
     });
   });
