@@ -104,6 +104,7 @@ function debounce(fn, wait) {
 
 // goPage defined first — always available
 function goPage(p) {
+  window.__orosCurPage = p;
   ['Home','Screener','CSP','CC','BOT','Portafoglio','Storia','Centro'].forEach(function(n) {
     var pg = document.getElementById('page' + n);
     var nb = document.getElementById('nav'  + n);
@@ -147,8 +148,40 @@ function goHome() {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('mainNav').style.display = 'none';
   document.body.classList.remove('has-sidebar');
+  window.__orosCurPage = 'home';
   closeMobileSidebar();
 }
+
+// ── Swipe navigation (solo mobile) ──
+(function() {
+  var ORDER = ['screener','csp','cc','centro','bot','portafoglio','storia'];
+  var sx = 0, sy = 0, st = 0, tracking = false;
+  document.addEventListener('touchstart', function(e) {
+    if (window.innerWidth > 768) return;
+    if (!document.body.classList.contains('has-sidebar')) return;
+    if (e.touches.length !== 1) return;
+    var t = e.target;
+    if (t.closest && t.closest('input, textarea, select, canvas, iframe, [data-no-swipe]')) { tracking = false; return; }
+    sx = e.touches[0].clientX;
+    sy = e.touches[0].clientY;
+    st = Date.now();
+    tracking = true;
+  }, { passive: true });
+  document.addEventListener('touchend', function(e) {
+    if (!tracking) return;
+    tracking = false;
+    if (Date.now() - st > 600) return;
+    var dx = e.changedTouches[0].clientX - sx;
+    var dy = e.changedTouches[0].clientY - sy;
+    if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx) * 0.6) return;
+    var cur = window.__orosCurPage;
+    var i = ORDER.indexOf(cur);
+    if (i === -1) return;
+    var next = dx < 0 ? i + 1 : i - 1;
+    if (next < 0 || next >= ORDER.length) return;
+    goPage(ORDER[next]);
+  }, { passive: true });
+})();
 
 
 function toggleMobileSidebar() {
@@ -930,8 +963,9 @@ document.addEventListener('focusin', function(e) {
 
   /* Mobile: hide desktop sidebar, show mobile top bar */
   .sidebar { display: none !important; }
-  body.has-sidebar { padding-left: 0 !important; padding-top: 50px; height: auto !important; overflow: auto !important; }
-  body.has-sidebar #mobileTopBar { display: flex !important; }
+  body.has-sidebar { padding-left: 0 !important; padding-top: 12px; padding-bottom: calc(86px + env(safe-area-inset-bottom)); height: auto !important; overflow: auto !important; }
+  body.has-sidebar #mobileBottomBar { display: flex !important; }
+  body.has-sidebar #mobileOrosLogo { display: block !important; }
   body.has-sidebar #pageScreener,
   body.has-sidebar #pageCSP,
   body.has-sidebar #pageCC,
@@ -1219,114 +1253,73 @@ body.has-sidebar #pageCentro {
   #pfSummaryRow { position: static; margin: 0; padding: 0; }
 }
 
-/* ── MOBILE TOP BAR ── */
-#mobileTopBar {
+/* ── MOBILE OROS FIXED TOP-LEFT ── */
+#mobileOrosLogo {
   display: none;
   position: fixed;
-  top: 0; left: 0; right: 0;
-  height: 50px;
-  background: var(--tv-surf);
-  border-bottom: 1px solid var(--tv-bord);
+  top: calc(10px + env(safe-area-inset-top));
+  left: 14px;
   z-index: 500;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  box-shadow: 0 1px 4px var(--tv-shadow);
-}
-.mob-oros {
   font-size: 14px; font-weight: 900;
   color: #f0b429;
   letter-spacing: 4px;
   cursor: pointer;
-  text-shadow: 0 0 18px rgba(240,180,41,0.4);
-  transition: text-shadow 0.3s;
   font-family: 'Inter', sans-serif;
   user-select: none;
+  -webkit-user-select: none;
+  text-shadow: 0 0 18px rgba(240,180,41,0.4);
+  -webkit-tap-highlight-color: transparent;
+  padding: 4px 8px;
 }
-.mob-oros:hover { text-shadow: 0 0 28px rgba(240,180,41,0.7); }
-.mob-hamburger {
-  background: transparent;
-  border: none;
-  color: var(--tv-muted);
-  font-size: 20px;
-  cursor: pointer;
-  padding: 6px;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 6px;
-  transition: color .15s, background .15s;
-}
-.mob-hamburger:hover { color: var(--tv-text); background: rgba(255,255,255,.06); }
 
-/* ── MOBILE DRAWER ── */
-#mobileSidebarOverlay {
+/* ── MOBILE BOTTOM BAR (liquid glass) ── */
+#mobileBottomBar {
   display: none;
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,.45);
-  z-index: 600;
-}
-#mobileSidebarDrawer {
   position: fixed;
-  top: 0; left: -240px;
-  width: 240px; height: 100vh;
-  background: var(--tv-surf);
-  border-right: 1px solid var(--tv-bord);
-  z-index: 700;
-  display: flex; flex-direction: column;
-  padding: 0 0 16px 0;
-  transition: left .25s cubic-bezier(.4,0,.2,1);
-  box-shadow: 2px 0 12px rgba(0,0,0,.3);
+  left: 12px; right: 12px;
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  height: 60px;
+  z-index: 500;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 6px;
+  border-radius: 30px;
+  background: rgba(22, 26, 37, 0.18);
+  -webkit-backdrop-filter: blur(8px) saturate(170%);
+  backdrop-filter: blur(8px) saturate(170%);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06);
 }
-#mobileSidebarDrawer.mob-open { left: 0; }
-
-.mob-drawer-header {
-  height: 56px; flex-shrink: 0;
-  display: flex; align-items: center;
-  padding: 0 16px;
-  border-bottom: 1px solid var(--tv-bord);
-  font-size: 15px; font-weight: 900;
-  color: #f0b429;
-  letter-spacing: 4px;
-  font-family: 'Inter', sans-serif;
-  justify-content: space-between;
+[data-theme="light"] #mobileBottomBar {
+  background: rgba(255,255,255,0.18);
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.5);
 }
-.mob-drawer-close {
-  background: transparent; border: none;
-  color: var(--tv-muted); font-size: 18px;
-  cursor: pointer; padding: 4px 8px;
-  border-radius: 6px;
-  transition: color .15s, background .15s;
-}
-.mob-drawer-close:hover { color: var(--tv-text); background: rgba(255,255,255,.06); }
-
 .mob-nav-btn {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 16px;
+  display: flex; align-items: center; justify-content: center;
+  flex: 1;
+  height: 44px;
   background: transparent; border: none;
   color: var(--tv-muted);
-  font-family: 'Inter', sans-serif;
-  font-size: 13px; font-weight: 500;
   cursor: pointer;
-  transition: color .15s, background .15s;
-  text-align: left; width: 100%;
-  border-radius: 0;
+  transition: color .15s, background .15s, transform .15s;
+  border-radius: 16px;
+  -webkit-tap-highlight-color: transparent;
 }
-.mob-nav-btn:hover { color: var(--tv-text); background: rgba(255,255,255,.04); }
-.mob-nav-active { color: var(--tv-text) !important; background: rgba(41,98,255,.1) !important; font-weight: 600 !important; }
-#mobNavScreener:not(.mob-nav-active)    .mob-nav-icon { color: #2962ff; }
-#mobNavCSP:not(.mob-nav-active)         .mob-nav-icon { color: #26a69a; }
-#mobNavCC:not(.mob-nav-active)          .mob-nav-icon { color: #f0b429; }
-#mobNavCentro:not(.mob-nav-active)      .mob-nav-icon { color: #c084fc; }
-#mobNavBOT:not(.mob-nav-active)         .mob-nav-icon { color: #7aa3ff; }
-#mobNavPortafoglio:not(.mob-nav-active) .mob-nav-icon { color: #00e5a0; }
-#mobNavStoria:not(.mob-nav-active)      .mob-nav-icon { color: #787b86; }
-.mob-nav-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
-.mob-spacer { flex: 1; }
-.mob-bottom { border-top: 1px solid var(--tv-bord); padding-top: 8px; }
-
-/* iPhone: alza i bottoni esci/tema sopra la barra URL di Safari (~50px) */
-@media (max-width: 768px) {
-  .mob-bottom { padding-bottom: 80px; }
+.mob-nav-btn svg { width: 19px; height: 19px; }
+.mob-nav-active {
+  color: var(--tv-text) !important;
+  background: rgba(255,255,255,0.12) !important;
+  transform: translateY(-2px);
 }
+[data-theme="light"] .mob-nav-active { background: rgba(0,0,0,0.08) !important; }
+#mobNavScreener:not(.mob-nav-active)    { color: #2962ff; }
+#mobNavCSP:not(.mob-nav-active)         { color: #26a69a; }
+#mobNavCC:not(.mob-nav-active)          { color: #f0b429; }
+#mobNavCentro:not(.mob-nav-active)      { color: #c084fc; }
+#mobNavBOT:not(.mob-nav-active)         { color: #7aa3ff; }
+#mobNavPortafoglio:not(.mob-nav-active) { color: #00e5a0; }
+#mobNavStoria:not(.mob-nav-active)      { color: #787b86; }
 
 /* ── PAGES ── */
 #pageScreener, #pageCSP, #pageCC { display: none; }
@@ -2011,66 +2004,17 @@ input[type="date"]::-webkit-date-and-time-value {
 
 </style>
 
-<!-- Mobile Top Bar (visible only on small screens when logged in) -->
-<div id="mobileTopBar">
-  <div class="mob-oros" onclick="goHome()">OROS</div>
-  <button class="mob-hamburger" onclick="toggleMobileSidebar()" title="Menu">
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="2" y="4.5" width="16" height="1.8" rx="0.9" fill="currentColor"/>
-      <rect x="2" y="9.1" width="16" height="1.8" rx="0.9" fill="currentColor"/>
-      <rect x="2" y="13.7" width="16" height="1.8" rx="0.9" fill="currentColor"/>
-    </svg>
-  </button>
-</div>
+<!-- Mobile Bottom Bar (liquid glass, visible only on small screens when logged in) -->
+<div id="mobileOrosLogo" onclick="goHome()">OROS</div>
 
-<!-- Mobile Sidebar Overlay -->
-<div id="mobileSidebarOverlay" onclick="closeMobileSidebar()"></div>
-
-<!-- Mobile Sidebar Drawer -->
-<div id="mobileSidebarDrawer">
-  <div class="mob-drawer-header">
-    <span>OROS</span>
-    <button class="mob-drawer-close" onclick="closeMobileSidebar()" title="Chiudi">✕</button>
-  </div>
-  <button class="mob-nav-btn" id="mobNavScreener" onclick="goPage('screener');closeMobileSidebar()">
-    <span class="mob-nav-icon"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.5" y="0.5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="0.5" y="5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="0.5" y="9.5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/></svg></span>
-    Screener
-  </button>
-  <button class="mob-nav-btn" id="mobNavCSP" onclick="goPage('csp');closeMobileSidebar()">
-    <span class="mob-nav-icon"><svg width="11" height="14" viewBox="0 0 11 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6.5 0.5L0.5 7.5H5.5L4.5 13.5L10.5 6.5H5.5L6.5 0.5Z" fill="currentColor" opacity="0.8"/></svg></span>
-    Cash Secured Put
-  </button>
-  <button class="mob-nav-btn" id="mobNavCC" onclick="goPage('cc');closeMobileSidebar()">
-    <span class="mob-nav-icon"><svg width="14" height="13" viewBox="0 0 14 13" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.5" y="6.5" width="3" height="6" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="5.5" y="3.5" width="3" height="9" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="10.5" y="0.5" width="3" height="12" rx="0.6" fill="currentColor" opacity="0.75"/></svg></span>
-    Covered Call
-  </button>
-  <button class="mob-nav-btn" id="mobNavCentro" onclick="goPage('centro');closeMobileSidebar()">
-    <span class="mob-nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3" opacity="0.85"/><line x1="7" y1="1.5" x2="7" y2="12.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/><line x1="1.5" y1="7" x2="12.5" y2="7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/></svg></span>
-    Sup-Res MM
-  </button>
-  <button class="mob-nav-btn" id="mobNavBOT" onclick="goPage('bot');closeMobileSidebar()">
-    <span class="mob-nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2" opacity="0.8"/><line x1="4" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.7"/><line x1="4" y1="7.5" x2="10" y2="7.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.7"/><line x1="4" y1="10" x2="7.5" y2="10" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.7"/></svg></span>
-    Rendimento BOT
-  </button>
-  <button class="mob-nav-btn" id="mobNavPortafoglio" onclick="goPage('portafoglio');closeMobileSidebar()">
-    <span class="mob-nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="4" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2" opacity="0.85"/><path d="M4.5 4V3C4.5 1.9 5.4 1 6.5 1H7.5C8.6 1 9.5 1.9 9.5 3V4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/><line x1="1" y1="7.5" x2="13" y2="7.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.5"/></svg></span>
-    Portafoglio
-  </button>
-  <button class="mob-nav-btn" id="mobNavStoria" onclick="goPage('storia');closeMobileSidebar()">
-    <span class="mob-nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="5.8" stroke="currentColor" stroke-width="1.2" opacity="0.8"/><path d="M7 4V7.2L9.2 9.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/></svg></span>
-    Storico Simulazioni
-  </button>
-  <div class="mob-spacer"></div>
-  <div class="mob-bottom">
-    <button class="mob-nav-btn" onclick="toggleTheme()">
-      <span class="mob-nav-icon" id="mobThemeIcon">☀</span>
-      Cambia tema
-    </button>
-    <button class="mob-nav-btn" id="mobLogoutBtn" onclick="if(confirm('Vuoi uscire dalla sessione?')){sessionClear();location.reload();}" style="color:rgba(239,83,80,0.8);">
-      <span class="mob-nav-icon">⎋</span>
-      Esci dalla sessione
-    </button>
-  </div>
+<div id="mobileBottomBar">
+  <button class="mob-nav-btn" id="mobNavScreener" onclick="goPage('screener')" title="Screener"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.5" y="0.5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="0.5" y="5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="0.5" y="9.5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/></svg></button>
+  <button class="mob-nav-btn" id="mobNavCSP" onclick="goPage('csp')" title="Cash Secured Put"><svg width="11" height="14" viewBox="0 0 11 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6.5 0.5L0.5 7.5H5.5L4.5 13.5L10.5 6.5H5.5L6.5 0.5Z" fill="currentColor" opacity="0.8"/></svg></button>
+  <button class="mob-nav-btn" id="mobNavCC" onclick="goPage('cc')" title="Covered Call"><svg width="14" height="13" viewBox="0 0 14 13" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.5" y="6.5" width="3" height="6" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="5.5" y="3.5" width="3" height="9" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="10.5" y="0.5" width="3" height="12" rx="0.6" fill="currentColor" opacity="0.75"/></svg></button>
+  <button class="mob-nav-btn" id="mobNavCentro" onclick="goPage('centro')" title="Sup-Res MM"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3" opacity="0.85"/><line x1="7" y1="1.5" x2="7" y2="12.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/><line x1="1.5" y1="7" x2="12.5" y2="7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/></svg></button>
+  <button class="mob-nav-btn" id="mobNavBOT" onclick="goPage('bot')" title="Rendimento BOT"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2" opacity="0.8"/><line x1="4" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.7"/><line x1="4" y1="7.5" x2="10" y2="7.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.7"/><line x1="4" y1="10" x2="7.5" y2="10" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.7"/></svg></button>
+  <button class="mob-nav-btn" id="mobNavPortafoglio" onclick="goPage('portafoglio')" title="Portafoglio"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="4" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2" opacity="0.85"/><path d="M4.5 4V3C4.5 1.9 5.4 1 6.5 1H7.5C8.6 1 9.5 1.9 9.5 3V4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/><line x1="1" y1="7.5" x2="13" y2="7.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.5"/></svg></button>
+  <button class="mob-nav-btn" id="mobNavStoria" onclick="goPage('storia')" title="Storico Simulazioni"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="5.8" stroke="currentColor" stroke-width="1.2" opacity="0.8"/><path d="M7 4V7.2L9.2 9.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/></svg></button>
 </div>
 
 <!-- Desktop Sidebar Navigation -->
