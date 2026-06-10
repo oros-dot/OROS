@@ -179,7 +179,19 @@ function goHome() {
     if (i === -1) return;
     var next = dx < 0 ? i + 1 : i - 1;
     if (next < 0 || next >= ORDER.length) return;
-    goPage(ORDER[next]);
+    // Feedback aptico (dove supportato dal browser)
+    if (navigator.vibrate) { try { navigator.vibrate(12); } catch(e){} }
+    var p = ORDER[next];
+    goPage(p);
+    // Effetto card sulla pagina entrante
+    var name = { screener:'Screener', csp:'CSP', cc:'CC', centro:'Centro', bot:'BOT', portafoglio:'Portafoglio', storia:'Storia' }[p];
+    var el = document.getElementById('page' + name);
+    if (el) {
+      el.classList.remove('swipe-in-left','swipe-in-right');
+      void el.offsetWidth;
+      el.classList.add(dx < 0 ? 'swipe-in-left' : 'swipe-in-right');
+      setTimeout(function(){ el.classList.remove('swipe-in-left','swipe-in-right'); }, 400);
+    }
   }, { passive: true });
 })();
 
@@ -211,6 +223,8 @@ function setTheme(t) {
   if (btn) btn.textContent = t === 'dark' ? '☀' : '🌙';
   var mobIcon = document.getElementById('mobThemeIcon');
   if (mobIcon) mobIcon.textContent = t === 'dark' ? '☀' : '🌙';
+  var homeIcon = document.getElementById('homeThemeBtn');
+  if (homeIcon) homeIcon.textContent = t === 'dark' ? '☀' : '🌙';
   buildScreener(t);
   if (centroHistoryOpen) centroRenderHistory();
   // Sync date picker color-scheme with theme
@@ -429,6 +443,8 @@ function authInit() {
   if (btn) btn.textContent = savedTheme === 'dark' ? '☀' : '🌙';
   var mobIcon = document.getElementById('mobThemeIcon');
   if (mobIcon) mobIcon.textContent = savedTheme === 'dark' ? '☀' : '🌙';
+  var homeIcon = document.getElementById('homeThemeBtn');
+  if (homeIcon) homeIcon.textContent = savedTheme === 'dark' ? '☀' : '🌙';
 
   if (sessionValid()) {
     var s = sessionGet();
@@ -1271,6 +1287,18 @@ body.has-sidebar #pageCentro {
   -webkit-tap-highlight-color: transparent;
   padding: 4px 8px;
 }
+
+/* ── SWIPE PAGE TRANSITION (card) ── */
+@keyframes orosCardInLeft {
+  0%   { transform: perspective(1200px) translateX(60%) rotateY(-14deg) scale(.94); opacity: .4; border-radius: 28px; }
+  100% { transform: perspective(1200px) translateX(0) rotateY(0) scale(1); opacity: 1; border-radius: 0; }
+}
+@keyframes orosCardInRight {
+  0%   { transform: perspective(1200px) translateX(-60%) rotateY(14deg) scale(.94); opacity: .4; border-radius: 28px; }
+  100% { transform: perspective(1200px) translateX(0) rotateY(0) scale(1); opacity: 1; border-radius: 0; }
+}
+.swipe-in-left  { animation: orosCardInLeft .32s cubic-bezier(.22,.8,.3,1); transform-origin: right center; overflow: hidden; }
+.swipe-in-right { animation: orosCardInRight .32s cubic-bezier(.22,.8,.3,1); transform-origin: left center; overflow: hidden; }
 
 /* ── MOBILE BOTTOM BAR (liquid glass) ── */
 #mobileBottomBar {
@@ -2207,10 +2235,16 @@ input[type="date"]::-webkit-date-and-time-value {
 
   <!-- Logout nascosto in basso -->
   <button onclick="if(confirm('Vuoi uscire dalla sessione?')){sessionClear();location.reload();}"
-    style="position:fixed;bottom:16px;left:16px;background:none;border:none;cursor:pointer;font-size:18px;color:rgba(239,83,80,0.25);transition:color 0.2s;z-index:10;padding:6px;"
+    style="position:fixed;bottom:16px;right:16px;background:none;border:none;cursor:pointer;font-size:18px;color:rgba(239,83,80,0.25);transition:color 0.2s;z-index:10;padding:6px;"
     onmouseover="this.style.color='rgba(239,83,80,0.7)'"
     onmouseout="this.style.color='rgba(239,83,80,0.25)'"
     title="Esci">⎋</button>
+
+  <button id="homeThemeBtn" onclick="toggleTheme()"
+    style="position:fixed;bottom:16px;left:16px;background:none;border:none;cursor:pointer;font-size:18px;color:rgba(255,255,255,0.25);transition:color 0.2s;z-index:10;padding:6px;"
+    onmouseover="this.style.color='rgba(255,255,255,0.7)'"
+    onmouseout="this.style.color='rgba(255,255,255,0.25)'"
+    title="Cambia tema">☀</button>
 
 </div>
 
