@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="OROS">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta http-equiv="Content-Security-Policy-Report-Only" content="default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://www.gstatic.com https://s3.tradingview.com https://www.tradingview-widget.com https://s.tradingview.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://firestore.googleapis.com https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com; frame-src https://www.tradingview.com https://*.tradingview.com https://www.tradingview-widget.com https://s.tradingview.com">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://www.gstatic.com https://s3.tradingview.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://firestore.googleapis.com https://*.googleapis.com https://*.tradingview.com https://www.tradingview-widget.com; frame-src https://www.tradingview.com https://*.tradingview.com https://www.tradingview-widget.com; object-src 'none'; base-uri 'self'; form-action 'none'">
 <title>OROS</title>
 <link rel="apple-touch-icon" sizes="180x180" id="atos-icon" href="">
 <link rel="icon" type="image/png" id="oros-favicon" href="">
@@ -149,7 +149,6 @@ function goHome() {
   document.getElementById('mainNav').style.display = 'none';
   document.body.classList.remove('has-sidebar');
   window.__orosCurPage = 'home';
-  closeMobileSidebar();
 }
 
 // ── Swipe navigation (solo mobile) ──
@@ -196,24 +195,6 @@ function goHome() {
 })();
 
 
-function toggleMobileSidebar() {
-  var drawer = document.getElementById('mobileSidebarDrawer');
-  var overlay = document.getElementById('mobileSidebarOverlay');
-  var isOpen = drawer && drawer.classList.contains('mob-open');
-  if (isOpen) {
-    closeMobileSidebar();
-  } else {
-    if (drawer) drawer.classList.add('mob-open');
-    if (overlay) overlay.style.display = 'block';
-  }
-}
-
-function closeMobileSidebar() {
-  var drawer = document.getElementById('mobileSidebarDrawer');
-  var overlay = document.getElementById('mobileSidebarOverlay');
-  if (drawer) drawer.classList.remove('mob-open');
-  if (overlay) overlay.style.display = 'none';
-}
 
 // Theme toggle
 function setTheme(t) {
@@ -221,8 +202,6 @@ function setTheme(t) {
   localStorage.setItem('csp-theme', t);
   var btn = document.getElementById('themeBtn');
   if (btn) btn.textContent = t === 'dark' ? '☀' : '🌙';
-  var mobIcon = document.getElementById('mobThemeIcon');
-  if (mobIcon) mobIcon.textContent = t === 'dark' ? '☀' : '🌙';
   var homeIcon = document.getElementById('homeThemeBtn');
   if (homeIcon) homeIcon.textContent = t === 'dark' ? '☀' : '🌙';
   buildScreener(t);
@@ -244,8 +223,8 @@ function toggleTheme() {
 // inserendo "username:nuovapassword" (tutto minuscolo per lo username, password case-sensitive)
 const USERS = [
   {
-    userHash: '20adeb19887fa7b7790d4592a46c03c4825e4889c05d9dd54e0a493b5eede245', // hash di "lucap"
-    pswHash:  '9cb1a25057ed6e737c3229d3db554a019083cb96a53211770b71b3058cffc9b3', // hash di "Oros2026"
+    userHash: '20adeb19887fa7b7790d4592a46c03c4825e4889c05d9dd54e0a493b5eede245',
+    pswHash:  '9cb1a25057ed6e737c3229d3db554a019083cb96a53211770b71b3058cffc9b3',
     displayName: 'Lucap'
   }
 ];
@@ -425,7 +404,7 @@ function showApp(displayName) {
     logoutBtn.onmouseover = function() { this.style.color = '#ef5350'; };
     logoutBtn.onmouseout  = function() { this.style.color = 'rgba(239,83,80,0.7)'; };
     logoutBtn.onclick = function() {
-      if (confirm('Vuoi uscire dalla sessione?')) { sessionClear(); location.reload(); }
+      orosConfirm('Vuoi uscire dalla sessione?', function() { sessionClear(); location.reload(); });
     };
     nav.appendChild(logoutBtn);
   }
@@ -441,15 +420,12 @@ function authInit() {
   document.documentElement.style.colorScheme = savedTheme === 'dark' ? 'dark' : 'light';
   var btn = document.getElementById('themeBtn');
   if (btn) btn.textContent = savedTheme === 'dark' ? '☀' : '🌙';
-  var mobIcon = document.getElementById('mobThemeIcon');
-  if (mobIcon) mobIcon.textContent = savedTheme === 'dark' ? '☀' : '🌙';
   var homeIcon = document.getElementById('homeThemeBtn');
   if (homeIcon) homeIcon.textContent = savedTheme === 'dark' ? '☀' : '🌙';
 
   if (sessionValid()) {
     var s = sessionGet();
-    showApp(s.user);
-    fsSyncOnLogin(s.user);
+    showApp(s.user); // showApp esegue già fsSyncOnLogin: nessuna seconda chiamata (evita listener duplicati)
   }
   // Pre-focus username field
   setTimeout(function() {
@@ -488,23 +464,7 @@ document.addEventListener('focusin', function(e) {
 });
 </script>
 <style>
-  :root {
-    --bg: #080c14;
-    --surface: #0d1424;
-    --surface2: #111c30;
-    --border: #1e2d47;
-    --accent: #00e5a0;
-    --accent-dim: rgba(0,229,160,0.12);
-    --gold: #f0b429;
-    --gold-dim: rgba(240,180,41,0.12);
-    --text: #e2eaf8;
-    --text-dim: #5a7299;
-    --red: #ff4d6d;
-    --blue: #3d9bff;
-    --mono: 'Space Mono', monospace;
-    --sans: 'Syne', sans-serif;
-  }
-
+  /* Variabili tema: definite una sola volta nel remap su body (sezione THEME VARIABLES) */
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
@@ -958,8 +918,6 @@ document.addEventListener('focusin', function(e) {
 
   .container { padding: 20px 16px; }
   .panel { padding: 20px 16px; }
-  .panel-grid { grid-template-columns: 1fr; }
-  .output-row { grid-template-columns: 1fr 1fr; }
   .sc-bar { flex-direction: column; align-items: flex-start; }
   .sc-search { width: 100%; }
   .sc-inp { width: 100%; min-width: 0; }
@@ -2031,6 +1989,8 @@ input[type="date"]::-webkit-date-and-time-value {
 }
 
 </style>
+</head>
+<body>
 
 <!-- Mobile Bottom Bar (liquid glass, visible only on small screens when logged in) -->
 <div id="mobileOrosLogo" onclick="goHome()">OROS</div>
@@ -2080,7 +2040,6 @@ input[type="date"]::-webkit-date-and-time-value {
 <!-- LOGIN SCREEN -->
 <div id="loginScreen" style="position:relative;z-index:1;min-height:100%;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;box-sizing:border-box;">
 
-  <div style="position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;" id="starsLayer"></div>
 
   <div style="position:relative;z-index:2;width:100%;max-width:400px;">
 
@@ -2234,7 +2193,7 @@ input[type="date"]::-webkit-date-and-time-value {
   </div>
 
   <!-- Logout nascosto in basso -->
-  <button onclick="if(confirm('Vuoi uscire dalla sessione?')){sessionClear();location.reload();}"
+  <button onclick="orosConfirm('Vuoi uscire dalla sessione?', function(){sessionClear();location.reload();})"
     style="position:fixed;bottom:16px;right:16px;background:none;border:none;cursor:pointer;font-size:18px;color:rgba(239,83,80,0.25);transition:color 0.2s;z-index:10;padding:6px;"
     onmouseover="this.style.color='rgba(239,83,80,0.7)'"
     onmouseout="this.style.color='rgba(239,83,80,0.25)'"
@@ -2496,7 +2455,7 @@ input[type="date"]::-webkit-date-and-time-value {
     <!-- Header sticky -->
     <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px 16px;border-bottom:1px solid var(--tv-bord);">
       <div>
-        <div style="font-size:16px;font-weight:700;color:var(--tv-text);font-family:'Inter',sans-serif;">+ Nuova Operazione</div>
+        <div style="font-size:16px;font-weight:700;color:var(--tv-text);font-family:'Inter',sans-serif;" id="pfManualModalTitle">+ Nuova Operazione</div>
         <div style="font-size:11px;color:var(--tv-muted);margin-top:2px;font-family:'Inter',sans-serif;">Inserimento manuale — calcolo automatico P&amp;L</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;margin-left:12px;">
@@ -2978,7 +2937,7 @@ function updateOutputs(tab) {
   set('premioLordo', res ? fmt(res.premioLordo) : '—');
   set('premioLordoSub', res ? 'Quantità contratti: ' + res.quantita : 'Inserisci i dati per calcolare');
   set('premioNetto', res ? fmt(res.premioNetto) : '—');
-  set('premioNettoSub', res ? 'Dopo commissioni (1.14/contratto) e capital gain 26%' : '');
+  set('premioNettoSub', res ? 'Dopo commissioni (' + COMMISSIONI_UNIT + '/contratto) e capital gain ' + Math.round(CAPITAL_GAIN * 100) + '%' : '');
   set('rendScadNetto', res ? fmtPct(res.rendScadNetto) : '—');
   set('rendAnnuoNetto', res ? fmtPct(res.rendAnnuoNetto) : '—');
   set('rendScadLordo', res ? fmtPct(res.rendScadLordo) : '—');
@@ -3087,15 +3046,15 @@ function renderPanels() {
             </div>
             <div class="field">
               <label>Strike Price<span class="tip"><span class="tip-i">i</span><span class="tip-box">Prezzo di esercizio della Put: ti impegni ad acquistare il titolo a questo prezzo se assegnato.</span></span></label>
-              <input type="text" inputmode="decimal" placeholder="3.00" value="${d.strike}" data-field="strike">
+              <input type="text" inputmode="decimal" placeholder="3.00" value="${escapeAttr(d.strike)}" data-field="strike">
             </div>
             <div class="field">
               <label>Cash Disponibile<span class="tip"><span class="tip-i">i</span><span class="tip-box">Capitale messo a garanzia. Determina quanti contratti puoi vendere.</span></span></label>
-              <input type="text" inputmode="decimal" placeholder="20000" value="${d.cash}" data-field="cash">
+              <input type="text" inputmode="decimal" placeholder="20000" value="${escapeAttr(d.cash)}" data-field="cash">
             </div>
             <div class="field full">
               <label>Premio<span class="tip"><span class="tip-i">i</span><span class="tip-box">Premio unitario dell'opzione. È il guadagno per azione che incassi vendendo la Put.</span></span></label>
-              <input type="text" inputmode="decimal" placeholder="0.036" value="${d.premio}" data-field="premio">
+              <input type="text" inputmode="decimal" placeholder="0.036" value="${escapeAttr(d.premio)}" data-field="premio">
             </div>
             <div class="field full">
               <label>Quantità per Opzione<span class="tip"><span class="tip-i">i</span><span class="tip-box">Azioni per contratto. In Italia solitamente 100, 500 o 1000.</span></span></label>
@@ -3106,7 +3065,7 @@ function renderPanels() {
                 <option value="1000" ${d.quantitaOpz==1000&&!d._qtaCustom?'selected':''}>1000</option>
                 <option value="custom" ${d._qtaCustom?'selected':''}>✏️ Valore libero…</option>
               </select>
-              ${d._qtaCustom ? `<input type="text" inputmode="numeric" placeholder="es. 2000" data-field="quantitaOpz" value="${d.quantitaOpz}" style="margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;width:100%;transition:all 0.2s;">` : ''}
+              ${d._qtaCustom ? `<input type="text" inputmode="numeric" placeholder="es. 2000" data-field="quantitaOpz" value="${escapeAttr(d.quantitaOpz)}" style="margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;width:100%;transition:all 0.2s;">` : ''}
             </div>
             <div class="field full" style="display:flex;gap:8px;margin-top:4px;">
               <button onclick="goToCC()" style="flex:1;padding:8px 12px;background:transparent;border:1px solid rgba(240,180,41,0.2);border-radius:6px;color:rgba(240,180,41,0.5);font-family:'Inter',sans-serif;font-size:11px;font-weight:500;cursor:pointer;transition:all 0.25s;letter-spacing:0.3px;display:flex;align-items:center;justify-content:center;gap:4px;"
@@ -3146,7 +3105,7 @@ function renderPanels() {
           <div class="output-card primary">
             <div class="out-label">Premio Netto</div>
             <div class="out-value" data-out="premioNetto">${res ? fmt(res.premioNetto) : '—'}</div>
-            <div class="out-sub" data-out="premioNettoSub">${res ? 'Dopo commissioni (1.14/contratto) e capital gain 26%' : ''}</div>
+            <div class="out-sub" data-out="premioNettoSub">${res ? 'Dopo commissioni (' + COMMISSIONI_UNIT + '/contratto) e capital gain ' + Math.round(CAPITAL_GAIN * 100) + '%' : ''}</div>
             <div class="perf-bar"><div class="perf-bar-fill" data-bar="netto" style="width:${annuoNettoBar}%"></div></div>
           </div>
 
@@ -3183,8 +3142,6 @@ function renderPanels() {
         const raw = e.target.value.replace(/\./g, '').replace(/\D/g, '');
         if (raw !== '') {
           const formatted = parseInt(raw, 10).toLocaleString('it-IT');
-          const caretPos = e.target.selectionStart;
-          const oldLen = e.target.value.length;
           e.target.value = formatted;
           tab.data[field] = formatted;
           // Keep caret at end
@@ -3569,15 +3526,15 @@ function ccRenderPanel() {
             </div>
             <div class="field">
               <label>Strike Price<span class="tip"><span class="tip-i">i</span><span class="tip-box">Prezzo a cui ti impegni a cedere le azioni se il titolo sale oltre questo livello a scadenza.</span></span></label>
-              <input type="text" inputmode="decimal" placeholder="3.00" value="${d.strike}" data-field="strike">
+              <input type="text" inputmode="decimal" placeholder="3.00" value="${escapeAttr(d.strike)}" data-field="strike">
             </div>
             <div class="field">
               <label>Premio<span class="tip"><span class="tip-i">i</span><span class="tip-box">Premio unitario della Call. È quanto incassi per azione vendendo il diritto d'acquisto.</span></span></label>
-              <input type="text" inputmode="decimal" placeholder="0.01" value="${d.premio}" data-field="premio">
+              <input type="text" inputmode="decimal" placeholder="0.01" value="${escapeAttr(d.premio)}" data-field="premio">
             </div>
             <div class="field full">
               <label>N° Contratti<span class="tip"><span class="tip-i">i</span><span class="tip-box">Quanti contratti vuoi vendere. Devi possedere le azioni sottostanti (lotto × contratti).</span></span></label>
-              <input type="text" inputmode="numeric" placeholder="6" value="${d.contratti}" data-field="contratti">
+              <input type="text" inputmode="numeric" placeholder="6" value="${escapeAttr(d.contratti)}" data-field="contratti">
             </div>
             <div class="field full">
               <label>Quantità per Opzione<span class="tip"><span class="tip-i">i</span><span class="tip-box">Azioni per contratto. Deve corrispondere al lotto minimo del titolo.</span></span></label>
@@ -3588,7 +3545,7 @@ function ccRenderPanel() {
                 <option value="1000" ${d.quantitaOpz==1000&&!d._qc?'selected':''}>1000</option>
                 <option value="custom" ${d._qc?'selected':''}>✏️ Valore libero…</option>
               </select>
-              ${d._qc ? `<input type="text" inputmode="numeric" placeholder="es. 2000" data-field="quantitaOpz" value="${d.quantitaOpz}" style="margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;width:100%;">` : ''}
+              ${d._qc ? `<input type="text" inputmode="numeric" placeholder="es. 2000" data-field="quantitaOpz" value="${escapeAttr(d.quantitaOpz)}" style="margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;width:100%;">` : ''}
             </div>
             <div class="field full" style="margin-top:4px;display:flex;gap:8px;">
               <button onclick="salvaCcCorrente()" style="flex:1;padding:8px 12px;background:transparent;border:1px solid rgba(38,166,154,0.2);border-radius:6px;color:rgba(38,166,154,0.5);font-family:'Inter',sans-serif;font-size:11px;font-weight:500;cursor:pointer;transition:all 0.25s;letter-spacing:0.3px;display:flex;align-items:center;justify-content:center;gap:4px;"
@@ -3630,8 +3587,6 @@ function ccRenderPanel() {
           </div>
         </div>
       </div>
-    </div>
-    </div>
     </div>
   `;
 
@@ -4078,57 +4033,6 @@ function fmtDate(iso) {
          ' ' + d.toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit'});
 }
 
-function renderStoria() {
-  var container = document.getElementById('storiaContainer');
-  if (!container) return;
-  var list = storiaLoad();
-  if (storiaFilterCur !== 'all') {
-    list = list.filter(function(e){ return e.tipo === storiaFilterCur; });
-  }
-  if (list.length === 0) {
-    container.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--tv-muted);font-family:\'Inter\',sans-serif;font-size:13px;">' +
-      '<div style="font-size:40px;margin-bottom:16px;">📭</div>' +
-      '<div style="font-weight:600;margin-bottom:6px;">Nessuna simulazione salvata</div>' +
-      '<div style="font-size:12px;">Vai su CSP o CC, inserisci i dati e premi 💾 Salva storico</div></div>';
-    return;
-  }
-
-  var html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">';
-  list.forEach(function(entry) {
-    var isCsp = entry.tipo === 'csp';
-    var accentColor = isCsp ? '#26a69a' : '#f0b429';
-    var accentBg    = isCsp ? 'rgba(38,166,154,0.1)' : 'rgba(240,180,41,0.1)';
-    var accentBord  = isCsp ? 'rgba(38,166,154,0.3)' : 'rgba(240,180,41,0.3)';
-    var typeLabel   = isCsp ? 'CSP' : 'CC';
-    var ticker = (entry.data && entry.data.ticker) ? entry.data.ticker.toUpperCase() : '—';
-    var rendAnnuo = entry.results ? (entry.results.rendAnnuoNetto * 100).toFixed(2).replace('.',',') + '%' : '—';
-    var premioNetto = entry.results ? fmt(entry.results.premioNetto) : '—';
-
-    html += '<div onclick="storiaOpenModal(\'' + entry.id + '\')" style="cursor:pointer;background:var(--tv-surf);border:1px solid ' + accentBord + ';border-radius:10px;padding:18px;transition:transform 0.15s,box-shadow 0.15s;" ' +
-      'onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 8px 24px rgba(0,0,0,0.25)\'" ' +
-      'onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'none\'">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
-        '<span style="background:' + accentBg + ';color:' + accentColor + ';border:1px solid ' + accentBord + ';padding:3px 9px;border-radius:5px;font-family:\'Inter\',sans-serif;font-size:11px;font-weight:700;">' + typeLabel + '</span>' +
-        '<span style="font-family:\'Inter\',sans-serif;font-size:11px;color:var(--tv-muted);">' + fmtDate(entry.savedAt) + '</span>' +
-      '</div>' +
-      '<div style="font-size:22px;font-weight:800;color:var(--tv-text);font-family:\'Inter\',sans-serif;letter-spacing:1px;margin-bottom:10px;">' + ticker + '</div>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
-        '<div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:7px;padding:10px;">' +
-          '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:3px;">Premio Netto</div>' +
-          '<div style="font-family:\'Inter\',sans-serif;font-size:15px;font-weight:700;color:' + accentColor + ';">' + premioNetto + '</div>' +
-        '</div>' +
-        '<div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:7px;padding:10px;">' +
-          '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:3px;">Rend. Annuo</div>' +
-          '<div style="font-family:\'Inter\',sans-serif;font-size:15px;font-weight:700;color:' + accentColor + ';">' + rendAnnuo + '</div>' +
-        '</div>' +
-      '</div>' +
-      (entry.label ? '<div style="margin-top:10px;font-size:11px;color:var(--tv-muted);font-family:\'Inter\',sans-serif;font-style:italic;">' + escapeHtml(entry.label) + '</div>' : '') +
-    '</div>';
-  });
-  html += '</div>';
-  container.innerHTML = html;
-}
-
 function storiaOpenModal(id) {
   var list = storiaLoad();
   var entry = list.find(function(e){ return e.id === id; });
@@ -4178,7 +4082,7 @@ function storiaOpenModal(id) {
       if (tab) { tab.data.ticker = d.ticker || ''; tab.data.price = d.price || ''; tab.data.qty = d.qty || ''; }
       botRenderAll();
     };
-    document.getElementById('storiaModalDelete').style.display = ''; var _pdb = document.getElementById('pfModalDeleteBtn'); if (_pdb) _pdb.remove();
+    document.getElementById('storiaModalDelete').style.display = ''; var _pdb = document.getElementById('pfModalDeleteBtn'); if (_pdb) _pdb.remove(); var _peb = document.getElementById('pfModalEditBtn'); if (_peb) _peb.remove();
     document.getElementById('storiaModal').style.display = 'block';
     return;
   }
@@ -4255,7 +4159,7 @@ function storiaOpenModal(id) {
   loadBtn.onclick = function() {
     storiaRicarica(id);
   };
-  document.getElementById('storiaModalDelete').style.display = ''; var _pdb = document.getElementById('pfModalDeleteBtn'); if (_pdb) _pdb.remove();
+  document.getElementById('storiaModalDelete').style.display = ''; var _pdb = document.getElementById('pfModalDeleteBtn'); if (_pdb) _pdb.remove(); var _peb = document.getElementById('pfModalEditBtn'); if (_peb) _peb.remove();
   document.getElementById('storiaModal').style.display = 'block';
 }
 
@@ -4586,15 +4490,15 @@ function botRenderPanel() {
           '<div class="input-grid">' +
             '<div class="field full">' +
               '<label>Ticker<span class="tip"><span class="tip-i">i</span><span class="tip-box">Codice identificativo del BOT (es. BOT 14MZ26).</span></span></label>' +
-              '<input type="text" id="bot_ticker" class="" placeholder="es. BOT 14MZ26" value="' + (d.ticker||'') + '" style="text-transform:uppercase;" oninput="botUpdateField(\'' + tab.id + '\',\'ticker\',this.value.toUpperCase());this.value=this.value.toUpperCase();">' +
+              '<input type="text" id="bot_ticker" class="" placeholder="es. BOT 14MZ26" value="' + escapeAttr(d.ticker||'') + '" style="text-transform:uppercase;" oninput="botUpdateField(\'' + tab.id + '\',\'ticker\',this.value.toUpperCase());this.value=this.value.toUpperCase();">' +
             '</div>' +
             '<div class="field">' +
               '<label>Prezzo acquisto<span class="tip"><span class="tip-i">i</span><span class="tip-box">Prezzo in decimali (0.9638 = 96,38%). Usa la virgola per i decimali.</span></span></label>' +
-              '<input type="text" inputmode="decimal" id="bot_price" class="" placeholder="0.9638" value="' + (d.price||'') + '" oninput="botUpdateField(\'' + tab.id + '\',\'price\',this.value)">' +
+              '<input type="text" inputmode="decimal" id="bot_price" class="" placeholder="0.9638" value="' + escapeAttr(d.price||'') + '" oninput="botUpdateField(\'' + tab.id + '\',\'price\',this.value)">' +
             '</div>' +
             '<div class="field">' +
               '<label>N° titoli<span class="tip"><span class="tip-i">i</span><span class="tip-box">Quantità di titoli. Multiplo di 1.000. Usa il punto come separatore delle migliaia (es. 40.000).</span></span></label>' +
-              '<input type="text" inputmode="numeric" id="bot_qty" class="" placeholder="40.000" value="' + (d.qty||'') + '" oninput="botFmtThousands(this);botUpdateField(\'' + tab.id + '\',\'qty\',this.value)">' +
+              '<input type="text" inputmode="numeric" id="bot_qty" class="" placeholder="40.000" value="' + escapeAttr(d.qty||'') + '" oninput="botFmtThousands(this);botUpdateField(\'' + tab.id + '\',\'qty\',this.value)">' +
             '</div>' +
             '<div class="field full" style="margin-top:4px;display:flex;gap:8px;">' +
               '<button onclick="salvaBotCorrente()" id="botBtnSalva" style="flex:1;padding:9px 12px;background:transparent;border:1px solid rgba(38,166,154,0.2);border-radius:6px;color:rgba(38,166,154,0.5);font-family:\'Inter\',sans-serif;font-size:11px;font-weight:500;cursor:pointer;transition:all 0.25s;letter-spacing:0.3px;display:flex;align-items:center;justify-content:center;gap:5px;" onmouseover="this.style.background=\'rgba(38,166,154,0.06)\';this.style.borderColor=\'rgba(38,166,154,0.4)\';this.style.color=\'rgba(38,166,154,0.85)\'" onmouseout="this.style.background=\'transparent\';this.style.borderColor=\'rgba(38,166,154,0.2)\';this.style.color=\'rgba(38,166,154,0.5)\'">💾 Salva storico</button>' +
@@ -4685,7 +4589,7 @@ function botRenderCompare() {
     '<th style="text-align:left;padding:8px 12px;color:var(--tv-muted);font-size:10px;letter-spacing:1px;text-transform:uppercase;font-weight:700;white-space:nowrap;border-bottom:1px solid var(--tv-bord);">Metrica</th>';
   botTabs.forEach(function(tab) {
     html += '<th style="text-align:right;padding:8px 12px;color:var(--tv-muted);font-size:10px;letter-spacing:1px;text-transform:uppercase;font-weight:700;border-bottom:1px solid var(--tv-bord);">' +
-      '<span class="ticker-badge">' + ((tab.data.ticker||'BOT '+(botTabs.indexOf(tab)+1)).toUpperCase()) + '</span></th>';
+      '<span class="ticker-badge">' + escapeHtml((tab.data.ticker||'BOT '+(botTabs.indexOf(tab)+1)).toUpperCase()) + '</span></th>';
   });
   html += '</tr></thead><tbody>';
   var rows = [
@@ -4988,8 +4892,7 @@ function salvacentroCorrente() {
 }
 
 // ── renderStoria — handles all entry types (CSP, CC, BOT, Centro)
-var _origRenderStoria = renderStoria;
-renderStoria = function() {
+function renderStoria() {
   var container = document.getElementById('storiaContainer');
   if (!container) return;
   var list = storiaLoad();
@@ -5017,7 +4920,7 @@ renderStoria = function() {
     if (isCentro) {
       var d = entry.data || {};
       var r = entry.results || {};
-      var strikeLbl = d.futStrike || d.spxStrikeES || '—';
+      var strikeLbl = escapeHtml(d.futStrike || d.spxStrikeES || '—');
       var supVal  = r.futSupporto   != null ? centroFmt(r.futSupporto, 2)   : (r.mmSupporto   != null ? centroFmt(r.mmSupporto, 2)   : '—');
       var resVal  = r.futResistenza != null ? centroFmt(r.futResistenza, 2) : (r.mmResistenza != null ? centroFmt(r.mmResistenza, 2) : '—');
       html += '<div onclick="centrioStoriaOpenModal(\'' + entry.id + '\')" style="cursor:pointer;background:var(--tv-surf);border:1px solid ' + accentBord + ';border-radius:10px;padding:18px;transition:transform 0.15s,box-shadow 0.15s;" ' +
@@ -5042,7 +4945,7 @@ renderStoria = function() {
     } else if (isBot) {
       var d = entry.data || {};
       var r = entry.results || {};
-      var botTick = (d.ticker || 'BOT').toUpperCase();
+      var botTick = escapeHtml((d.ticker || 'BOT').toUpperCase());
       var botUtile = r.utile != null ? botFmtEur(r.utile) : '—';
       var botRoe   = r.roe   != null ? botFmtPct(r.roe)   : '—';
       html += '<div onclick="storiaOpenModal(\'' + entry.id + '\')" style="cursor:pointer;background:var(--tv-surf);border:1px solid ' + accentBord + ';border-radius:10px;padding:18px;transition:transform 0.15s,box-shadow 0.15s;" ' +
@@ -5065,7 +4968,7 @@ renderStoria = function() {
         '</div>' +
       '</div>';
     } else {
-      var ticker    = (entry.data && entry.data.ticker) ? entry.data.ticker.toUpperCase() : '—';
+      var ticker    = escapeHtml((entry.data && entry.data.ticker) ? entry.data.ticker.toUpperCase() : '—');
       var rendAnnuo = entry.results ? (entry.results.rendAnnuoNetto * 100).toFixed(2).replace('.',',') + '%' : '—';
       var premioNetto = entry.results ? fmt(entry.results.premioNetto) : '—';
       html += '<div onclick="storiaOpenModal(\'' + entry.id + '\')" style="cursor:pointer;background:var(--tv-surf);border:1px solid ' + accentBord + ';border-radius:10px;padding:18px;transition:transform 0.15s,box-shadow 0.15s;" ' +
@@ -5092,7 +4995,7 @@ renderStoria = function() {
   });
   html += '</div>';
   container.innerHTML = html;
-};
+}
 
 // ── Centro entry modal (detail view)
 function centrioStoriaOpenModal(id) {
@@ -5156,7 +5059,7 @@ function centrioStoriaOpenModal(id) {
     setInp('fut_strike',     d.futStrike);
     centroCalc();
   };
-  document.getElementById('storiaModalDelete').style.display = ''; var _pdb = document.getElementById('pfModalDeleteBtn'); if (_pdb) _pdb.remove();
+  document.getElementById('storiaModalDelete').style.display = ''; var _pdb = document.getElementById('pfModalDeleteBtn'); if (_pdb) _pdb.remove(); var _peb = document.getElementById('pfModalEditBtn'); if (_peb) _peb.remove();
   document.getElementById('storiaModal').style.display = 'block';
 }
 
@@ -5171,7 +5074,6 @@ function centrioStoriaOpenModal(id) {
   window.fsCloudSave   = function() {};
   window.fsPfCloudSave = function() {};
   window.fsSyncOnLogin = function() {};
-  window.fsAddSyncIndicator = function() {};
 
   if (typeof firebase === 'undefined') {
     return; // offline mode, stubs handle all calls silently
@@ -5223,29 +5125,12 @@ function centrioStoriaOpenModal(id) {
           localStorage.setItem(lsKey, JSON.stringify(data.list || []));
           localStorage.setItem(_tsKey(docName), cloudTs);
           if (typeof renderFn === 'function') renderFn();
-          var syncEl = document.getElementById('orosSyncStatus');
-          if (syncEl) { syncEl.textContent = '☁ Aggiornato'; setTimeout(function(){ syncEl.textContent = ''; }, 2500); }
         }
       }, function(e){ console.warn('Firestore listener error (' + docName + '):', e); });
   }
 
-  window.fsAddSyncIndicator = function() {
-    if (document.getElementById('orosSyncStatus')) return;
-    var el = document.createElement('div');
-    el.id = 'orosSyncStatus';
-    el.style.cssText = 'font-size:9px;color:var(--tv-muted);text-align:center;padding:2px 6px 6px;font-family:\'Inter\',sans-serif;letter-spacing:0.3px;';
-    var nav = document.getElementById('mainNav');
-    if (nav) {
-      var spacer = nav.querySelector('.sb-spacer');
-      if (spacer) nav.insertBefore(el, spacer); else nav.appendChild(el);
-    }
-  };
-
   window.fsSyncOnLogin = function(userId) {
     window._orosUserId = userId.toLowerCase().replace(/\s+/g, '_');
-    console.warn('OROS Firebase userId:', window._orosUserId);
-    var syncEl = document.getElementById('orosSyncStatus');
-    if (syncEl) syncEl.textContent = '☁ Sincronizzazione…';
 
     var docs = [
       { name: 'storia',      ls: 'oros_storia_v1',      save: window.fsCloudSave,   render: function(){ if (typeof renderStoria === 'function') renderStoria(); } },
@@ -5278,8 +5163,6 @@ function centrioStoriaOpenModal(id) {
           _attachListener(cfg.name, cfg.ls, cfg.render);
         });
     });
-
-    if (syncEl) { setTimeout(function(){ if (syncEl.textContent === '☁ Sincronizzazione…') syncEl.textContent = ''; }, 4000); }
   };
 })();
 </script>
@@ -5359,6 +5242,7 @@ var _pfChart = null;
 var _pfPendingEntry = null; // entry in attesa di conferma modal
 var pfSumMode = false;
 var pfSumSelected = {}; // { id: true }
+var _pfManualEditId = null; // id dell'operazione manuale in modifica
 
 function pfEntryNetProfit(entry) {
   if (!entry) return 0;
@@ -5473,14 +5357,14 @@ function aggiungiCspAPortafoglio() {
   if (!tab) return;
   var res = getResults(tab);
   if (!res) { alert('Inserisci i dati prima di aggiungere al portafoglio.'); return; }
-  var ticker = (tab.data.ticker || 'CSP').toUpperCase();
+  var ticker = escapeHtml((tab.data.ticker || 'CSP').toUpperCase());
   var preview =
     '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
       '<span style="background:rgba(38,166,154,0.12);color:#26a69a;border:1px solid rgba(38,166,154,0.3);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;font-family:\'Inter\',sans-serif;">CSP</span>' +
       '<span style="font-size:14px;font-weight:800;color:var(--tv-text);font-family:\'Inter\',sans-serif;">' + ticker + '</span>' +
     '</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">' +
-      '<div><span style="color:var(--tv-muted);font-size:10px;">Strike</span><br><span style="color:var(--tv-text);font-size:12px;font-weight:600;">€' + (tab.data.strike || '—') + '</span></div>' +
+      '<div><span style="color:var(--tv-muted);font-size:10px;">Strike</span><br><span style="color:var(--tv-text);font-size:12px;font-weight:600;">€' + escapeHtml(tab.data.strike || '—') + '</span></div>' +
       '<div><span style="color:var(--tv-muted);font-size:10px;">Premio Netto</span><br><span style="color:#26a69a;font-size:12px;font-weight:700;">' + fmt(res.premioNetto) + '</span></div>' +
       '<div><span style="color:var(--tv-muted);font-size:10px;">Contratti</span><br><span style="color:var(--tv-text);font-size:12px;font-weight:600;">' + res.quantita + '</span></div>' +
       '<div><span style="color:var(--tv-muted);font-size:10px;">Rend. Annuo Netto</span><br><span style="color:#26a69a;font-size:12px;font-weight:700;">' + fmtPct(res.rendAnnuoNetto) + '</span></div>' +
@@ -5494,7 +5378,7 @@ function aggiungiCcAPortafoglio() {
   if (!tab) return;
   var res = ccGetResults(tab);
   if (!res) { alert('Inserisci i dati prima di aggiungere al portafoglio.'); return; }
-  var ticker = (tab.data.ticker || 'CC').toUpperCase();
+  var ticker = escapeHtml((tab.data.ticker || 'CC').toUpperCase());
 
   // Cattura dividendi se compilati (stessa logica di salvaCcCorrente)
   var divData = null;
@@ -5534,9 +5418,9 @@ function aggiungiCcAPortafoglio() {
       '<span style="font-size:14px;font-weight:800;color:var(--tv-text);font-family:\'Inter\',sans-serif;">' + ticker + '</span>' +
     '</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">' +
-      '<div><span style="color:var(--tv-muted);font-size:10px;">Strike</span><br><span style="color:var(--tv-text);font-size:12px;font-weight:600;">€' + (tab.data.strike || '—') + '</span></div>' +
+      '<div><span style="color:var(--tv-muted);font-size:10px;">Strike</span><br><span style="color:var(--tv-text);font-size:12px;font-weight:600;">€' + escapeHtml(tab.data.strike || '—') + '</span></div>' +
       '<div><span style="color:var(--tv-muted);font-size:10px;">Premio Netto</span><br><span style="color:#f0b429;font-size:12px;font-weight:700;">' + fmt(res.premioNetto) + '</span></div>' +
-      '<div><span style="color:var(--tv-muted);font-size:10px;">Contratti</span><br><span style="color:var(--tv-text);font-size:12px;font-weight:600;">' + (tab.data.contratti || '—') + '</span></div>' +
+      '<div><span style="color:var(--tv-muted);font-size:10px;">Contratti</span><br><span style="color:var(--tv-text);font-size:12px;font-weight:600;">' + escapeHtml(tab.data.contratti || '—') + '</span></div>' +
       '<div><span style="color:var(--tv-muted);font-size:10px;">Rend. Annuo Netto</span><br><span style="color:#f0b429;font-size:12px;font-weight:700;">' + fmtPct(res.rendAnnuoNetto) + '</span></div>' +
       divRow +
     '</div>';
@@ -5552,7 +5436,7 @@ function aggiungiBotAPortafoglio() {
   var qty   = botParseNum(tab.data.qty);
   if (isNaN(price) || isNaN(qty)) { alert('Inserisci almeno Prezzo e N° titoli prima di aggiungere al portafoglio.'); return; }
   var res = botGetResults(tab);
-  var ticker = (tab.data.ticker || 'BOT').toUpperCase();
+  var ticker = escapeHtml((tab.data.ticker || 'BOT').toUpperCase());
   var botData = { ticker: ticker, price: tab.data.price, rimborso: String(BOT_RIMBORSO), qty: tab.data.qty, comm: String(BOT_COMM) };
   var preview =
     '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
@@ -5560,9 +5444,9 @@ function aggiungiBotAPortafoglio() {
       '<span style="font-size:14px;font-weight:800;color:var(--tv-text);font-family:\'Inter\',sans-serif;">' + ticker + '</span>' +
     '</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">' +
-      '<div><span style="color:var(--tv-muted);font-size:10px;">Prezzo acquisto</span><br><span style="color:var(--tv-text);font-size:12px;font-weight:600;">' + (tab.data.price || '—') + '</span></div>' +
+      '<div><span style="color:var(--tv-muted);font-size:10px;">Prezzo acquisto</span><br><span style="color:var(--tv-text);font-size:12px;font-weight:600;">' + escapeHtml(tab.data.price || '—') + '</span></div>' +
       '<div><span style="color:var(--tv-muted);font-size:10px;">Utile Netto</span><br><span style="color:#7aa3ff;font-size:12px;font-weight:700;">' + (res ? botFmtEur(res.utile) : '—') + '</span></div>' +
-      '<div><span style="color:var(--tv-muted);font-size:10px;">N° Titoli</span><br><span style="color:var(--tv-text);font-size:12px;font-weight:600;">' + (tab.data.qty || '—') + '</span></div>' +
+      '<div><span style="color:var(--tv-muted);font-size:10px;">N° Titoli</span><br><span style="color:var(--tv-text);font-size:12px;font-weight:600;">' + escapeHtml(tab.data.qty || '—') + '</span></div>' +
       '<div><span style="color:var(--tv-muted);font-size:10px;">Rendimento Netto</span><br><span style="color:#7aa3ff;font-size:12px;font-weight:700;">' + (res ? botFmtPct(res.roe) : '—') + '</span></div>' +
     '</div>';
   pfOpenAddModal('bot', botData, res, preview);
@@ -5970,7 +5854,7 @@ function portafoglioRender(opts) {
       var accentBg    = isCsp ? 'rgba(38,166,154,0.1)' : (isCc ? 'rgba(240,180,41,0.1)' : (isBot ? 'rgba(122,163,255,0.1)' : 'rgba(0,229,160,0.1)'));
       var accentBord  = isCsp ? 'rgba(38,166,154,0.3)' : (isCc ? 'rgba(240,180,41,0.3)' : (isBot ? 'rgba(122,163,255,0.3)' : 'rgba(0,229,160,0.3)'));
       var typeLabel   = isCsp ? 'CSP' : (isCc ? 'CC' : (isBot ? 'BOT' : '●'));
-      var ticker = (entry.data && entry.data.ticker) ? entry.data.ticker.toUpperCase() : typeLabel;
+      var ticker = escapeHtml((entry.data && entry.data.ticker) ? entry.data.ticker.toUpperCase() : typeLabel);
 
       var metricLabel, metricValue;
       if (isBot) {
@@ -6171,7 +6055,7 @@ function pfOpenDetailModal(id) {
       '<div style="margin-top:12px;background:' + pBg + ';border:1px solid ' + pBord + ';border-radius:8px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;">' +
         '<div>' +
           '<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:4px;font-family:\'Inter\',sans-serif;">' + (entry.closedProfit >= 0 ? 'Profit' : 'Loss') + '</div>' +
-          (entry.closeNote ? '<div style="margin-top:5px;font-size:11px;color:var(--tv-muted);font-style:italic;font-family:\'Inter\',sans-serif;">' + entry.closeNote + '</div>' : '') +
+          (entry.closeNote ? '<div style="margin-top:5px;font-size:11px;color:var(--tv-muted);font-style:italic;font-family:\'Inter\',sans-serif;">' + escapeHtml(entry.closeNote) + '</div>' : '') +
         '</div>' +
         '<div style="font-size:24px;font-weight:800;color:' + pColor + ';font-family:\'Inter\',sans-serif;text-align:right;">' + pfFmtAmount(entry.closedProfit, true) + '</div>' +
       '</div>';
@@ -6179,7 +6063,7 @@ function pfOpenDetailModal(id) {
 
   // Note apertura
   if (entry.note) {
-    body += '<div style="margin-top:10px;font-size:11px;color:var(--tv-muted);font-family:\'Inter\',sans-serif;font-style:italic;">📝 ' + entry.note + '</div>';
+    body += '<div style="margin-top:10px;font-size:11px;color:var(--tv-muted);font-family:\'Inter\',sans-serif;font-style:italic;">📝 ' + escapeHtml(entry.note) + '</div>';
   }
 
   document.getElementById('storiaModalBody').innerHTML = body;
@@ -6210,6 +6094,21 @@ function pfOpenDetailModal(id) {
     loadBtn.style.background = 'rgba(255,255,255,0.08)';
     loadBtn.style.color = 'var(--tv-muted)';
     loadBtn.onclick = null;
+  }
+
+  // Bottone modifica — solo per operazioni manuali: riapre il modal di inserimento precompilato
+  var existingEditPf = document.getElementById('pfModalEditBtn');
+  if (existingEditPf) existingEditPf.remove();
+  if (isManual) {
+    var editPfBtn = document.createElement('button');
+    editPfBtn.id = 'pfModalEditBtn';
+    editPfBtn.textContent = '✎ Modifica';
+    editPfBtn.style.cssText = 'padding:11px 18px;background:rgba(41,98,255,.12);border:1px solid rgba(41,98,255,.3);border-radius:6px;color:var(--tv-blue);font-family:\'Inter\',sans-serif;font-size:13px;font-weight:600;cursor:pointer;';
+    editPfBtn.onclick = function() {
+      document.getElementById('storiaModal').style.display = 'none';
+      pfManualEdit(id);
+    };
+    document.getElementById('storiaModalFooter').appendChild(editPfBtn);
   }
 
   // Bottone elimina portafoglio — appare solo nel modal, con confirm
@@ -6293,6 +6192,8 @@ function pfManCalc() {
 
 function pfManualOpen() {
   _pfManualEditId = null;
+  var title = document.getElementById('pfManualModalTitle');
+  if (title) title.textContent = '+ Nuova Operazione';
   ['pfManTicker','pfManOpenPrice','pfManOpenQty','pfManClosePrice','pfManCloseQty','pfManNote'].forEach(function(id) {
     var el = document.getElementById(id); if (el) el.value = '';
   });
@@ -6307,6 +6208,8 @@ function pfManualEdit(id) {
   var entry = pfLoad().find(function(e){ return e.id === id; });
   if (!entry) return;
   _pfManualEditId = id;
+  var title = document.getElementById('pfManualModalTitle');
+  if (title) title.textContent = '✎ Modifica Operazione';
   var d = entry.data || {};
   document.getElementById('pfManTicker').value      = d.ticker      || '';
   document.getElementById('pfManOpenPrice').value   = d.openPrice   != null ? String(d.openPrice).replace('.', ',')  : '';
