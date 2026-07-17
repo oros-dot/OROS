@@ -105,7 +105,7 @@ function debounce(fn, wait) {
 // goPage defined first — always available
 function goPage(p) {
   window.__orosCurPage = p;
-  ['Home','Screener','CSP','CC','BOT','Portafoglio','Storia','Centro'].forEach(function(n) {
+  ['Home','Screener','CSP','CC','BOT','Portafoglio','Storia','Centro','Meteo'].forEach(function(n) {
     var pg = document.getElementById('page' + n);
     var nb = document.getElementById('nav'  + n);
     var mb = document.getElementById('mobNav' + n);
@@ -135,11 +135,14 @@ function goPage(p) {
   if (p === 'centro') {
     centroRenderHistory();
   }
+  if (p === 'meteo') {
+    meteoOpenPage();
+  }
 }
 
 function goHome() {
   if (!sessionValid()) return;
-  ['pageHome','pageScreener','pageCSP','pageCC','pageBOT','pagePortafoglio','pageStoria','pageCentro'].forEach(function(id) {
+  ['pageHome','pageScreener','pageCSP','pageCC','pageBOT','pagePortafoglio','pageStoria','pageCentro','pageMeteo'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -149,11 +152,12 @@ function goHome() {
   document.getElementById('mainNav').style.display = 'none';
   document.body.classList.remove('has-sidebar');
   window.__orosCurPage = 'home';
+  if (window.__orosSpaceResume) window.__orosSpaceResume();
 }
 
 // ── Swipe navigation (solo mobile) ──
 (function() {
-  var ORDER = ['screener','csp','cc','centro','bot','portafoglio','storia'];
+  var ORDER = ['screener','csp','cc','centro','bot','portafoglio','meteo','storia'];
   var sx = 0, sy = 0, st = 0, tracking = false;
   document.addEventListener('touchstart', function(e) {
     if (window.innerWidth > 768) return;
@@ -183,7 +187,7 @@ function goHome() {
     var p = ORDER[next];
     goPage(p);
     // Effetto card sulla pagina entrante
-    var name = { screener:'Screener', csp:'CSP', cc:'CC', centro:'Centro', bot:'BOT', portafoglio:'Portafoglio', storia:'Storia' }[p];
+    var name = { screener:'Screener', csp:'CSP', cc:'CC', centro:'Centro', bot:'BOT', portafoglio:'Portafoglio', meteo:'Meteo', storia:'Storia' }[p];
     var el = document.getElementById('page' + name);
     if (el) {
       el.classList.remove('swipe-in-left','swipe-in-right');
@@ -404,7 +408,7 @@ function showApp(displayName) {
     logoutBtn.onmouseover = function() { this.style.color = '#ef5350'; };
     logoutBtn.onmouseout  = function() { this.style.color = 'rgba(239,83,80,0.7)'; };
     logoutBtn.onclick = function() {
-      orosConfirm('Vuoi uscire dalla sessione?', function() { sessionClear(); location.reload(); });
+      orosConfirm('Vuoi uscire dalla sessione?', function() { sessionClear(); location.reload(); }, { okLabel: '\u238B Esci', danger: false });
     };
     nav.appendChild(logoutBtn);
   }
@@ -946,7 +950,8 @@ document.addEventListener('focusin', function(e) {
   body.has-sidebar #pageBOT,
   body.has-sidebar #pagePortafoglio,
   body.has-sidebar #pageStoria,
-  body.has-sidebar #pageCentro { position: static !important; height: auto !important; overflow: visible !important; }
+  body.has-sidebar #pageCentro,
+  body.has-sidebar #pageMeteo { position: static !important; height: auto !important; overflow: visible !important; }
   }
 
   /* EMPTY STATE */
@@ -1204,7 +1209,8 @@ body.has-sidebar #pageCC,
 body.has-sidebar #pageBOT,
 body.has-sidebar #pagePortafoglio,
 body.has-sidebar #pageStoria,
-body.has-sidebar #pageCentro {
+body.has-sidebar #pageCentro,
+body.has-sidebar #pageMeteo {
   position: fixed;
   top: 0;
   bottom: 0;
@@ -1244,6 +1250,247 @@ body.has-sidebar #pageCentro {
   text-shadow: 0 0 18px rgba(240,180,41,0.4);
   -webkit-tap-highlight-color: transparent;
   padding: 4px 8px;
+}
+
+/* ── pageMeteo — Macro Outlook ── */
+#pageMeteo .panel {
+  background: var(--tv-surf);
+  border: 1px solid var(--tv-bord);
+  border-radius: 8px;
+  padding: 22px 20px;
+  margin-bottom: 20px;
+}
+#pageMeteo .section-title { color: var(--tv-muted); font-family: 'Inter', sans-serif; }
+#pageMeteo .gear-btn { border-color: var(--tv-bord); color: var(--tv-muted); }
+#pageMeteo .gear-btn:hover { border-color: rgba(56,189,248,0.6); color: #38bdf8; background: rgba(56,189,248,.08); }
+
+/* Righe dati giornalieri */
+#pageMeteo .met-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  padding: 14px 2px; border-bottom: 1px solid var(--tv-bord);
+}
+#pageMeteo .met-row:last-child { border-bottom: none; padding-bottom: 4px; }
+#pageMeteo .met-rlab { min-width: 190px; flex: 1; }
+#pageMeteo .met-name { font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 800; color: var(--tv-text); letter-spacing: .5px; display: flex; align-items: center; gap: 8px; }
+#pageMeteo .met-hint { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--tv-muted); margin-top: 3px; line-height: 1.45; }
+#pageMeteo .met-rin { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; margin-left: auto; }
+#pageMeteo .met-chip {
+  width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
+  background: var(--tv-bord); transition: background .25s, box-shadow .25s;
+}
+#pageMeteo .met-chip.s1 { background: var(--tv-green); box-shadow: 0 0 8px rgba(38,166,154,.55); }
+#pageMeteo .met-chip.s2 { background: var(--tv-gold);  box-shadow: 0 0 8px rgba(240,180,41,.55); }
+#pageMeteo .met-chip.s3 { background: var(--tv-red);   box-shadow: 0 0 8px rgba(239,83,80,.55); }
+
+#pageMeteo .met-mini { display: flex; flex-direction: column; gap: 3px; }
+#pageMeteo .met-minilab { font-family: 'Inter', sans-serif; font-size: 9px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--tv-muted); }
+#pageMeteo .met-inp {
+  width: 92px; padding: 10px 8px; font-size: 16px; text-align: center;
+  background: var(--tv-bg); border: 1px solid var(--tv-bord); border-radius: 6px;
+  color: var(--tv-text); font-family: 'Inter', sans-serif; font-weight: 600;
+  -webkit-appearance: none;
+}
+#pageMeteo .met-inp:focus { outline: none; border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56,189,248,.15); }
+#pageMeteo .met-inp::placeholder { color: var(--tv-muted); opacity: .5; font-weight: 400; }
+
+#pageMeteo .met-tgl {
+  padding: 10px 14px; border-radius: 8px; border: 1px solid var(--tv-bord);
+  background: var(--tv-surf2); color: var(--tv-muted); cursor: pointer;
+  font-family: 'Inter', sans-serif; font-size: 12.5px; font-weight: 600;
+  transition: border-color .15s, background .15s, color .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+#pageMeteo .met-tgl b { font-weight: 900; letter-spacing: .5px; }
+#pageMeteo .met-tgl.t-si { border-color: rgba(38,166,154,.55); color: var(--tv-green); background: rgba(38,166,154,.08); }
+#pageMeteo .met-tgl.t-no { border-color: rgba(239,83,80,.55);  color: var(--tv-red);   background: rgba(239,83,80,.08); }
+
+
+/* Dati del mese */
+#pageMeteo .met-mgrid { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+
+/* Quadrante 3D */
+#pageMeteo .met-3d-scene {
+  position: relative; height: 360px; margin-top: 14px;
+  overflow: hidden; border-radius: 8px;
+}
+#pageMeteo #meteoTerra {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  display: block;
+}
+#pageMeteo .met-scen-pop {
+  position: absolute; z-index: 20; width: min(280px, 82%);
+  background: var(--tv-surf); border: 1px solid var(--tv-bord); border-radius: 10px;
+  padding: 13px 15px; box-shadow: 0 12px 30px -8px rgba(0,0,0,.6);
+  pointer-events: none;
+}
+#pageMeteo .met-scen-title { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 800; letter-spacing: .5px; margin-bottom: 7px; }
+#pageMeteo .met-scen-title.gl { color: var(--tv-green); }
+#pageMeteo .met-scen-title.su { color: var(--tv-gold); }
+#pageMeteo .met-scen-title.ra { color: #7aa3ff; }
+#pageMeteo .met-scen-title.st { color: var(--tv-red); }
+#pageMeteo .met-scen-body { font-family: 'Inter', sans-serif; font-size: 12px; line-height: 1.65; color: var(--tv-text); }
+
+
+
+/* Bollettino automatico */
+#pageMeteo .met-boll {
+  border: 2px solid var(--tv-bord); border-radius: 8px; background: var(--tv-surf2);
+  padding: 20px 18px; text-align: center;
+  transition: border-color .2s, background .2s;
+}
+#pageMeteo .met-boll.st1 { border-color: rgba(38,166,154,.6); background: rgba(38,166,154,.07); }
+#pageMeteo .met-boll.st2 { border-color: rgba(240,180,41,.6); background: rgba(240,180,41,.07); }
+#pageMeteo .met-boll.st3 { border-color: rgba(239,83,80,.6);  background: rgba(239,83,80,.07); }
+#pageMeteo .met-pill {
+  display: inline-block; padding: 8px 22px; border-radius: 999px;
+  font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 900; letter-spacing: 2px;
+  background: var(--tv-bord); color: var(--tv-muted);
+}
+#pageMeteo .met-boll.st1 .met-pill { background: var(--tv-green); color: #fff; }
+#pageMeteo .met-boll.st2 .met-pill { background: var(--tv-gold);  color: #131722; }
+#pageMeteo .met-boll.st3 .met-pill { background: var(--tv-red);   color: #fff; }
+#pageMeteo .met-frase { font-family: 'Inter', sans-serif; font-size: 17px; font-weight: 700; color: var(--tv-text); margin-top: 14px; line-height: 1.55; }
+#pageMeteo .met-parla {
+  margin-top: 14px; padding: 14px 15px; text-align: left;
+  background: var(--tv-bg); border: 1px solid var(--tv-bord); border-radius: 8px;
+  font-family: 'Inter', sans-serif; font-size: 14px; line-height: 1.75; color: var(--tv-text);
+}
+
+#pageMeteo .met-inrow { display: flex; gap: 6px; }
+#pageMeteo .met-dial {
+  width: 22px; border: 1px solid var(--tv-bord); background: var(--tv-surf2);
+  border-radius: 6px; color: var(--tv-muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+#pageMeteo .met-dial:hover { border-color: rgba(56,189,248,.5); color: #38bdf8; }
+
+/* Rullo stile sveglia iPhone */
+#meteoPickOverlay {
+  display: none; position: fixed; inset: 0; z-index: 10000;
+  background: rgba(9,11,17,.55);
+  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+}
+#meteoPickSheet {
+  position: absolute; left: 0; right: 0; bottom: 0; margin: 0 auto; max-width: 520px;
+  background: var(--tv-surf); border: 1px solid var(--tv-bord); border-bottom: none;
+  border-radius: 14px 14px 0 0;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+}
+.met-pick-title { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700; color: var(--tv-text); text-align: center; margin-bottom: 10px; }
+.met-pick-cols { position: relative; display: flex; gap: 8px; justify-content: center; }
+.met-pick-col {
+  height: 180px; overflow-y: auto; padding: 72px 0; min-width: 64px; max-width: 120px; flex: 1;
+  scroll-snap-type: y mandatory; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(transparent, #000 28%, #000 72%, transparent);
+  mask-image: linear-gradient(transparent, #000 28%, #000 72%, transparent);
+}
+.met-pick-col::-webkit-scrollbar { display: none; }
+.met-pick-col.wide { max-width: 100%; min-width: 230px; }
+.met-pick-col.wide .met-pick-row { font-size: 14px; }
+.met-pick-row {
+  height: 36px; line-height: 36px; text-align: center; scroll-snap-align: center;
+  font-family: 'Inter', sans-serif; font-size: 18px; font-weight: 600; color: var(--tv-text);
+}
+.met-pick-sep { align-self: center; height: 36px; line-height: 36px; font-family: 'Inter', sans-serif; font-size: 18px; font-weight: 800; color: var(--tv-muted); }
+.met-pick-colswrap { position: relative; }
+.met-pick-band {
+  position: absolute; left: 26px; right: 26px; top: 50%; height: 36px;
+  transform: translateY(-50%);
+  border: 1px solid rgba(56,189,248,.5);
+  background: rgba(56,189,248,.06); border-radius: 8px; pointer-events: none;
+}
+.met-pick-btns { display: flex; gap: 10px; margin-top: 14px; }
+.met-pick-annulla, .met-pick-ok {
+  flex: 1; padding: 12px; border-radius: 8px; cursor: pointer;
+  font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 700;
+  -webkit-tap-highlight-color: transparent;
+}
+.met-pick-annulla { background: transparent; border: 1px solid var(--tv-bord); color: var(--tv-muted); }
+.met-pick-ok { background: var(--tv-blue); border: none; color: #fff; }
+
+/* Modale dettaglio giornata */
+#meteoHistOverlay { display: none; position: fixed; inset: 0; z-index: 10000; background: rgba(9,11,17,.9); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+#meteoHistSheet {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  width: min(560px, 95vw); max-height: 88vh; overflow-y: auto;
+  background: var(--tv-surf); border: 1px solid var(--tv-bord); border-radius: 12px; padding: 26px;
+}
+.met-hd-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.met-hd-date { font-family: 'Inter', sans-serif; font-size: 17px; font-weight: 800; color: var(--tv-text); }
+.met-hd-pill { display: inline-block; margin-top: 4px; padding: 4px 12px; border-radius: 999px; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 900; letter-spacing: 1px; }
+.met-hd-pill.s1 { background: var(--tv-green); color: #fff; }
+.met-hd-pill.s2 { background: var(--tv-gold); color: #131722; }
+.met-hd-pill.s3 { background: var(--tv-red); color: #fff; }
+.met-hd-btns { display: flex; gap: 8px; flex-shrink: 0; }
+.met-hd-del { background: rgba(239,83,80,.12); border: 1px solid rgba(239,83,80,.3); color: var(--tv-red); border-radius: 6px; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; display: flex; align-items: center; gap: 5px; }
+.met-hd-close { background: rgba(120,123,134,.12); border: 1px solid var(--tv-bord); color: var(--tv-muted); border-radius: 6px; padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.met-hd-sect { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--tv-muted); margin: 4px 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--tv-bord); }
+.met-hd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+.met-hd-cell { background: var(--tv-bg); border: 1px solid var(--tv-bord); border-radius: 6px; padding: 9px 11px; }
+.met-hd-cell .k { font-family: 'Inter', sans-serif; font-size: 9px; letter-spacing: .6px; text-transform: uppercase; color: var(--tv-muted); }
+.met-hd-cell .v { font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 700; color: var(--tv-text); margin-top: 2px; }
+.met-hd-cell .v.na { color: var(--tv-muted); font-weight: 400; }
+.met-hd-out { font-family: 'Inter', sans-serif; font-size: 13.5px; line-height: 1.7; color: var(--tv-text); }
+.met-hd-out b { color: #7aa3ff; font-weight: 800; }
+@media (max-width: 768px) { #meteoHistSheet { padding: 20px; } }
+
+/* Storico — header collassabile */
+#pageMeteo .met-hist-head {
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none;
+}
+#pageMeteo .met-hist-chev { color: var(--tv-muted); transition: transform .25s; flex-shrink: 0; }
+#pageMeteo .met-hist-head.open .met-hist-chev { transform: rotate(180deg); }
+#pageMeteo .met-hist-body { margin-top: 16px; width: 100%; max-width: 100%; overflow: hidden; }
+
+/* Storico — calendario */
+#pageMeteo .met-cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+#pageMeteo .met-cal-arrow {
+  width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--tv-bord);
+  background: var(--tv-surf2); color: var(--tv-muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent; transition: border-color .15s, color .15s;
+}
+#pageMeteo .met-cal-arrow:hover { border-color: rgba(56,189,248,.5); color: #38bdf8; }
+#pageMeteo .met-cal-title { font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 800; color: var(--tv-text); letter-spacing: .5px; text-transform: capitalize; }
+#pageMeteo .met-cal-dow { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin-bottom: 6px; width: 100%; }
+#pageMeteo .met-cal-dow span { text-align: center; font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 700; color: var(--tv-muted); letter-spacing: .5px; }
+#pageMeteo .met-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-auto-rows: 44px; gap: 4px; width: 100%; }
+#pageMeteo .met-cal-cell {
+  min-width: 0; height: 100%; border-radius: 8px; position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  background: var(--tv-surf2); border: 1px solid transparent;
+  font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent;
+}
+#pageMeteo .met-cal-cell.empty { background: transparent; }
+#pageMeteo .met-cal-cell.today { border-color: rgba(56,189,248,.5); }
+#pageMeteo .met-cal-cell.has { cursor: pointer; transition: border-color .15s, background .15s; }
+#pageMeteo .met-cal-cell.has:hover { border-color: rgba(56,189,248,.5); background: var(--tv-surf); }
+#pageMeteo .met-cal-num { font-size: 12px; font-weight: 600; color: var(--tv-text); line-height: 1; }
+#pageMeteo .met-cal-cell.empty .met-cal-num { color: transparent; }
+#pageMeteo .met-cal-dot { width: 9px; height: 9px; border-radius: 50%; background: transparent; }
+#pageMeteo .met-cal-dot.s1 { background: var(--tv-green); box-shadow: 0 0 6px rgba(38,166,154,.6); }
+#pageMeteo .met-cal-dot.s2 { background: var(--tv-gold);  box-shadow: 0 0 6px rgba(240,180,41,.6); }
+#pageMeteo .met-cal-dot.s3 { background: var(--tv-red);   box-shadow: 0 0 6px rgba(239,83,80,.6); }
+#pageMeteo .met-cal-legend { display: flex; gap: 16px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+#pageMeteo .met-cal-legend span { display: inline-flex; align-items: center; gap: 6px; font-family: 'Inter', sans-serif; font-size: 11px; color: var(--tv-muted); }
+#pageMeteo .met-cal-legend i { width: 9px; height: 9px; border-radius: 50%; }
+#pageMeteo .met-cal-legend i.s1 { background: var(--tv-green); }
+#pageMeteo .met-cal-legend i.s2 { background: var(--tv-gold); }
+#pageMeteo .met-cal-legend i.s3 { background: var(--tv-red); }
+
+@media (max-width: 768px) {
+  #pageMeteo .met-rin { margin-left: 0; width: 100%; }
+  #pageMeteo .met-inp { flex: 1; min-width: 84px; }
+  #pageMeteo .met-inrow { flex: 1; }
+  #pageMeteo .met-3d-scene { height: 300px; }
+  #pageMeteo .met-cal-grid, #pageMeteo .met-cal-dow { gap: 3px; }
+  #pageMeteo .met-cal-grid { grid-auto-rows: 40px; }
+  #pageMeteo .met-cal-cell { border-radius: 7px; }
+  #pageMeteo .met-cal-num { font-size: 11px; }
+  #pageMeteo .met-hdate { min-width: 90px; }
 }
 
 /* ── SWIPE PAGE TRANSITION (card) ── */
@@ -1305,6 +1552,7 @@ body.has-sidebar #pageCentro {
 #mobNavCentro:not(.mob-nav-active)      { color: #c084fc; }
 #mobNavBOT:not(.mob-nav-active)         { color: #7aa3ff; }
 #mobNavPortafoglio:not(.mob-nav-active) { color: #00e5a0; }
+#mobNavMeteo:not(.mob-nav-active)       { color: #38bdf8; }
 #mobNavStoria:not(.mob-nav-active)      { color: #787b86; }
 
 /* ── PAGES ── */
@@ -1866,8 +2114,9 @@ input[type="number"]:focus {
 #navCC       { color: #f0b429; }
 #navCentro   { color: #c084fc; }
 #navBOT      { color: #7aa3ff; }
+#navMeteo    { color: #38bdf8; }
 #navStoria   { color: #787b86; }
-#navScreener:hover, #navCSP:hover, #navCC:hover,
+#navScreener:hover, #navCSP:hover, #navCC:hover, #navMeteo:hover,
 #navCentro:hover, #navBOT:hover, #navStoria:hover { opacity: 0.85; }
 
 /* ── HOME NAV HOVER DROPDOWN ── */
@@ -2002,6 +2251,7 @@ input[type="date"]::-webkit-date-and-time-value {
   <button class="mob-nav-btn" id="mobNavCentro" onclick="goPage('centro')" title="Sup-Res MM"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3" opacity="0.85"/><line x1="7" y1="1.5" x2="7" y2="12.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/><line x1="1.5" y1="7" x2="12.5" y2="7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/></svg></button>
   <button class="mob-nav-btn" id="mobNavBOT" onclick="goPage('bot')" title="Rendimento BOT"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2" opacity="0.8"/><line x1="4" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.7"/><line x1="4" y1="7.5" x2="10" y2="7.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.7"/><line x1="4" y1="10" x2="7.5" y2="10" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.7"/></svg></button>
   <button class="mob-nav-btn" id="mobNavPortafoglio" onclick="goPage('portafoglio')" title="Portafoglio"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="4" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2" opacity="0.85"/><path d="M4.5 4V3C4.5 1.9 5.4 1 6.5 1H7.5C8.6 1 9.5 1.9 9.5 3V4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/><line x1="1" y1="7.5" x2="13" y2="7.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.5"/></svg></button>
+  <button class="mob-nav-btn" id="mobNavMeteo" onclick="goPage('meteo')" title="Macro Outlook"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2" opacity="0.85"/><line x1="7" y1="1.5" x2="7" y2="12.5" stroke="currentColor" stroke-width="1" opacity="0.5"/><line x1="1.5" y1="7" x2="12.5" y2="7" stroke="currentColor" stroke-width="1" opacity="0.5"/><circle cx="4.1" cy="4.1" r="1.8" fill="currentColor" opacity="0.9"/></svg></button>
   <button class="mob-nav-btn" id="mobNavStoria" onclick="goPage('storia')" title="Storico Simulazioni"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="5.8" stroke="currentColor" stroke-width="1.2" opacity="0.8"/><path d="M7 4V7.2L9.2 9.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/></svg></button>
 </div>
 
@@ -2026,6 +2276,9 @@ input[type="date"]::-webkit-date-and-time-value {
   </button>
   <button class="sb-btn" id="navPortafoglio" onclick="goPage('portafoglio')" data-tooltip="Portafoglio">
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="4" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2" opacity="0.85"/><path d="M4.5 4V3C4.5 1.9 5.4 1 6.5 1H7.5C8.6 1 9.5 1.9 9.5 3V4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/><line x1="1" y1="7.5" x2="13" y2="7.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.5"/></svg>
+  </button>
+  <button class="sb-btn" id="navMeteo" onclick="goPage('meteo')" data-tooltip="Macro Outlook">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2" opacity="0.85"/><line x1="7" y1="1.5" x2="7" y2="12.5" stroke="currentColor" stroke-width="1" opacity="0.5"/><line x1="1.5" y1="7" x2="12.5" y2="7" stroke="currentColor" stroke-width="1" opacity="0.5"/><circle cx="4.1" cy="4.1" r="1.8" fill="currentColor" opacity="0.9"/></svg>
   </button>
   <button class="sb-btn" id="navStoria" onclick="goPage('storia')" data-tooltip="Storico Simulazioni">
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="5.8" stroke="currentColor" stroke-width="1.2" opacity="0.8"/><path d="M7 4V7.2L9.2 9.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/></svg>
@@ -2178,6 +2431,12 @@ input[type="date"]::-webkit-date-and-time-value {
             </span>
             <span>Portafoglio</span>
           </div>
+          <div class="home-nav-item" onclick="goPage('meteo')">
+            <span class="home-nav-item-icon" style="color:#38bdf8;">
+              <svg width="15" height="15" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.3" opacity="0.9"/><line x1="7" y1="1.5" x2="7" y2="12.5" stroke="currentColor" stroke-width="1" opacity="0.6"/><line x1="1.5" y1="7" x2="12.5" y2="7" stroke="currentColor" stroke-width="1" opacity="0.6"/><circle cx="4.1" cy="4.1" r="1.9" fill="currentColor" opacity="0.95"/></svg>
+            </span>
+            <span>Macro Outlook</span>
+          </div>
           <div class="home-nav-divider"></div>
           <div class="home-nav-item" onclick="goPage('storia')">
             <span class="home-nav-item-icon" style="color:#787b86;">
@@ -2193,7 +2452,7 @@ input[type="date"]::-webkit-date-and-time-value {
   </div>
 
   <!-- Logout nascosto in basso -->
-  <button onclick="orosConfirm('Vuoi uscire dalla sessione?', function(){sessionClear();location.reload();})"
+  <button onclick="orosConfirm('Vuoi uscire dalla sessione?', function(){sessionClear();location.reload();}, {okLabel:'\u238B Esci', danger:false})"
     style="position:fixed;bottom:16px;right:16px;background:none;border:none;cursor:pointer;font-size:18px;color:rgba(239,83,80,0.25);transition:color 0.2s;z-index:10;padding:6px;"
     onmouseover="this.style.color='rgba(239,83,80,0.7)'"
     onmouseout="this.style.color='rgba(239,83,80,0.25)'"
@@ -2564,6 +2823,7 @@ input[type="date"]::-webkit-date-and-time-value {
       <button id="storiaFilterCC"   onclick="storiaSetFilter('cc')"   class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 13" fill="none" style="flex-shrink:0;color:#f0b429"><rect x="0.5" y="6.5" width="3" height="6" rx="0.6" fill="currentColor" opacity="0.9"/><rect x="5.5" y="3.5" width="3" height="9" rx="0.6" fill="currentColor" opacity="0.9"/><rect x="10.5" y="0.5" width="3" height="12" rx="0.6" fill="currentColor" opacity="0.9"/></svg>CC</button>
       <button id="storiaFilterCentro" onclick="storiaSetFilter('centro')" class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;color:#c084fc"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3" opacity="0.85"/><line x1="7" y1="1.5" x2="7" y2="12.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/><line x1="1.5" y1="7" x2="12.5" y2="7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/></svg>Sup-Res MM</button>
       <button id="storiaFilterBOT" onclick="storiaSetFilter('bot')" class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;color:#7aa3ff"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/><line x1="4" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><line x1="4" y1="7.5" x2="10" y2="7.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><line x1="4" y1="10" x2="7.5" y2="10" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>BOT</button>
+      <button id="storiaFilterMeteo" onclick="storiaSetFilter('meteo')" class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;color:#38bdf8"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2" opacity="0.85"/><line x1="7" y1="1.5" x2="7" y2="12.5" stroke="currentColor" stroke-width="1" opacity="0.5"/><line x1="1.5" y1="7" x2="12.5" y2="7" stroke="currentColor" stroke-width="1" opacity="0.5"/><circle cx="4.1" cy="4.1" r="1.8" fill="currentColor" opacity="0.9"/></svg>Outlook</button>
       <button onclick="dataExport('storia')" style="padding:6px 12px;border-radius:6px;border:1px solid var(--tv-bord);background:transparent;color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;" title="Esporta backup JSON">↓ Export</button>
       <button onclick="document.getElementById('storiaImportFile').click()" style="padding:6px 12px;border-radius:6px;border:1px solid var(--tv-bord);background:transparent;color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;" title="Importa backup JSON">↑ Import</button>
       <input type="file" id="storiaImportFile" accept="application/json,.json" style="display:none;" onchange="dataImport('storia', this)">
@@ -2698,6 +2958,224 @@ input[type="date"]::-webkit-date-and-time-value {
 
 </div><!-- end .container -->
 </div><!-- end pageCentro -->
+
+<!-- ════ METEO PAGE (Macro Outlook) ════ -->
+<div id="pageMeteo" style="display:none;">
+<div class="sc-wrap" style="max-width:860px;padding:32px 24px;">
+
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;gap:12px;">
+    <div>
+      <h2 style="font-size:24px;font-weight:800;letter-spacing:-.5px;background:#7aa3ff;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-family:'Inter',sans-serif;">Macro Outlook</h2>
+    </div>
+    <button class="gear-btn" id="meteoGearBtn" title="Soglie e dove trovare i numeri" onclick="document.getElementById('meteoGearOverlay').style.display='block'">⚙</button>
+  </div>
+
+  <!-- 1 · DATI DEL GIORNO -->
+  <div class="panel">
+    <div class="section-title">I dati del giorno</div>
+
+    <div class="met-row">
+      <div class="met-rlab">
+        <div class="met-name"><span class="met-chip" id="metChip_vento"></span>TREND<span class="tip"><span class="tip-i">i</span><span class="tip-box">Guarda il grafico: S&amp;P 500 e FTSE MIB sono sopra la media a 200 giorni?</span></span></div>
+      </div>
+      <div class="met-rin">
+        <button class="met-tgl" id="metTgl_spx" onclick="meteoTgl('spx')">S&amp;P 500 sopra 200: <b>—</b></button>
+        <button class="met-tgl" id="metTgl_mib" onclick="meteoTgl('mib')">FTSE MIB sopra 200: <b>—</b></button>
+      </div>
+    </div>
+
+    <div class="met-row">
+      <div class="met-rlab">
+        <div class="met-name"><span class="met-chip" id="metChip_mare"></span>VOLATILITÀ<span class="tip"><span class="tip-i">i</span><span class="tip-box">Ticker VIX: copia il valore di oggi.</span></span></div>
+      </div>
+      <div class="met-rin">
+        <div class="met-mini"><span class="met-minilab">VIX oggi</span><div class="met-inrow"><input class="met-inp" id="metIn_vix" inputmode="decimal" placeholder="18,4" oninput="meteoRecalc()"><button class="met-dial" onclick="meteoPickOpen('metIn_vix')" title="Scegli col rullo"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3.5 4.5 6 2l2.5 2.5M3.5 7.5 6 10l2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
+      </div>
+    </div>
+
+    <div class="met-row">
+      <div class="met-rlab">
+        <div class="met-name"><span class="met-chip" id="metChip_barometro"></span>TASSI<span class="tip"><span class="tip-i">i</span><span class="tip-box">Ticker US10Y: rendimento di oggi e di 5 sedute fa.</span></span></div>
+      </div>
+      <div class="met-rin">
+        <div class="met-mini"><span class="met-minilab">10Y oggi %</span><div class="met-inrow"><input class="met-inp" id="metIn_y10a" inputmode="decimal" placeholder="4,42" oninput="meteoRecalc()"><button class="met-dial" onclick="meteoPickOpen('metIn_y10a')" title="Scegli col rullo"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3.5 4.5 6 2l2.5 2.5M3.5 7.5 6 10l2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
+        <div class="met-mini"><span class="met-minilab">5 sedute fa %</span><div class="met-inrow"><input class="met-inp" id="metIn_y10b" inputmode="decimal" placeholder="4,25" oninput="meteoRecalc()"><button class="met-dial" onclick="meteoPickOpen('metIn_y10b')" title="Scegli col rullo"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3.5 4.5 6 2l2.5 2.5M3.5 7.5 6 10l2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
+      </div>
+    </div>
+
+    <div class="met-row">
+      <div class="met-rlab">
+        <div class="met-name"><span class="met-chip" id="metChip_corrente"></span>INDICE DEL DOLLARO<span class="tip"><span class="tip-i">i</span><span class="tip-box">Ticker DXY: valore di oggi e di 5 sedute fa.</span></span></div>
+      </div>
+      <div class="met-rin">
+        <div class="met-mini"><span class="met-minilab">DXY oggi</span><div class="met-inrow"><input class="met-inp" id="metIn_dxya" inputmode="decimal" placeholder="104,2" oninput="meteoRecalc()"><button class="met-dial" onclick="meteoPickOpen('metIn_dxya')" title="Scegli col rullo"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3.5 4.5 6 2l2.5 2.5M3.5 7.5 6 10l2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
+        <div class="met-mini"><span class="met-minilab">5 sedute fa</span><div class="met-inrow"><input class="met-inp" id="metIn_dxyb" inputmode="decimal" placeholder="103,1" oninput="meteoRecalc()"><button class="met-dial" onclick="meteoPickOpen('metIn_dxyb')" title="Scegli col rullo"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3.5 4.5 6 2l2.5 2.5M3.5 7.5 6 10l2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
+      </div>
+    </div>
+
+    <div class="met-row">
+      <div class="met-rlab">
+        <div class="met-name"><span class="met-chip" id="metChip_previsioni"></span>EVENTI<span class="tip"><span class="tip-i">i</span><span class="tip-box">Calendario economico, filtro impatto alto: cosa c'è in arrivo?</span></span></div>
+      </div>
+      <div class="met-rin">
+        <div class="met-inrow" style="flex:1;min-width:230px;">
+          <input class="met-inp" id="metIn_prev" readonly placeholder="Scegli…" style="flex:1;width:auto;text-align:left;cursor:pointer;" onclick="meteoPickOpen('metIn_prev')">
+          <button class="met-dial" onclick="meteoPickOpen('metIn_prev')" title="Scegli"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3.5 4.5 6 2l2.5 2.5M3.5 7.5 6 10l2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 · DATI DEL MESE + QUADRANTE 3D -->
+  <div class="panel">
+    <div class="section-title">I dati del mese</div>
+    <div class="met-mgrid">
+      <div class="met-mini"><span class="met-minilab">CPI YoY ultimo %</span><div class="met-inrow"><input class="met-inp" id="metIn_cpiu" inputmode="decimal" placeholder="3,2" oninput="meteoRecalc()"><button class="met-dial" onclick="meteoPickOpen('metIn_cpiu')" title="Scegli col rullo"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3.5 4.5 6 2l2.5 2.5M3.5 7.5 6 10l2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
+      <div class="met-mini"><span class="met-minilab">CPI YoY precedente %</span><div class="met-inrow"><input class="met-inp" id="metIn_cpip" inputmode="decimal" placeholder="2,9" oninput="meteoRecalc()"><button class="met-dial" onclick="meteoPickOpen('metIn_cpip')" title="Scegli col rullo"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3.5 4.5 6 2l2.5 2.5M3.5 7.5 6 10l2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
+      <div class="met-mini"><span class="met-minilab">PMI manifatt. USA</span><div class="met-inrow"><input class="met-inp" id="metIn_pmi" inputmode="decimal" placeholder="52,8" oninput="meteoRecalc()"><button class="met-dial" onclick="meteoPickOpen('metIn_pmi')" title="Scegli col rullo"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3.5 4.5 6 2l2.5 2.5M3.5 7.5 6 10l2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
+      <div class="met-mini"><span class="met-minilab">NFP uscito (K)</span><div class="met-inrow"><input class="met-inp" id="metIn_nfpa" inputmode="decimal" placeholder="227" oninput="meteoRecalc()"><button class="met-dial" onclick="meteoPickOpen('metIn_nfpa')" title="Scegli col rullo"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3.5 4.5 6 2l2.5 2.5M3.5 7.5 6 10l2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
+      <div class="met-mini"><span class="met-minilab">NFP previsto (K)</span><div class="met-inrow"><input class="met-inp" id="metIn_nfpf" inputmode="decimal" placeholder="200" oninput="meteoRecalc()"><button class="met-dial" onclick="meteoPickOpen('metIn_nfpf')" title="Scegli col rullo"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3.5 4.5 6 2l2.5 2.5M3.5 7.5 6 10l2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
+    </div>
+    <div class="met-hint" style="margin-top:2px;">Aggiorni questi numeri solo quando esce il dato nuovo: restano salvati.</div>
+
+    <div class="met-3d-scene" data-no-swipe>
+      <canvas id="meteoTerra"></canvas>
+      <div id="meteoScenPop" class="met-scen-pop" style="display:none;">
+        <div class="met-scen-title" id="meteoScenTitle"></div>
+        <div class="met-scen-body" id="meteoScenBody"></div>
+      </div>
+    </div>
+    <div id="metQuadRead" class="met-hint" style="text-align:center;margin-top:8px;font-size:12px;">Inserisci CPI (ultimo e precedente) e PMI o NFP: la pallina appare da sola.</div>
+  </div>
+
+  <!-- 3 · BOLLETTINO -->
+  <div class="panel">
+    <div class="section-title">L'outlook</div>
+    <div class="met-boll" id="meteoBoll">
+      <div class="met-pill" id="meteoPill">—</div>
+      <div class="met-frase" id="meteoFrase">Inserisci i dati qui sopra: l'outlook compare qui.</div>
+      <div class="met-parla" id="meteoParla" style="display:none;"></div>
+    </div>
+    <button id="meteoBtnSalva" onclick="meteoSalva()"
+      style="width:100%;margin-top:14px;padding:12px;background:transparent;border:1px solid rgba(41,98,255,0.3);border-radius:6px;color:rgba(41,98,255,0.85);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.25s;letter-spacing:0.3px;display:flex;align-items:center;justify-content:center;gap:4px;-webkit-tap-highlight-color:transparent;"
+      onmouseover="this.style.background='rgba(41,98,255,0.06)';this.style.borderColor='rgba(41,98,255,0.5)';this.style.color='#2962ff'"
+      onmouseout="this.style.background='transparent';this.style.borderColor='rgba(41,98,255,0.3)';this.style.color='rgba(41,98,255,0.85)'">
+      💾 Salva l'outlook di oggi
+    </button>
+    <div id="meteoSalvaHint" style="display:none;text-align:center;font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-red);margin-top:8px;">Mancano dei dati: completa i 5 semafori e il quadrante prima di salvare.</div>
+  </div>
+
+  <!-- 4 · STORICO (collassabile, calendario) -->
+  <div class="panel">
+    <div class="met-hist-head" id="meteoHistHead" onclick="meteoHistToggle()">
+      <div class="section-title" style="margin-bottom:0;">Storico</div>
+      <svg class="met-hist-chev" id="meteoHistChev" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="met-hist-body" id="meteoHistBody" style="display:none;">
+      <div class="met-cal-nav">
+        <button class="met-cal-arrow" onclick="meteoCalShift(-1)" title="Mese precedente"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3l-5 5 5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="met-cal-title" id="meteoCalTitle">—</div>
+        <button class="met-cal-arrow" onclick="meteoCalShift(1)" title="Mese successivo"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
+      <div class="met-cal-dow"><span>L</span><span>M</span><span>M</span><span>G</span><span>V</span><span>S</span><span>D</span></div>
+      <div class="met-cal-grid" id="meteoCalGrid"></div>
+      <div class="met-cal-legend">
+        <span><i class="s1"></i> Risk-on</span>
+        <span><i class="s2"></i> Neutrale</span>
+        <span><i class="s3"></i> Risk-off</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div><!-- end pageMeteo -->
+
+<!-- ════ METEO GEAR MODAL (soglie e fonti) ════ -->
+<div id="meteoGearOverlay" style="display:none;position:fixed;inset:0;background:rgba(9,11,17,.92);z-index:9999;backdrop-filter:blur(8px);" onclick="if(event.target===this)this.style.display='none'">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,95vw);max-height:90vh;overflow-y:auto;background:var(--tv-surf);border:1px solid var(--tv-bord);border-radius:12px;padding:32px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+      <div>
+        <div style="font-size:17px;font-weight:700;color:var(--tv-text);">⚙ Soglie automatiche — Macro Outlook</div>
+        <div style="font-size:11px;color:var(--tv-muted);margin-top:3px;">Tu metti i numeri, le regole fanno il resto</div>
+      </div>
+      <button onclick="document.getElementById('meteoGearOverlay').style.display='none'" style="background:rgba(239,83,80,.12);border:1px solid rgba(239,83,80,.3);color:var(--tv-red);border-radius:6px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;">✕ Chiudi</button>
+    </div>
+
+    <div style="margin-bottom:20px;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--tv-bord);">🚦 Come si accendono i semafori</div>
+      <div style="display:flex;flex-direction:column;gap:7px;">
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">TREND — media a 200 giorni</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-text);line-height:1.6;">Entrambi sopra la 200 = <span style="color:var(--tv-green);font-weight:700;">verde</span> · uno solo = <span style="color:var(--tv-gold);font-weight:700;">giallo</span> · nessuno = <span style="color:var(--tv-red);font-weight:700;">rosso</span></div></div>
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">VOLATILITÀ — VIX</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-text);line-height:1.6;">Sotto 15 = <span style="color:var(--tv-green);font-weight:700;">verde</span> · 15–25 = <span style="color:var(--tv-gold);font-weight:700;">giallo</span> · sopra 25 = <span style="color:var(--tv-red);font-weight:700;">rosso</span></div></div>
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">TASSI — 10Y USA in 5 sedute</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-text);line-height:1.6;">Movimento sotto 10 bp = <span style="color:var(--tv-green);font-weight:700;">verde</span> · 10–20 bp = <span style="color:var(--tv-gold);font-weight:700;">giallo</span> · oltre 20 bp = <span style="color:var(--tv-red);font-weight:700;">rosso</span> (conta la violenza del movimento, in entrambe le direzioni)</div></div>
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">INDICE DEL DOLLARO — DXY in 5 sedute</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-text);line-height:1.6;">Sotto +0,5% = <span style="color:var(--tv-green);font-weight:700;">verde</span> · +0,5% / +1,5% = <span style="color:var(--tv-gold);font-weight:700;">giallo</span> · oltre +1,5% = <span style="color:var(--tv-red);font-weight:700;">rosso</span> (il dollaro che si rafforza toglie ossigeno al rischio)</div></div>
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">EVENTI — calendario</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-text);line-height:1.6;">È l'unica domanda diretta: guardi il calendario e scegli la riga vera. Nessun giudizio, solo un fatto.</div></div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:20px;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--tv-bord);">🧭 Come si muove la pallina</div>
+      <div style="display:flex;flex-direction:column;gap:7px;">
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">ORIZZONTALE — inflazione</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:rgba(122,163,255,0.9);">= CPI ultimo − CPI precedente (sale → destra, scende → sinistra)</div></div>
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">VERTICALE — crescita</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:rgba(122,163,255,0.9);">= PMI rispetto a 50 + sorpresa NFP (uscito − previsto). Basta uno dei due.</div></div>
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-family:'Inter',sans-serif;font-size:12px;line-height:1.6;color:var(--tv-text);"><span style="color:var(--tv-green);font-weight:700;">GOLDILOCKS</span> pro-rischio · <span style="color:var(--tv-gold);font-weight:700;">SURRISCALDAMENTO</span> banche centrali ostili · <span style="color:#7aa3ff;font-weight:700;">RALLENTAMENTO</span> difensivi e bond · <span style="color:var(--tv-red);font-weight:700;">STAGFLAZIONE</span> il peggiore</div></div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:20px;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--tv-bord);">📜 La regola del regime (automatica)</div>
+      <div style="display:flex;flex-direction:column;gap:7px;">
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-red);font-weight:600;">2 o più rossi → RISK-OFF: niente discrezionale, solo Wheel sistematica</div></div>
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-gold);font-weight:600;">1 rosso oppure 3+ gialli → NEUTRALE: esposizione ridotta, solo i setup migliori</div></div>
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-green);font-weight:600;">Altrimenti → RISK-ON: operatività piena, Wheel + discrezionale</div></div>
+      </div>
+    </div>
+
+    <div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--tv-bord);">📍 Dove trovo i numeri</div>
+      <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:14px;font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-text);line-height:1.75;">
+        TradingView → cerca i ticker: <b>VIX</b>, <b>US10Y</b>, <b>DXY</b> (valore di oggi e di 5 sedute fa, lo leggi dal grafico).<br>
+        Investing.com → <b>calendario economico</b> con filtro impatto alto; <b>CPI YoY</b>, <b>PMI manifatturiero USA (ISM)</b>, <b>NFP</b> (uscito e previsto).<br>
+        20 minuti a orario fisso, poi stop: il flusso continuo è il frastuono.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════ METEO PICKER (rullo stile sveglia) ════ -->
+<div id="meteoPickOverlay" onclick="if(event.target===this)meteoPickClose()">
+  <div id="meteoPickSheet">
+    <div class="met-pick-title" id="meteoPickTitle">—</div>
+    <div class="met-pick-colswrap">
+      <div class="met-pick-cols" id="meteoPickCols"></div>
+      <div class="met-pick-band"></div>
+    </div>
+    <div class="met-pick-btns">
+      <button class="met-pick-annulla" onclick="meteoPickClose()">Annulla</button>
+      <button class="met-pick-ok" onclick="meteoPickOk()">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ METEO HIST DETAIL MODAL ════ -->
+<div id="meteoHistOverlay" onclick="if(event.target===this)meteoHistClose()">
+  <div id="meteoHistSheet">
+    <div class="met-hd-head">
+      <div>
+        <div class="met-hd-date" id="meteoHdDate">—</div>
+        <span class="met-hd-pill" id="meteoHdPill">—</span>
+      </div>
+      <div class="met-hd-btns">
+        <button class="met-hd-del" id="meteoHdDel" title="Elimina questo giorno"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M2 3.5h10M5 3.5V2.5a1 1 0 011-1h2a1 1 0 011 1v1M3 3.5l.5 8a1 1 0 001 1h5a1 1 0 001-1l.5-8" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg> Elimina</button>
+        <button class="met-hd-close" onclick="meteoHistClose()">✕ Chiudi</button>
+      </div>
+    </div>
+    <div class="met-hd-sect">Dati inseriti</div>
+    <div class="met-hd-grid" id="meteoHdData"></div>
+    <div class="met-hd-sect">Riassunto outlook</div>
+    <div class="met-hd-out" id="meteoHdOut"></div>
+  </div>
+</div>
 
 <!-- ════ CENTRO GEAR MODAL ════ -->
 <div id="centroGearOverlay" style="display:none;position:fixed;inset:0;background:rgba(9,11,17,.92);z-index:9999;backdrop-filter:blur(8px);">
@@ -3259,7 +3737,7 @@ function goToCC() {
 // Wire buttons
 document.getElementById('addTabBtn').addEventListener('click', () => {
   if (tabs.length < 15) createTab();
-  else alert('Massimo 15 titoli contemporaneamente');
+  else orosAlert('Massimo 15 titoli contemporaneamente');
 });
 
 document.getElementById('compareBtn').addEventListener('click', () => {
@@ -3310,11 +3788,19 @@ function buildScreener(theme) {
       };
     } catch(e) {}
 
+    // Host TradingView legittimi: dominio esatto o sottodominio reale (indexOf era aggirabile)
+    function _isTvUrl(u) {
+      try {
+        var h = new URL(u).hostname;
+        return h === 'tradingview.com' || h.slice(-16) === '.tradingview.com' ||
+               h === 'tradingview-widget.com' || h.slice(-23) === '.tradingview-widget.com';
+      } catch (ex) { return false; }
+    }
     // Catch postMessage from TV iframe (symbol click event)
     window.addEventListener('message', function(e) {
       if (!e.data) return;
-      // Sicurezza: accetta solo messaggi provenienti da TradingView
-      if (!e.origin || e.origin.indexOf('tradingview.com') === -1) return;
+      // Sicurezza: accetta solo messaggi la cui origin è davvero TradingView
+      if (!e.origin || !_isTvUrl(e.origin)) return;
       try {
         var d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
         // TV sends {name:'symbol', params:{symbol:'...'}} or similar
@@ -3322,9 +3808,8 @@ function buildScreener(theme) {
         if (sym && (d.name === 'symbol' || d.type === 'symbol')) {
           window.open('https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(sym), '_blank', 'noopener');
         }
-        // TV sends navigate event with url — solo URL TradingView
-        if (d.name === 'navigate' && d.params && d.params.url &&
-            String(d.params.url).indexOf('tradingview.com') > -1) {
+        // TV sends navigate event with url — solo URL con host TradingView verificato
+        if (d.name === 'navigate' && d.params && d.params.url && _isTvUrl(String(d.params.url))) {
           window.open(d.params.url, '_blank', 'noopener');
         }
       } catch(ex) {}
@@ -3376,7 +3861,7 @@ function buildScreener(theme) {
 function openSymbolChart() {
   var sym = (document.getElementById('scInput').value || '').trim().toUpperCase();
   if (!sym) { document.getElementById('scInput').focus(); return; }
-  window.open('https://it.tradingview.com/chart/?symbol=' + encodeURIComponent(sym), '_blank');
+  window.open('https://it.tradingview.com/chart/?symbol=' + encodeURIComponent(sym), '_blank', 'noopener');
 }
 document.addEventListener('DOMContentLoaded', function() {
   var inp = document.getElementById('scInput');
@@ -3710,7 +4195,7 @@ document.getElementById('ccGearBtn').addEventListener('click', () => {
 });
 document.getElementById('ccAddTabBtn').addEventListener('click', () => {
   if (ccTabs.length < 15) ccCreateTab();
-  else alert('Massimo 15 titoli contemporaneamente');
+  else orosAlert('Massimo 15 titoli contemporaneamente');
 });
 document.getElementById('ccCompareBtn').addEventListener('click', () => {
   ccCompareVisible = !ccCompareVisible;
@@ -3890,9 +4375,11 @@ function ccCalcDividendi() {
     let t = 0;
     let nextShooter = 3000;
 
+    var _spaceRunning = false;
+    var _pageHome = document.getElementById('pageHome');
     function draw(ts) {
-      if (!document.getElementById('pageHome') || document.getElementById('pageHome').style.display === 'none') {
-        requestAnimationFrame(draw);
+      if (!_pageHome || _pageHome.style.display === 'none') {
+        _spaceRunning = false; // stop: il loop riparte via __orosSpaceResume() al ritorno in Home
         return;
       }
       ctx.clearRect(0, 0, W, H);
@@ -3958,7 +4445,12 @@ function ccCalcDividendi() {
       t = ts;
       requestAnimationFrame(draw);
     }
-    requestAnimationFrame(draw);
+    window.__orosSpaceResume = function() {
+      if (_spaceRunning) return;
+      _spaceRunning = true;
+      requestAnimationFrame(draw);
+    };
+    window.__orosSpaceResume();
   }
 
   if (document.readyState === 'loading') {
@@ -4007,16 +4499,9 @@ function storiaDelete(id) {
   storiaSave(list);
 }
 
-function storiaClearAll() {
-  orosConfirm('Vuoi davvero cancellare tutto lo storico?', function() {
-    storiaSave([]);
-    renderStoria();
-  });
-}
-
 function storiaSetFilter(f) {
   storiaFilterCur = f;
-  ['All','CSP','CC','Centro','BOT'].forEach(function(n) {
+  ['All','CSP','CC','Centro','BOT','Meteo'].forEach(function(n) {
     var btn = document.getElementById('storiaFilter'+n);
     if (!btn) return;
     var active = (f === n.toLowerCase());
@@ -4043,6 +4528,12 @@ function storiaOpenModal(id) {
 
   var isCsp = entry.tipo === 'csp';
   var isBot = entry.tipo === 'bot';
+
+  // ── Outlook (Macro Outlook): riusa il modale dettaglio del calendario
+  if (entry.tipo === 'meteo') {
+    if (entry.date) meteoHistOpen(entry.date);
+    return;
+  }
 
   // ── BOT modal
   if (isBot) {
@@ -4169,10 +4660,24 @@ document.getElementById('storiaModal').addEventListener('click', function(e) {
 
 // ── Custom confirm dialog (window.confirm è bloccato su iOS PWA / web clip) ──
 var _orosConfirmCb = null;
-function orosConfirm(msg, cb) {
+// opts: { okLabel: testo bottone OK, danger: true=rosso (default) / false=blu, showCancel: default true }
+function orosConfirm(msg, cb, opts) {
+  opts = opts || {};
+  var ok = document.getElementById('orosConfirmOk');
+  var cancel = document.getElementById('orosConfirmCancel');
+  ok.textContent = opts.okLabel || '\u{1F5D1} Elimina';
+  var danger = opts.danger !== false;
+  ok.style.background  = danger ? 'rgba(239,83,80,.15)' : 'rgba(41,98,255,.15)';
+  ok.style.borderColor = danger ? 'rgba(239,83,80,.45)' : 'rgba(41,98,255,.45)';
+  ok.style.color       = danger ? 'var(--tv-red)'       : 'var(--tv-blue)';
+  cancel.style.display = opts.showCancel === false ? 'none' : '';
   document.getElementById('orosConfirmMsg').textContent = msg;
   _orosConfirmCb = cb;
   document.getElementById('orosConfirmOverlay').style.display = 'block';
+}
+// Sostituisce window.alert (bloccato su iOS PWA standalone): solo bottone OK
+function orosAlert(msg, cb) {
+  orosConfirm(msg, cb || null, { okLabel: '\u2713 OK', danger: false, showCancel: false });
 }
 document.getElementById('orosConfirmOk').onclick = function() {
   document.getElementById('orosConfirmOverlay').style.display = 'none';
@@ -4274,7 +4779,7 @@ function salvaCspCorrente() {
   var tab = tabs.find(function(t){ return t.id === activeTab; });
   if (!tab) return;
   var res = getResults(tab);
-  if (!res) { alert('Inserisci i dati prima di salvare.'); return; }
+  if (!res) { orosAlert('Inserisci i dati prima di salvare.'); return; }
   storiaAdd('csp', tab.data, res, '');
   // Flash feedback
   var btn = document.querySelector('#panelsContainer button[onclick="salvaCspCorrente()"]');
@@ -4292,7 +4797,7 @@ function salvaCcCorrente() {
   var tab = ccTabs.find(function(t){ return t.id === ccActiveTab; });
   if (!tab) return;
   var res = ccGetResults(tab);
-  if (!res) { alert('Inserisci i dati prima di salvare.'); return; }
+  if (!res) { orosAlert('Inserisci i dati prima di salvare.'); return; }
 
   // Capture dividendi if section is open and importo is filled
   var divData = null;
@@ -4562,7 +5067,7 @@ function salvaBotCorrente() {
   var price = botParseNum(tab.data.price);
   var qty   = botParseNum(tab.data.qty);
   if (isNaN(price) || isNaN(qty)) {
-    alert('Inserisci almeno Prezzo e N° titoli prima di salvare.');
+    orosAlert('Inserisci almeno Prezzo e N° titoli prima di salvare.');
     return;
   }
   var res    = botGetResults(tab);
@@ -4593,7 +5098,7 @@ function botRenderCompare() {
   });
   html += '</tr></thead><tbody>';
   var rows = [
-    ['Prezzo', function(r,d){ return d.price || '—'; }],
+    ['Prezzo', function(r,d){ return d.price ? escapeHtml(d.price) : '—'; }],
     ['N° Titoli', function(r,d){ return d.qty ? Number(d.qty).toLocaleString('it-IT') : '—'; }],
     ['Investimento', function(r){ return r ? botFmtEur(r.investimento) : '—'; }],
     ['Gain Lordo', function(r){ return r ? botFmtEur(r.gain) : '—'; }],
@@ -4853,7 +5358,7 @@ function salvacentroCorrente() {
   var futStrike = centroParseNum(document.getElementById('fut_strike').value);
 
   var hasAny = !isNaN(futStrike);
-  if (!hasAny) { alert('Inserisci almeno un valore prima di salvare.'); return; }
+  if (!hasAny) { orosAlert('Inserisci almeno un valore prima di salvare.'); return; }
 
   var inputData = {
     futCallSettle: document.getElementById('fut_callSettle').value,
@@ -4912,12 +5417,35 @@ function renderStoria() {
     var isCsp    = entry.tipo === 'csp';
     var isCentro = entry.tipo === 'centro';
     var isBot    = entry.tipo === 'bot';
+    var isMeteo  = entry.tipo === 'meteo';
     var accentColor = isCsp ? '#26a69a' : (isCentro ? '#c084fc' : (isBot ? '#7aa3ff' : '#f0b429'));
     var accentBg    = isCsp ? 'rgba(38,166,154,0.1)' : (isCentro ? 'rgba(192,132,252,0.1)' : (isBot ? 'rgba(122,163,255,0.1)' : 'rgba(240,180,41,0.1)'));
     var accentBord  = isCsp ? 'rgba(38,166,154,0.3)' : (isCentro ? 'rgba(192,132,252,0.3)' : (isBot ? 'rgba(122,163,255,0.3)' : 'rgba(240,180,41,0.3)'));
     var typeLabel   = isCsp ? 'CSP' : (isCentro ? 'Sup-Res MM' : (isBot ? 'BOT' : 'CC'));
 
-    if (isCentro) {
+    if (isMeteo) {
+      var STCOL = { 1: '#26a69a', 2: '#f0b429', 3: '#ef5350' };
+      var STLAB = { 1: 'RISK-ON', 2: 'NEUTRALE', 3: 'RISK-OFF' };
+      var QNM = { gl:'GOLDILOCKS', su:'SURRISCALDAMENTO', ra:'RALLENTAMENTO', st:'STAGFLAZIONE' };
+      var stCol = STCOL[entry.stato] || 'var(--tv-muted)';
+      html += '<div onclick="storiaOpenModal(\'' + entry.id + '\')" style="cursor:pointer;background:var(--tv-surf);border:1px solid rgba(56,189,248,0.3);border-radius:10px;padding:18px;transition:transform 0.15s,box-shadow 0.15s;" ' +
+        'onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 8px 24px rgba(0,0,0,0.25)\'" ' +
+        'onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'none\'">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+          '<span style="background:rgba(56,189,248,0.1);color:#38bdf8;border:1px solid rgba(56,189,248,0.3);padding:3px 9px;border-radius:5px;font-family:\'Inter\',sans-serif;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:5px;">' +
+            '<svg width="11" height="11" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2" opacity="0.85"/><line x1="7" y1="1.5" x2="7" y2="12.5" stroke="currentColor" stroke-width="1" opacity="0.5"/><line x1="1.5" y1="7" x2="12.5" y2="7" stroke="currentColor" stroke-width="1" opacity="0.5"/><circle cx="4.1" cy="4.1" r="1.8" fill="currentColor" opacity="0.9"/></svg>Outlook</span>' +
+          '<span style="font-family:\'Inter\',sans-serif;font-size:11px;color:var(--tv-muted);">' + fmtDate(entry.savedAt) + '</span>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">' +
+          '<span style="width:14px;height:14px;border-radius:50%;background:' + stCol + ';box-shadow:0 0 8px ' + stCol + '99;flex-shrink:0;"></span>' +
+          '<span style="font-size:18px;font-weight:800;color:var(--tv-text);font-family:\'Inter\',sans-serif;letter-spacing:.5px;">' + (STLAB[entry.stato] || '—') + '</span>' +
+        '</div>' +
+        '<div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:7px;padding:10px;">' +
+          '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:3px;">Scenario</div>' +
+          '<div style="font-family:\'Inter\',sans-serif;font-size:14px;font-weight:700;color:' + stCol + ';">' + (QNM[entry.quadrante] || '—') + '</div>' +
+        '</div>' +
+      '</div>';
+    } else if (isCentro) {
       var d = entry.data || {};
       var r = entry.results || {};
       var strikeLbl = escapeHtml(d.futStrike || d.spxStrikeES || '—');
@@ -5066,6 +5594,1028 @@ function centrioStoriaOpenModal(id) {
 </script>
 
 <!-- ════ FIREBASE ════ -->
+<script>
+// ══════════════════════════════════════
+// BOLLETTINO METEO — motore deterministico
+// ══════════════════════════════════════
+var METEO_KEY  = 'oros_meteo_v1';
+var METEO_IKEY = 'oros_meteo_inputs_v1';
+var METEO_SEM  = ['vento','mare','barometro','corrente','previsioni'];
+var METEO_IN   = ['metIn_vix','metIn_y10a','metIn_y10b','metIn_dxya','metIn_dxyb','metIn_cpiu','metIn_cpip','metIn_pmi','metIn_nfpa','metIn_nfpf'];
+var meteoUI = { spx: -1, mib: -1, prev: 0 };
+var meteoTouched = false;
+
+var METEO_STATI = { 1:'RISK-ON', 2:'NEUTRALE', 3:'RISK-OFF' };
+var METEO_FRASI = {
+  1: 'Regime RISK-ON → operatività piena: Wheel + discrezionale.',
+  2: 'Regime NEUTRALE → esposizione ridotta: solo i setup migliori.',
+  3: 'Regime RISK-OFF → niente discrezionale: solo Wheel sistematica.'
+};
+var METEO_QNOME = { gl:'GOLDILOCKS', su:'SURRISCALDAMENTO', ra:'RALLENTAMENTO', st:'STAGFLAZIONE' };
+var METEO_PREV_OPTS = ['Nessun evento top in vista', 'Evento top in settimana', 'CPI / Fed / NFP entro 2 giorni'];
+var METEO_GG = ['DOM','LUN','MAR','MER','GIO','VEN','SAB'];
+var METEO_MM = ['GEN','FEB','MAR','APR','MAG','GIU','LUG','AGO','SET','OTT','NOV','DIC'];
+var METEO_MESI = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+var meteoCal = { y: 0, m: 0, open: false, init: false };
+
+// ── Utility ──
+function meteoNum(id) {
+  var el = document.getElementById(id);
+  if (!el) return null;
+  var v = (el.value || '').trim().replace(',', '.');
+  if (v === '') return null;
+  var n = parseFloat(v);
+  return isNaN(n) ? null : n;
+}
+function meteoFmtN(x, dec) {
+  return x.toFixed(dec === undefined ? 1 : dec).replace('.', ',').replace('-', '−');
+}
+function meteoSegno(x, dec) { return (x >= 0 ? '+' : '') + meteoFmtN(x, dec); }
+function meteoToday() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function meteoFmtDate(iso) {
+  var p = iso.split('-');
+  var d = new Date(+p[0], +p[1] - 1, +p[2]);
+  return METEO_GG[d.getDay()] + ' ' + (+p[2]) + ' ' + METEO_MM[d.getMonth()];
+}
+function meteoLoad() {
+  try { return JSON.parse(localStorage.getItem(METEO_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+function meteoPersist(list) {
+  localStorage.setItem(METEO_KEY, JSON.stringify(list));
+  if (typeof window.fsMeteoCloudSave === 'function') window.fsMeteoCloudSave(list);
+}
+
+// ── Motore: colori dei semafori ──
+// VENTO: 2 sopra = verde · 1 = giallo · 0 = rosso
+// MARE (VIX): <15 verde · 15–25 giallo · >25 rosso
+// BAROMETRO (|Δ10Y| 5 sedute): <10bp verde · 10–20 giallo · >20 rosso
+// CORRENTE (ΔDXY% 5 sedute): <+0,5 verde · +0,5/+1,5 giallo · >+1,5 rosso
+function meteoCalc() {
+  var c = { vento:0, mare:0, barometro:0, corrente:0, previsioni: meteoUI.prev || 0 };
+
+  if (meteoUI.spx !== -1 && meteoUI.mib !== -1) {
+    var sopra = meteoUI.spx + meteoUI.mib;
+    c.vento = sopra === 2 ? 1 : (sopra === 1 ? 2 : 3);
+  }
+
+  var vix = meteoNum('metIn_vix');
+  if (vix !== null) c.mare = vix < 15 ? 1 : (vix <= 25 ? 2 : 3);
+  c.vix = vix;
+
+  var ya = meteoNum('metIn_y10a'), yb = meteoNum('metIn_y10b');
+  if (ya !== null && yb !== null) {
+    c.bp = (ya - yb) * 100;
+    var ab = Math.abs(c.bp);
+    c.barometro = ab > 20 ? 3 : (ab >= 10 ? 2 : 1);
+  }
+
+  var da = meteoNum('metIn_dxya'), db = meteoNum('metIn_dxyb');
+  if (da !== null && db !== null && db !== 0) {
+    c.dxy = (da / db - 1) * 100;
+    c.corrente = c.dxy > 1.5 ? 3 : (c.dxy >= 0.5 ? 2 : 1);
+  }
+  return c;
+}
+
+// ── Motore: posizione della pallina ──
+// X = ΔCPI (ultimo − precedente), scala ±0,6 punti
+// Y = media di (PMI − 50)/5 e sorpresa NFP (uscito − previsto)/150K
+function meteoBallCalc() {
+  var u = meteoNum('metIn_cpiu'), p = meteoNum('metIn_cpip');
+  var pmi = meteoNum('metIn_pmi');
+  var na = meteoNum('metIn_nfpa'), nf = meteoNum('metIn_nfpf');
+  if (u === null || p === null) return null;
+  var parts = [];
+  if (pmi !== null) parts.push(Math.max(-1, Math.min(1, (pmi - 50) / 5)));
+  if (na !== null && nf !== null) parts.push(Math.max(-1, Math.min(1, (na - nf) / 150)));
+  if (!parts.length) return null;
+  var sum = 0;
+  for (var i = 0; i < parts.length; i++) sum += parts[i];
+  var y = sum / parts.length;
+  var dx = u - p;
+  var x = Math.max(-1, Math.min(1, dx / 0.6));
+  var q = y >= 0 ? (x >= 0 ? 'su' : 'gl') : (x >= 0 ? 'st' : 'ra');
+  return { x:x, y:y, q:q, dx:dx, u:u, p:p, pmi:pmi, na:na, nf:nf };
+}
+
+// Regola del regime: 2+ rossi = RISK-OFF · 1 rosso o 3+ gialli = NEUTRALE · altrimenti RISK-ON
+function meteoStato(c) {
+  var r = 0, g = 0, done = true;
+  METEO_SEM.forEach(function(k) {
+    var v = c[k] || 0;
+    if (!v) done = false;
+    if (v === 3) r++;
+    if (v === 2) g++;
+  });
+  if (!done) return 0;
+  if (r >= 2) return 3;
+  if (r === 1 || g >= 3) return 2;
+  return 1;
+}
+
+// ── Interazioni ──
+function meteoTgl(k) {
+  meteoTouched = true;
+  meteoUI[k] = meteoUI[k] === 1 ? 0 : 1; // — → SÌ → NO → SÌ …
+  meteoRecalc();
+}
+
+// ── Pittura UI (solo nodi output) ──
+function meteoPaintTgl() {
+  [['spx','metTgl_spx'], ['mib','metTgl_mib']].forEach(function(pair) {
+    var el = document.getElementById(pair[1]);
+    if (!el) return;
+    var v = meteoUI[pair[0]];
+    el.className = 'met-tgl' + (v === 1 ? ' t-si' : (v === 0 ? ' t-no' : ''));
+    el.getElementsByTagName('b')[0].textContent = v === 1 ? 'SÌ' : (v === 0 ? 'NO' : '—');
+  });
+  var pv = document.getElementById('metIn_prev');
+  if (pv) pv.value = meteoUI.prev ? METEO_PREV_OPTS[meteoUI.prev - 1] : '';
+}
+function meteoPaintChips(c) {
+  METEO_SEM.forEach(function(k) {
+    var el = document.getElementById('metChip_' + k);
+    if (el) el.className = 'met-chip' + (c[k] ? ' s' + c[k] : '');
+  });
+}
+function meteoPaintBall(ball) {
+  meteoTerSetBall(ball);
+  var read = document.getElementById('metQuadRead');
+  if (read) {
+    if (!ball) {
+      read.textContent = 'Inserisci CPI (ultimo e precedente) e PMI o NFP: la pallina appare da sola.';
+    } else {
+      var infl = ball.dx > 0.02 ? 'inflazione in salita' : (ball.dx < -0.02 ? 'inflazione in discesa' : 'inflazione stabile');
+      var cres = ball.y > 0.08 ? 'crescita solida' : (ball.y < -0.08 ? 'crescita debole' : 'crescita piatta');
+      read.textContent = METEO_QNOME[ball.q] + ' — ' + infl + ' (' + meteoSegno(ball.dx, 1) + ') · ' + cres + '.';
+    }
+  }
+}
+
+function meteoRecalc() {
+  var c = meteoCalc();
+  var ball = meteoBallCalc();
+  var st = meteoStato(c);
+
+  meteoPaintTgl();
+  meteoPaintChips(c);
+  meteoPaintBall(ball);
+
+  var boll  = document.getElementById('meteoBoll');
+  var pill  = document.getElementById('meteoPill');
+  var frase = document.getElementById('meteoFrase');
+  if (boll)  boll.className = 'met-boll' + (st ? ' st' + st : '');
+  if (pill)  pill.textContent = st ? METEO_STATI[st] : '—';
+  if (frase) frase.textContent = st ? METEO_FRASI[st] : 'Inserisci i dati qui sopra: l\u2019outlook compare qui.';
+  var parla = document.getElementById('meteoParla');
+  if (parla) {
+    var txt = meteoCommento(c, ball, st);
+    parla.textContent = txt;
+    parla.style.display = txt ? 'block' : 'none';
+  }
+
+  var hint = document.getElementById('meteoSalvaHint');
+  if (hint && st && ball) hint.style.display = 'none';
+
+  if (meteoTouched) meteoInputsDeb();
+}
+
+// ── Persistenza input (per non ribattere i numeri ogni giorno) ──
+function meteoInputsCollect() {
+  var o = { spx: meteoUI.spx, mib: meteoUI.mib, prev: meteoUI.prev };
+  METEO_IN.forEach(function(id) {
+    var el = document.getElementById(id);
+    o[id] = el ? el.value : '';
+  });
+  return o;
+}
+function meteoInputsSaveNow() {
+  var o = meteoInputsCollect();
+  localStorage.setItem(METEO_IKEY, JSON.stringify(o));
+  if (typeof window.fsMeteoInCloudSave === 'function') window.fsMeteoInCloudSave([o]);
+}
+var meteoInputsDeb = debounce(meteoInputsSaveNow, 900);
+function meteoInputsApply() {
+  var raw = localStorage.getItem(METEO_IKEY);
+  if (!raw) return;
+  var o;
+  try { o = JSON.parse(raw); } catch(e) { return; }
+  if (Array.isArray(o)) o = o[0] || {};
+  meteoUI.spx  = (o.spx === 0 || o.spx === 1) ? o.spx : -1;
+  meteoUI.mib  = (o.mib === 0 || o.mib === 1) ? o.mib : -1;
+  meteoUI.prev = o.prev || 0;
+  METEO_IN.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el && typeof o[id] === 'string') el.value = o[id];
+  });
+}
+// Chiamata dal listener cloud: applica solo se non sto scrivendo in un campo della pagina
+function meteoInputsFromCloud() {
+  var ae = document.activeElement;
+  if (ae && ae.tagName === 'INPUT' && ae.id && ae.id.indexOf('metIn_') === 0) return;
+  meteoInputsApply();
+  meteoRecalc();
+}
+
+// ── Salvataggio giornaliero ──
+function meteoSalva() {
+  var c = meteoCalc();
+  var ball = meteoBallCalc();
+  var st = meteoStato(c);
+  var hint = document.getElementById('meteoSalvaHint');
+  if (!st || !ball) {
+    if (hint) hint.style.display = 'block';
+    return;
+  }
+  if (hint) hint.style.display = 'none';
+  meteoInputsSaveNow();
+  var list = meteoLoad();
+  var oggi = meteoToday();
+  var entry = {
+    date: oggi,
+    vento: c.vento, mare: c.mare, barometro: c.barometro,
+    corrente: c.corrente, previsioni: c.previsioni,
+    quadrante: ball.q,
+    bx: Math.round(ball.x * 100) / 100,
+    by: Math.round(ball.y * 100) / 100,
+    stato: st,
+    dati: meteoInputsCollect(),
+    savedAt: new Date().toISOString()
+  };
+  var idx = -1;
+  for (var i = 0; i < list.length; i++) { if (list[i].date === oggi) { idx = i; break; } }
+  if (idx >= 0) list[idx] = entry; else list.push(entry);
+  list.sort(function(a, b) { return a.date < b.date ? -1 : 1; });
+  meteoPersist(list);
+  meteoStoriaSync(entry);
+  meteoTouched = false;
+  meteoRender();
+  var btn = document.getElementById('meteoBtnSalva');
+  if (btn) {
+    btn.textContent = '✓ Outlook salvato';
+    btn.style.color = 'rgba(38,166,154,0.85)';
+    btn.style.borderColor = 'rgba(38,166,154,0.4)';
+    setTimeout(function() {
+      btn.textContent = '💾 Salva l\u2019outlook di oggi';
+      btn.style.color = 'rgba(41,98,255,0.85)';
+      btn.style.borderColor = 'rgba(41,98,255,0.3)';
+    }, 1600);
+  }
+}
+
+// ── Storico ──
+function meteoHistToggle() {
+  meteoCal.open = !meteoCal.open;
+  var body = document.getElementById('meteoHistBody');
+  var head = document.getElementById('meteoHistHead');
+  if (body) body.style.display = meteoCal.open ? 'block' : 'none';
+  if (head) head.classList.toggle('open', meteoCal.open);
+  if (meteoCal.open) meteoCalRender();
+}
+function meteoCalShift(delta) {
+  meteoCal.m += delta;
+  if (meteoCal.m < 0) { meteoCal.m = 11; meteoCal.y--; }
+  else if (meteoCal.m > 11) { meteoCal.m = 0; meteoCal.y++; }
+  meteoCalRender();
+}
+function meteoCalRender() {
+  if (!meteoCal.init) {
+    var now = new Date();
+    meteoCal.y = now.getFullYear();
+    meteoCal.m = now.getMonth();
+    meteoCal.init = true;
+  }
+  var y = meteoCal.y, m = meteoCal.m;
+  var title = document.getElementById('meteoCalTitle');
+  if (title) title.textContent = METEO_MESI[m] + ' ' + y;
+
+  var byDate = {};
+  meteoLoad().forEach(function(e) { byDate[e.date] = e; });
+
+  var first = new Date(y, m, 1);
+  var startDow = (first.getDay() + 6) % 7;
+  var daysIn = new Date(y, m + 1, 0).getDate();
+  var oggi = meteoToday();
+
+  var cells = '';
+  for (var i = 0; i < startDow; i++) cells += '<div class="met-cal-cell empty"><span class="met-cal-num"></span></div>';
+  for (var d = 1; d <= daysIn; d++) {
+    var iso = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+    var e = byDate[iso];
+    var cls = 'met-cal-cell';
+    if (iso === oggi) cls += ' today';
+    var dot = '<div class="met-cal-dot"></div>';
+    var click = '';
+    if (e) {
+      cls += ' has';
+      dot = '<div class="met-cal-dot s' + e.stato + '"></div>';
+      click = ' onclick="meteoHistOpen(\'' + iso + '\')"';
+    }
+    cells += '<div class="' + cls + '"' + click + '><span class="met-cal-num">' + d + '</span>' + dot + '</div>';
+  }
+  var grid = document.getElementById('meteoCalGrid');
+  if (grid) grid.innerHTML = cells;
+}
+function meteoRender() {
+  if (meteoCal.open) meteoCalRender();
+}
+
+// ── Sync outlook → Storico Simulazioni (card 'meteo') ──
+function meteoStoriaSync(entry) {
+  if (typeof storiaLoad !== 'function') return;
+  var list = storiaLoad();
+  // una sola card per data: rimpiazzo se già presente
+  list = list.filter(function(e) { return !(e.tipo === 'meteo' && e.date === entry.date); });
+  list.unshift({
+    id: 'meteo_' + entry.date,
+    tipo: 'meteo',
+    date: entry.date,
+    stato: entry.stato,
+    quadrante: entry.quadrante,
+    savedAt: entry.savedAt || new Date().toISOString()
+  });
+  if (typeof storiaSave === 'function') storiaSave(list);
+  if (typeof renderStoria === 'function') {
+    var pg = document.getElementById('pageStoria');
+    if (pg && pg.style.display !== 'none') renderStoria();
+  }
+}
+function meteoStoriaRemove(date) {
+  if (typeof storiaLoad !== 'function') return;
+  var list = storiaLoad().filter(function(e) { return !(e.tipo === 'meteo' && e.date === date); });
+  if (typeof storiaSave === 'function') storiaSave(list);
+  if (typeof renderStoria === 'function') {
+    var pg = document.getElementById('pageStoria');
+    if (pg && pg.style.display !== 'none') renderStoria();
+  }
+}
+
+// ── Dettaglio giornata storica: ricostruisce dati e outlook da un'entry salvata ──
+function meteoNumFrom(dati, id) {
+  if (!dati || dati[id] === undefined || dati[id] === '') return null;
+  var n = parseFloat(String(dati[id]).replace(',', '.'));
+  return isNaN(n) ? null : n;
+}
+// Ricostruisce l'oggetto c (semafori + valori derivati) e ball (quadrante) dall'entry
+function meteoRebuild(e) {
+  var d = e.dati || {};
+  var c = { vento: e.vento || 0, mare: e.mare || 0, barometro: e.barometro || 0, corrente: e.corrente || 0, previsioni: e.previsioni || 0 };
+  c.vix = meteoNumFrom(d, 'metIn_vix');
+  var ya = meteoNumFrom(d, 'metIn_y10a'), yb = meteoNumFrom(d, 'metIn_y10b');
+  if (ya !== null && yb !== null) c.bp = (ya - yb) * 100;
+  var da = meteoNumFrom(d, 'metIn_dxya'), db = meteoNumFrom(d, 'metIn_dxyb');
+  if (da !== null && db !== null && db !== 0) c.dxy = (da / db - 1) * 100;
+  var ball = null;
+  if (e.quadrante) {
+    var u = meteoNumFrom(d, 'metIn_cpiu'), p = meteoNumFrom(d, 'metIn_cpip');
+    ball = {
+      q: e.quadrante,
+      x: (e.bx !== undefined ? e.bx : 0),
+      y: (e.by !== undefined ? e.by : 0),
+      dx: (u !== null && p !== null) ? (u - p) : (e.bx !== undefined ? e.bx * 0.6 : 0),
+      u: u, p: p,
+      pmi: meteoNumFrom(d, 'metIn_pmi'),
+      na: meteoNumFrom(d, 'metIn_nfpa'),
+      nf: meteoNumFrom(d, 'metIn_nfpf')
+    };
+  }
+  return { c: c, ball: ball };
+}
+function meteoHistOpen(date) {
+  var list = meteoLoad(), e = null;
+  for (var i = 0; i < list.length; i++) { if (list[i].date === date) { e = list[i]; break; } }
+  if (!e) return;
+  var r = meteoRebuild(e);
+  var d = e.dati || {};
+
+  var dEl = document.getElementById('meteoHdDate');
+  if (dEl) dEl.textContent = meteoFmtDate(e.date);
+  var pEl = document.getElementById('meteoHdPill');
+  if (pEl) { pEl.className = 'met-hd-pill s' + e.stato; pEl.textContent = METEO_STATI[e.stato] || '—'; }
+  var delEl = document.getElementById('meteoHdDel');
+  if (delEl) delEl.onclick = function() { meteoHistDelete(e.date); };
+
+  // griglia dati inseriti
+  var CELLS = [
+    ['TREND', (d.spx === 1 ? 'S&P sopra' : d.spx === 0 ? 'S&P sotto' : 'S&P —') + ' · ' + (d.mib === 1 ? 'MIB sopra' : d.mib === 0 ? 'MIB sotto' : 'MIB —')],
+    ['VOLATILITÀ (VIX)', d.metIn_vix || null],
+    ['US10Y OGGI %', d.metIn_y10a || null],
+    ['US10Y 5 SEDUTE FA %', d.metIn_y10b || null],
+    ['DXY OGGI', d.metIn_dxya || null],
+    ['DXY 5 SEDUTE FA', d.metIn_dxyb || null],
+    ['EVENTI', e.previsioni ? (['Nessun evento top', 'Evento top in settimana', 'CPI / Fed / NFP entro 2gg'][e.previsioni - 1]) : null],
+    ['CPI YOY ULTIMO %', d.metIn_cpiu || null],
+    ['CPI YOY PRECEDENTE %', d.metIn_cpip || null],
+    ['PMI MANIFATT. USA', d.metIn_pmi || null],
+    ['NFP USCITO (K)', d.metIn_nfpa || null],
+    ['NFP PREVISTO (K)', d.metIn_nfpf || null],
+    ['SCENARIO', METEO_QNOME[e.quadrante] || null]
+  ];
+  var gEl = document.getElementById('meteoHdData');
+  if (gEl) {
+    gEl.innerHTML = CELLS.map(function(cell) {
+      var has = cell[1] !== null && cell[1] !== undefined && cell[1] !== '';
+      return '<div class="met-hd-cell"><div class="k">' + escapeHtml(cell[0]) + '</div><div class="v' + (has ? '' : ' na') + '">' + (has ? escapeHtml(cell[1]) : '—') + '</div></div>';
+    }).join('');
+  }
+
+  // riassunto outlook ricostruito, con confronto storicamente corretto (rispetto ai giorni precedenti a quello)
+  var oEl = document.getElementById('meteoHdOut');
+  if (oEl) {
+    var txt = meteoCommento(r.c, r.ball, e.stato, e.date);
+    oEl.innerHTML = meteoFormatOut(txt);
+  }
+
+  var ov = document.getElementById('meteoHistOverlay');
+  if (ov) ov.style.display = 'block';
+}
+// evidenzia le intestazioni dei blocchi (TESI. CONVINZIONE ecc.)
+function meteoFormatOut(txt) {
+  var TAGS = ['TESI.', 'CONVINZIONE', 'POSIZIONAMENTO.', 'COSA PUÒ ROMPERLA.', 'DA MONITORARE.'];
+  var esc = txt.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  for (var i = 0; i < TAGS.length; i++) {
+    esc = esc.split(TAGS[i]).join((i ? '<br><br>' : '') + '<b>' + TAGS[i] + '</b>');
+  }
+  return esc;
+}
+function meteoHistClose() {
+  var ov = document.getElementById('meteoHistOverlay');
+  if (ov) ov.style.display = 'none';
+}
+function meteoHistDelete(date) {
+  orosConfirm('Eliminare l\u2019outlook di ' + meteoFmtDate(date) + '?', function() {
+    var list = meteoLoad().filter(function(x) { return x.date !== date; });
+    meteoPersist(list);
+    meteoStoriaRemove(date);
+    meteoHistClose();
+    if (meteoCal.open) meteoCalRender();
+  });
+}
+
+// ── Commento istituzionale: tesi · convinzione · posizionamento · rischi · catalizzatori ──
+// Struttura di una nota vera (stile desk macro): non descrive lo stato, costruisce una view
+// con un livello di convinzione, la traduce in posizionamento, e dichiara cosa la romperebbe.
+// Tutto deterministico: nessuna AI nei calcoli.
+function meteoCommento(c, ball, st, refDate) {
+  var out = [];
+  var NOMI_REGIME = { 1: 'risk-on', 2: 'neutrale', 3: 'risk-off' };
+  var list = meteoLoad(), oggi = refDate || meteoToday();
+
+  // ————— storico recente dello stesso regime/quadrante (per capire se accelera o si esaurisce) —————
+  function contextRun() {
+    var past = [];
+    for (var i = list.length - 1; i >= 0; i--) { if (list[i].date < oggi) past.push(list[i]); }
+    return past; // dal più recente
+  }
+  var past = contextRun();
+  var prev = past.length ? past[0] : null;
+
+  // ═══ 1 · TESI — dove eravamo, dove siamo, qual è la lettura di fondo ═══
+  var tesi = [];
+  if (st && prev) {
+    var testa;
+    if (st === prev.stato) testa = 'Rispetto all\u2019ultimo outlook (' + meteoFmtDate(prev.date) + ') il regime resta ' + NOMI_REGIME[st];
+    else if (st < prev.stato) testa = 'Rispetto all\u2019ultimo outlook (' + meteoFmtDate(prev.date) + ') il regime migliora: da ' + NOMI_REGIME[prev.stato] + ' a ' + NOMI_REGIME[st];
+    else testa = 'Rispetto all\u2019ultimo outlook (' + meteoFmtDate(prev.date) + ') il regime peggiora: da ' + NOMI_REGIME[prev.stato] + ' a ' + NOMI_REGIME[st];
+    // da quante rilevazioni siamo nello stesso quadrante → il regime accelera o si sta esaurendo?
+    if (ball) {
+      var run = 0;
+      for (var j = 0; j < past.length; j++) { if (past[j].quadrante === ball.q) run++; else break; }
+      if (prev.quadrante && prev.quadrante !== ball.q) testa += ', e lo scenario macro cambia: da ' + METEO_QNOME[prev.quadrante] + ' a ' + METEO_QNOME[ball.q] + ' — una rotazione da monitorare, i primi giorni di un nuovo regime sono i più insidiosi';
+      else if (run >= 4) testa += ', e siamo in ' + METEO_QNOME[ball.q] + ' da diverse rilevazioni: regime maturo, più vicino a esaurirsi che a partire';
+      else if (run >= 1) testa += ', e lo scenario ' + METEO_QNOME[ball.q] + ' si sta consolidando';
+      else testa += ', in ' + METEO_QNOME[ball.q];
+    }
+    tesi.push(testa + '.');
+  } else if (st) {
+    tesi.push('Questo è il primo outlook: da domani troverai qui anche il confronto con la rilevazione precedente e la fase del ciclo.');
+  }
+  if (ball) {
+    tesi.push({
+      gl: 'La lettura di fondo è la migliore possibile: la crescita tiene mentre l\u2019inflazione rallenta. È il contesto in cui il capitale viene remunerato per il rischio che si prende, e in cui gli errori vengono perdonati.',
+      su: 'La lettura di fondo è a due facce: l\u2019economia regge, ma l\u2019inflazione riaccelera e costringe le banche centrali a restare restrittive. In questo quadrante i multipli non si espandono e a guidare i rendimenti sono gli utili, non la liquidità.',
+      ra: 'La lettura di fondo è da fine ciclo: crescita e inflazione scendono insieme. È il momento in cui il capitale lascia il rischio e ruota verso ciò che protegge — obbligazioni di qualità e settori difensivi.',
+      st: 'La lettura di fondo è la più scomoda: la crescita frena mentre l\u2019inflazione resiste. È lo scenario in cui quasi ogni asset class fatica contemporaneamente e in cui l\u2019obiettivo non è guadagnare, ma difendere il capitale.'
+    }[ball.q]);
+  }
+  if (tesi.length) out.push('TESI. ' + tesi.join(' '));
+
+  // ═══ 2 · CONVINZIONE — quanto sono coerenti i segnali (concordanza deterministica) ═══
+  var conf = '', confLv = 0;
+  if (st && ball) {
+    // conta quanti dei 5 semafori concordano con la direzione del regime
+    var vals = [c.vento, c.mare, c.barometro, c.corrente, c.previsioni];
+    var verdi = 0, rossi = 0, gialli = 0, noti = 0;
+    for (var k = 0; k < vals.length; k++) { var v = vals[k] || 0; if (!v) continue; noti++; if (v === 1) verdi++; else if (v === 2) gialli++; else rossi++; }
+    var domin = Math.max(verdi, gialli, rossi);
+    var pct;
+    if (noti >= 5 && domin >= 4) { conf = 'alta'; confLv = 3; pct = '65-70%'; }
+    else if (domin >= 3 && gialli <= 2) { conf = 'media'; confLv = 2; pct = '55-60%'; }
+    else { conf = 'bassa'; confLv = 1; pct = '45-50%'; }
+    // contraddizione saliente: trend vs tassi/dollaro
+    var tension = '';
+    if (c.vento === 1 && (c.barometro >= 2 || c.corrente >= 2))
+      tension = ' Attenzione alla tensione più importante di oggi: il trend azionario è costruttivo, ma obbligazionario e valute segnalano stress — quando le due cose divergono, storicamente è il mercato azionario a doversi riallineare, non il contrario.';
+    else if (c.vento === 3 && c.barometro === 1 && c.corrente === 1)
+      tension = ' Nota: il trend è negativo ma tassi e dollaro sono tranquilli — la debolezza è più tecnica che sistemica, il che di solito significa cali meno violenti.';
+    out.push('CONVINZIONE ' + conf + ' (' + pct + '). ' + verbConcord(verdi, gialli, rossi, noti) + tension);
+  }
+
+  // ═══ 3 · POSIZIONAMENTO — categorie di sottostanti da privilegiare sulla Wheel ═══
+  if (st && ball) {
+    var pos = {
+      gl: 'Contesto favorevole per vendere put: privilegia sottostanti a beta più alto e ciclici di qualità (tecnologia solida, consumi discrezionali, semiconduttori). Puoi lavorare su nomi più mossi perché il premio è pagato e il fondo regge.',
+      su: 'Meglio ruotare verso ciò che sopporta tassi e inflazione alti: energia, materie prime, finanziari, value con utili reali. Evita i nomi growth a lunga duration, i più penalizzati quando i tassi non scendono.',
+      ra: 'Difensivo: concentra le put su ciò che non dipende dal ciclo — utility, beni di prima necessità, salute, large cap a bassa volatilità e con dividendo. Meglio incassare premi bassi su nomi solidi che premi alti su nomi fragili.',
+      st: 'Massima selettività: solo sottostanti difensivi e con potere di prezzo (beni di prima necessità, salute, utility regolate). È lo scenario in cui vendere put su nomi ciclici o indebitati si paga caro: se hai dubbi, resta liquido.'
+    }[ball.q];
+    // size = livello più prudente tra regime e convinzione (convinzione media/bassa → mai size piena)
+    var sizeLv = Math.max(st, 4 - confLv);
+    var size = { 1: ' Size piena: contesto e segnali si sostengono a vicenda.', 2: ' Size ridotta: solo i setup migliori, il margine di errore è più stretto.', 3: ' Size minima e sistematica: qui l\u2019errore non si perdona, meglio poche posizioni ben scelte.' }[sizeLv];
+    out.push('POSIZIONAMENTO. ' + pos + size);
+  }
+
+  // ═══ 4 · COSA PUÒ ROMPERE LA VIEW — il rischio principale + il piano B ═══
+  if (st && ball) {
+    var rischio = {
+      gl: 'Il rischio è che l\u2019inflazione torni a salire a sorpresa: basterebbe un CPI sopra le attese per spingere la pallina verso Surriscaldamento e togliere alle banche centrali lo spazio per aiutare.',
+      su: 'Il rischio è duplice: se la crescita cede prima che l\u2019inflazione scenda, scivoliamo in Stagflazione (lo scenario peggiore); se invece l\u2019inflazione rientra, si apre la strada verso Goldilocks.',
+      ra: 'Il rischio è che il rallentamento si trasformi in recessione conclamata: sotto una certa soglia i mercati smettono di festeggiare i tagli dei tassi e iniziano a temere gli utili.',
+      st: 'Il rischio è che serva altro tempo perché l\u2019inflazione ceda: ogni dato sopra le attese prolunga il quadrante più difficile. La via d\u2019uscita positiva è un raffreddamento dei prezzi che riporti verso Rallentamento, poi Goldilocks.'
+    }[ball.q];
+    var pianoB = {
+      gl: 'Piano B se peggiora: al primo CPI in riaccelerazione, accorcia le scadenze e sposta il focus su value ed energia prima che lo faccia il mercato.',
+      su: 'Piano B: se la crescita inizia a cedere (PMI sotto 50, NFP deludente), passa subito a difensivo e taglia i nomi ciclici — non aspettare la conferma della Stagflazione.',
+      ra: 'Piano B: se i dati di crescita crollano, riduci l\u2019esposizione complessiva e alza la liquidità; in recessione conclamata anche i difensivi scendono, solo meno.',
+      st: 'Piano B: se l\u2019inflazione dà segni di cedimento, sei pronto a riaprire gradualmente sul ciclico; finché non succede, protezione del capitale prima di tutto.'
+    }[ball.q];
+    out.push('COSA PUÒ ROMPERLA. ' + rischio + ' ' + pianoB);
+  }
+
+  // ═══ 5 · CATALIZZATORI — cosa guardare adesso, condizioni finanziarie + calendario ═══
+  if (st) {
+    var cat = [];
+    if (c.barometro >= 2 || c.corrente >= 2) {
+      var press = [];
+      if (c.barometro >= 2) press.push('i rendimenti si muovono' + (c.barometro === 3 ? ' con violenza' : ''));
+      if (c.corrente >= 2) press.push('il dollaro si rafforza' + (c.corrente === 3 ? ' rapidamente' : ''));
+      cat.push('condizioni finanziarie in irrigidimento (' + press.join(' e ') + '), storicamente un freno per gli asset di rischio');
+    } else {
+      cat.push('condizioni finanziarie distese, nessuna pressione da tassi o dollaro');
+    }
+    if (c.previsioni === 3) cat.push('nelle prossime 48 ore un dato market-mover detterà la direzione: arrivaci con size ridotta e gli scenari già scritti');
+    else if (c.previsioni === 2) cat.push('appuntamento macro rilevante in settimana: fino ad allora mercato probabilmente in range');
+    else if (c.previsioni === 1) cat.push('calendario scarico: lo scenario base è la continuazione del trend in essere');
+    // livello di volatilità come termometro operativo
+    if (c.vix !== null && c.vix !== undefined) {
+      var vixT = c.vix < 15 ? 'compiacenza (VIX ' + meteoFmtN(c.vix, 1) + '): coperture a basso costo, buon momento per comprarne'
+               : c.vix > 25 ? 'stress (VIX ' + meteoFmtN(c.vix, 1) + '): premi ricchi ma rischio di coda elevato'
+               : 'volatilità intermedia (VIX ' + meteoFmtN(c.vix, 1) + '): premi equilibrati';
+      cat.push(vixT);
+    }
+    out.push('DA MONITORARE. ' + cat.join('; ') + '.');
+  }
+
+  return out.join(' ');
+}
+// concordanza dei semafori in parole (supporto alla convinzione)
+function verbConcord(verdi, gialli, rossi, noti) {
+  if (!noti) return 'Segnali ancora incompleti.';
+  if (verdi >= 4) return 'I segnali sono quasi tutti allineati in senso costruttivo: quando remano insieme, la view è più affidabile.';
+  if (rossi >= 4) return 'I segnali sono quasi tutti allineati in senso difensivo: il quadro è coerente e va rispettato.';
+  if (gialli >= 3) return 'I segnali sono in gran parte in zona intermedia: quadro incerto, meglio non forzare la mano.';
+  return 'I segnali sono contrastanti tra loro: in queste fasi il mercato tende a muoversi a scatti, e conviene ridurre la convinzione.';
+}
+
+// ── Auto «5 sedute fa»: dopo 5 bollettini salvati si compila da solo dallo storico ──
+function meteoAutoPrev() {
+  if (meteoTouched) return;
+  var list = meteoLoad(), oggi = meteoToday();
+  var hasToday = list.some(function(e) { return e.date === oggi; });
+  if (hasToday) return;
+  var past = list.filter(function(e) { return e.date < oggi && e.dati; });
+  if (past.length < 5) return;
+  var ref = past[past.length - 5].dati;
+  var y10b = document.getElementById('metIn_y10b');
+  var dxyb = document.getElementById('metIn_dxyb');
+  if (y10b && ref.metIn_y10a) y10b.value = ref.metIn_y10a;
+  if (dxyb && ref.metIn_dxya) dxyb.value = ref.metIn_dxya;
+}
+
+// ── Quadrante frontale 2D: griglia ferma, titoletti ai bordi, solo la pallina si muove ──
+var meteoTer = {
+  cv: null, ctx: null, run: false, inited: false,
+  t: 0, last: 0, dpr: 1, W: 0, H: 0,
+  tx: 0, ty: 0, tq: '', ton: false,
+  px: 0, py: 0, rm: false, labelRects: []
+};
+var METEO_QRGB = { gl:[38,166,154], su:[240,180,41], ra:[122,163,255], st:[239,83,80] };
+
+function meteoTerSetBall(ball) {
+  if (ball) { meteoTer.tx = ball.x; meteoTer.ty = ball.y; meteoTer.tq = ball.q; meteoTer.ton = true; }
+  else { meteoTer.tx = 0; meteoTer.ty = 0; meteoTer.tq = ''; meteoTer.ton = false; }
+  if (meteoTer.rm) meteoTerDraw(); else meteoTerStart();
+}
+function meteoTerResize() {
+  var T = meteoTer;
+  if (!T.cv) return;
+  var r = T.cv.parentElement ? T.cv.parentElement.getBoundingClientRect() : { width: 600, height: 360 };
+  T.dpr = Math.min(2, window.devicePixelRatio || 1);
+  T.W = Math.max(280, r.width); T.H = Math.max(240, r.height);
+  T.cv.width = Math.round(T.W * T.dpr);
+  T.cv.height = Math.round(T.H * T.dpr);
+  meteoTerDraw();
+}
+function meteoTerInit() {
+  var T = meteoTer;
+  if (T.inited) return !!T.ctx;
+  T.inited = true;
+  T.cv = document.getElementById('meteoTerra');
+  if (!T.cv || !T.cv.getContext) return false;
+  T.ctx = T.cv.getContext('2d');
+  try { T.rm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { T.rm = false; }
+  meteoTerResize();
+  window.addEventListener('resize', meteoTerResize);
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) meteoTerStart();
+  });
+  T.cv.style.cursor = 'default';
+  T.cv.addEventListener('pointerdown', function(ev) {
+    var rect = T.cv.getBoundingClientRect();
+    var x = ev.clientX - rect.left, y = ev.clientY - rect.top;
+    for (var i = 0; i < T.labelRects.length; i++) {
+      var lr = T.labelRects[i];
+      if (x >= lr.x - 3 && x <= lr.x + lr.w + 3 && y >= lr.y - 3 && y <= lr.y + lr.h + 3) {
+        meteoScenarioOpen(lr.q, ev.clientX, ev.clientY);
+        return;
+      }
+    }
+    meteoScenarioClose();
+  });
+  return true;
+}
+function meteoTerStart() {
+  var T = meteoTer;
+  if (!meteoTerInit()) return;
+  if (T.rm) { meteoTerDraw(); return; }
+  if (T.run) return;
+  T.run = true;
+  T.last = 0;
+  requestAnimationFrame(meteoTerFrame);
+}
+function meteoTerVisible() {
+  var pg = document.getElementById('pageMeteo');
+  return pg && pg.style.display !== 'none' && !document.hidden;
+}
+function meteoTerFrame(ts) {
+  var T = meteoTer;
+  if (!meteoTerVisible()) { T.run = false; return; }   // stop: niente 60fps fuori pagina
+  var dt = 0.016;
+  if (T.last) dt = Math.min(0.05, (ts - T.last) / 1000);
+  T.last = ts;
+  T.t += dt;
+  meteoTerDraw();
+  // tutto è fermo: il loop serve solo a far scivolare la pallina fino al punto
+  var ferma = Math.abs(T.tx - T.px) + Math.abs(T.ty - T.py) < 0.002;
+  if (ferma) { T.px = T.tx; T.py = T.ty; T.run = false; return; }
+  requestAnimationFrame(meteoTerFrame);
+}
+function meteoTerDraw() {
+  var T = meteoTer;
+  if (!T.ctx) return;
+  var ctx = T.ctx, W = T.W, H = T.H;
+  var light = document.documentElement.getAttribute('data-theme') === 'light';
+
+  T.px += (T.tx - T.px) * 0.12;
+  T.py += (T.ty - T.py) * 0.12;
+
+  // quadrato centrato, con spazio sopra e sotto per la legenda e le didascalie degli assi
+  var MH = 30, PAD = 52;
+  var L = Math.min(W - MH * 2, H - PAD * 2);
+  var cx = W / 2, cy = H / 2;
+  var x0 = cx - L / 2, y0 = cy - L / 2, R = 12;
+
+  function px2(x) { return cx + x * (L / 2); }
+  function py2(y) { return cy - y * (L / 2); }
+
+  ctx.setTransform(T.dpr, 0, 0, T.dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+
+  // didascalie degli assi, disegnate sul canvas: laterali sempre ai lati, mai in basso
+  ctx.fillStyle = light ? 'rgba(120,123,134,0.95)' : 'rgba(120,123,134,0.95)';
+  ctx.font = '800 9px Inter, sans-serif';
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'center';
+  ctx.fillText('CRESCITA ↑', cx, y0 - 26);
+  ctx.fillText('CRESCITA ↓', cx, y0 + L + 34);
+  ctx.save();
+  ctx.font = '800 8px Inter, sans-serif';
+  ctx.textBaseline = 'middle';
+  // sinistra: "← INFL. GIÙ" ruotata, ancorata al bordo sinistro del canvas
+  ctx.translate(Math.max(9, x0 - 6), cy);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.fillText('← INFL. GIÙ', 0, 0);
+  ctx.restore();
+  ctx.save();
+  ctx.font = '800 8px Inter, sans-serif';
+  ctx.textBaseline = 'middle';
+  ctx.translate(Math.min(W - 9, x0 + L + 6), cy);
+  ctx.rotate(Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.fillText('← INFL. SU', 0, 0);
+  ctx.restore();
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+
+  // ── interno: tutto dentro la maschera arrotondata → niente colore che sborda ──
+  ctx.save();
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x0, y0, L, L, R); else ctx.rect(x0, y0, L, L);
+  ctx.clip();
+
+  ctx.fillStyle = light ? 'rgba(255,255,255,0.55)' : 'rgba(19,23,34,0.55)';
+  ctx.fillRect(x0, y0, L, L);
+
+  var CORN = [['gl', x0, y0], ['su', x0 + L, y0], ['ra', x0, y0 + L], ['st', x0 + L, y0 + L]];
+  for (var k0 = 0; k0 < 4; k0++) {
+    var q0 = CORN[k0][0], col0 = METEO_QRGB[q0];
+    var act0 = T.tq === q0;
+    var a0 = light ? (act0 ? 0.30 : 0.15) : (act0 ? 0.38 : 0.20);
+    var grq = ctx.createRadialGradient(CORN[k0][1], CORN[k0][2], 0, CORN[k0][1], CORN[k0][2], L * 0.78);
+    grq.addColorStop(0, 'rgba(' + col0[0] + ',' + col0[1] + ',' + col0[2] + ',' + a0 + ')');
+    grq.addColorStop(1, 'rgba(' + col0[0] + ',' + col0[1] + ',' + col0[2] + ',0)');
+    ctx.fillStyle = grq;
+    ctx.fillRect(x0, y0, L, L);
+  }
+
+  // griglia
+  ctx.lineWidth = 0.6;
+  ctx.strokeStyle = light ? 'rgba(41,98,255,0.16)' : 'rgba(122,163,255,0.18)';
+  for (var k = 1; k < 10; k++) {
+    if (k === 5) continue;
+    var gx = x0 + L * k / 10, gy = y0 + L * k / 10;
+    ctx.beginPath(); ctx.moveTo(gx, y0); ctx.lineTo(gx, y0 + L); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x0, gy); ctx.lineTo(x0 + L, gy); ctx.stroke();
+  }
+
+  // assi centrali
+  ctx.lineWidth = 1.2;
+  ctx.strokeStyle = light ? 'rgba(41,98,255,0.40)' : 'rgba(56,189,248,0.45)';
+  ctx.beginPath(); ctx.moveTo(px2(-1), py2(0)); ctx.lineTo(px2(1), py2(0)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(px2(0), py2(-1)); ctx.lineTo(px2(0), py2(1)); ctx.stroke();
+
+  ctx.restore();
+
+  // bordo del quadrato (sopra il clip: linea pulita)
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = light ? 'rgba(41,98,255,0.45)' : 'rgba(56,189,248,0.55)';
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x0, y0, L, L, R); else ctx.rect(x0, y0, L, L);
+  ctx.stroke();
+
+  // pallina (si muove solo lei)
+  if (T.ton) {
+    var bxp = px2(Math.max(-0.94, Math.min(0.94, T.px)));
+    var byp = py2(Math.max(-0.94, Math.min(0.94, T.py)));
+    var col = METEO_QRGB[T.tq] || [154, 164, 178];
+    var rad = Math.max(9, L * 0.032);
+    var grd = ctx.createRadialGradient(bxp - rad * 0.35, byp - rad * 0.4, rad * 0.15, bxp, byp, rad);
+    grd.addColorStop(0, '#ffffff');
+    grd.addColorStop(0.55, 'rgb(' + col[0] + ',' + col[1] + ',' + col[2] + ')');
+    grd.addColorStop(1, 'rgba(' + (col[0] * 0.35 | 0) + ',' + (col[1] * 0.35 | 0) + ',' + (col[2] * 0.35 | 0) + ',1)');
+    ctx.shadowColor = 'rgba(' + col[0] + ',' + col[1] + ',' + col[2] + ',0.85)';
+    ctx.shadowBlur = 14;
+    ctx.beginPath();
+    ctx.arc(bxp, byp, rad, 0, Math.PI * 2);
+    ctx.fillStyle = grd;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // legenda fuori dal quadrato, adattiva: mai sovrapposta, su qualsiasi larghezza
+  T.labelRects = [];
+  ctx.textBaseline = 'middle';
+  var SHORT = { GOLDILOCKS: 'GOLDIL.', SURRISCALDAMENTO: 'SURRISC.', RALLENTAMENTO: 'RALLENT.', STAGFLAZIONE: 'STAGFL.' };
+  var ROWS = [
+    [['gl', 'GOLDILOCKS'], ['su', 'SURRISCALDAMENTO'], 0],
+    [['ra', 'RALLENTAMENTO'], ['st', 'STAGFLAZIONE'], 1]
+  ];
+  function chipW(txt) { return ctx.measureText(txt).width + 27; }
+  function chip(q, txt, bx, by, bw) {
+    var on = T.tq === q, cq = METEO_QRGB[q], bh = 17, padX = 8;
+    T.labelRects.push({ q: q, x: bx, y: by, w: bw, h: bh });
+    ctx.globalAlpha = on ? 1 : 0.9;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(bx, by, bw, bh, 9); else ctx.rect(bx, by, bw, bh);
+    ctx.fillStyle = light ? 'rgba(255,255,255,0.9)' : 'rgba(15,18,28,0.8)';
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = on ? 'rgba(' + cq[0] + ',' + cq[1] + ',' + cq[2] + ',0.9)' : (light ? 'rgba(0,0,0,0.14)' : 'rgba(122,134,150,0.35)');
+    if (on) { ctx.shadowColor = 'rgba(' + cq[0] + ',' + cq[1] + ',' + cq[2] + ',0.7)'; ctx.shadowBlur = 10; }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.beginPath();
+    ctx.arc(bx + padX, by + bh / 2, 3, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(' + cq[0] + ',' + cq[1] + ',' + cq[2] + ',' + (on ? 1 : 0.8) + ')';
+    ctx.fill();
+    ctx.fillStyle = on ? 'rgb(' + cq[0] + ',' + cq[1] + ',' + cq[2] + ')' : (light ? 'rgba(19,23,34,0.75)' : 'rgba(209,212,220,0.8)');
+    ctx.fillText(txt, bx + padX + 8, by + bh / 2 + 0.5);
+    ctx.globalAlpha = 1;
+  }
+  for (var r2 = 0; r2 < ROWS.length; r2++) {
+    var row = ROWS[r2];
+    var ta = row[0][1], tb = row[1][1], fs = 9.5;
+    ctx.font = '800 ' + fs + 'px Inter, sans-serif';
+    if (chipW(ta) + chipW(tb) + 10 > L) {
+      fs = 8.5;
+      ctx.font = '800 ' + fs + 'px Inter, sans-serif';
+    }
+    if (chipW(ta) + chipW(tb) + 10 > L) {
+      ta = SHORT[ta]; tb = SHORT[tb]; fs = 9;
+      ctx.font = '800 ' + fs + 'px Inter, sans-serif';
+    }
+    var wa = chipW(ta), wb = chipW(tb);
+    var bxA = x0, bxB = x0 + L - wb;
+    if (bxA + wa + 6 > bxB) {                       // ultima rete di sicurezza
+      var over = (bxA + wa + 6 - bxB) / 2;
+      bxA -= over; bxB += over;
+    }
+    bxA = Math.max(4, Math.min(W - wa - 4, bxA));
+    bxB = Math.max(4, Math.min(W - wb - 4, bxB));
+    var by = row[2] === 0 ? y0 - 17 - 6 : y0 + L + 6;
+    by = Math.max(4, Math.min(H - 17 - 4, by));
+    chip(row[0][0], ta, bxA, by, wa);
+    chip(row[1][0], tb, bxB, by, wb);
+  }
+}
+
+// ── Popover descrittivo degli scenari (tap sulle etichette del quadrante) ──
+var METEO_SCEN_DESC = {
+  gl: 'L\u2019economia cresce bene e i prezzi salgono piano. Le banche centrali sono tranquille e possono anche tagliare i tassi. È lo scenario ideale: le aziende guadagnano e le borse salgono senza troppa paura.',
+  su: 'L\u2019economia è ancora forte, ma i prezzi salgono troppo in fretta. Per frenare l\u2019inflazione le banche centrali tengono i tassi alti: il denaro costa, e questo pesa soprattutto sulle aziende che crescono a debito.',
+  ra: 'L\u2019economia rallenta e anche i prezzi smettono di correre. Si teme un raffreddamento generale: i soldi si spostano su cose più sicure, come le obbligazioni e le aziende solide che pagano dividendi.',
+  st: 'Il peggio dei due mondi: l\u2019economia frena ma i prezzi restano alti. Le banche centrali non possono aiutare senza far salire ancora l\u2019inflazione. Quasi tutto fatica insieme e conviene difendere i soldi più che cercare guadagni.'
+};
+function meteoScenarioOpen(q, clientX, clientY) {
+  var pop = document.getElementById('meteoScenPop');
+  var scene = document.getElementById('meteoTerra');
+  if (!pop || !scene) return;
+  var host = scene.parentElement;
+  var hostRect = host.getBoundingClientRect();
+  var tEl = document.getElementById('meteoScenTitle');
+  var bEl = document.getElementById('meteoScenBody');
+  if (tEl) { tEl.className = 'met-scen-title ' + q; tEl.textContent = METEO_QNOME[q]; }
+  if (bEl) bEl.textContent = METEO_SCEN_DESC[q] || '';
+  pop.style.display = 'block';
+  // posiziona vicino al tap, ma dentro la scena
+  var pw = pop.offsetWidth, ph = pop.offsetHeight;
+  var x = clientX - hostRect.left - pw / 2;
+  var y = clientY - hostRect.top - ph - 12;
+  if (y < 4) y = clientY - hostRect.top + 16;
+  x = Math.max(4, Math.min(hostRect.width - pw - 4, x));
+  y = Math.max(4, Math.min(hostRect.height - ph - 4, y));
+  pop.style.left = x + 'px';
+  pop.style.top = y + 'px';
+}
+function meteoScenarioClose() {
+  var pop = document.getElementById('meteoScenPop');
+  if (pop) pop.style.display = 'none';
+}
+
+// ── Rullo stile sveglia: doppia opzione accanto a ogni campo ──
+var METEO_PICK = {
+  metIn_vix:  { label: 'VIX',                        type: 'd2',  min: 8,   max: 60,  base: '16,50' },
+  metIn_y10a: { label: 'US10Y oggi (%)',             type: 'd3',  min: 0,   max: 8,   base: '4,250' },
+  metIn_y10b: { label: 'US10Y 5 sedute fa (%)',      type: 'd3',  min: 0,   max: 8,   base: '4,250' },
+  metIn_dxya: { label: 'DXY oggi',                   type: 'd3',  min: 80,  max: 130, base: '103,500' },
+  metIn_dxyb: { label: 'DXY 5 sedute fa',            type: 'd3',  min: 80,  max: 130, base: '103,500' },
+  metIn_cpiu: { label: 'CPI YoY ultimo (%)',         type: 'd1',  min: 0,   max: 12,  base: '2,9' },
+  metIn_cpip: { label: 'CPI YoY precedente (%)',     type: 'd1',  min: 0,   max: 12,  base: '2,9' },
+  metIn_pmi:  { label: 'PMI manifatturiero USA',     type: 'd1',  min: 30,  max: 70,  base: '50,0' },
+  metIn_nfpa: { label: 'NFP uscito (K)',             type: 'nfp',                     base: '200' },
+  metIn_nfpf: { label: 'NFP previsto (K)',           type: 'nfp',                     base: '180' },
+  metIn_prev: { label: 'EVENTI in arrivo',            type: 'list', opts: METEO_PREV_OPTS }
+};
+var meteoPickCur = null;
+
+function meteoPickCols(cfg) {
+  function rng(a, b, fmt) { var o = []; for (var v = a; v <= b; v++) o.push(fmt ? fmt(v) : String(v)); return o; }
+  function p2(v) { return (v < 10 ? '0' : '') + v; }
+  if (cfg.type === 'list') return [cfg.opts.slice()];
+  if (cfg.type === 'd1') return [rng(cfg.min, cfg.max), rng(0, 9)];
+  if (cfg.type === 'd2') return [rng(cfg.min, cfg.max), rng(0, 99, p2)];
+  if (cfg.type === 'd3') return [rng(cfg.min, cfg.max), rng(0, 99, p2), rng(0, 9)];
+  return [rng(-2, 9, function(v) { return String(v * 100); }), rng(0, 99, p2)];   // nfp: centinaia + unità
+}
+function meteoPickVal(cfg, cols, sel) {
+  if (cfg.type === 'list') return cols[0][sel[0]];
+  if (cfg.type === 'nfp') {
+    var h = parseInt(cols[0][sel[0]], 10), u2 = parseInt(cols[1][sel[1]], 10);
+    return String(h < 0 ? -(Math.abs(h) + u2) : h + u2);
+  }
+  if (cfg.type === 'd3') return cols[0][sel[0]] + ',' + cols[1][sel[1]] + cols[2][sel[2]];
+  return cols[0][sel[0]] + ',' + cols[1][sel[1]];
+}
+function meteoPickSel(cfg, cols, str) {
+  if (cfg.type === 'list') {
+    var il = cols[0].indexOf((str || '').trim());
+    if (il < 0) il = meteoUI.prev > 0 ? meteoUI.prev - 1 : 0;
+    return [Math.max(0, Math.min(cols[0].length - 1, il))];
+  }
+  var s = (str || '').trim().replace('.', ',');
+  if (s === '') s = cfg.base;
+  function idxOf(arr, v) { var i2 = arr.indexOf(v); return i2 >= 0 ? i2 : 0; }
+  if (cfg.type === 'nfp') {
+    var n = parseInt(s.replace(',', '.'), 10);
+    if (isNaN(n)) n = parseInt(cfg.base, 10) || 0;
+    var neg = n < 0, a = Math.abs(n);
+    var h = Math.min(900, Math.floor(a / 100) * 100) * (neg ? -1 : 1);
+    if (neg && h === 0) { h = 0; a = 0; }                       // sotto i −100 non scendiamo oltre la scala
+    var u = Math.min(99, a - Math.abs(h));
+    return [idxOf(cols[0], String(h)), Math.max(0, u)];
+  }
+  var parts = s.split(',');
+  var ip = parseInt(parts[0], 10);
+  if (isNaN(ip)) ip = parseInt(cfg.base.split(',')[0], 10);
+  ip = Math.max(cfg.min, Math.min(cfg.max, ip));
+  var dec = (parts[1] || '').replace(/\D/g, '');
+  if (cfg.type === 'd1') {
+    var d1 = parseInt(dec.charAt(0) || '0', 10);
+    return [ip - cfg.min, d1];
+  }
+  var cc = parseInt((dec + '00').slice(0, 2), 10);
+  if (cfg.type === 'd2') return [ip - cfg.min, cc];
+  var mm = parseInt(dec.charAt(2) || '0', 10);
+  return [ip - cfg.min, cc, mm];
+}
+function meteoPickOpen(id) {
+  var cfg = METEO_PICK[id];
+  if (!cfg) return;
+  var cols = meteoPickCols(cfg);
+  meteoPickCur = { id: id, cfg: cfg, cols: cols };
+  var titolo = document.getElementById('meteoPickTitle');
+  if (titolo) titolo.textContent = cfg.label;
+  var el = document.getElementById(id);
+  var sel = meteoPickSel(cfg, cols, el ? el.value : '');
+  var html = '';
+  cols.forEach(function(copts, ci) {
+    if (ci === 1 && cfg.type !== 'nfp') html += '<div class="met-pick-sep">,</div>';
+    html += '<div class="met-pick-col' + (cfg.type === 'list' ? ' wide' : '') + '" id="meteoPickCol' + ci + '">'
+          + copts.map(function(o) { return '<div class="met-pick-row">' + o + '</div>'; }).join('')
+          + '</div>';
+  });
+  var wrap = document.getElementById('meteoPickCols');
+  if (wrap) wrap.innerHTML = html;
+  var ov = document.getElementById('meteoPickOverlay');
+  if (ov) ov.style.display = 'block';
+  requestAnimationFrame(function() {
+    cols.forEach(function(_, ci) {
+      var c3 = document.getElementById('meteoPickCol' + ci);
+      if (c3) c3.scrollTop = sel[ci] * 36;
+    });
+  });
+}
+function meteoPickClose() {
+  var ov = document.getElementById('meteoPickOverlay');
+  if (ov) ov.style.display = 'none';
+  meteoPickCur = null;
+}
+function meteoPickOk() {
+  var Pk = meteoPickCur;
+  if (!Pk) { meteoPickClose(); return; }
+  var sel = Pk.cols.map(function(copts, ci) {
+    var c4 = document.getElementById('meteoPickCol' + ci);
+    var ix = c4 ? Math.round(c4.scrollTop / 36) : 0;
+    return Math.max(0, Math.min(copts.length - 1, ix));
+  });
+  var v = meteoPickVal(Pk.cfg, Pk.cols, sel);
+  var el = document.getElementById(Pk.id);
+  if (el) el.value = v;
+  if (Pk.id === 'metIn_prev') meteoUI.prev = sel[0] + 1;
+  meteoTouched = true;
+  meteoRecalc();
+  meteoPickClose();
+}
+
+// ── Apertura pagina ──
+var meteoInited = false;
+function meteoOpenPage() {
+  if (!meteoInited) {
+    meteoInputsApply();
+    meteoInited = true;
+  }
+  meteoAutoPrev();
+  meteoRecalc();
+  meteoRender();
+  meteoTerStart();
+}
+</script>
+
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script>
@@ -5073,6 +6623,8 @@ function centrioStoriaOpenModal(id) {
   // Stubs — active only if Firebase CDN loaded
   window.fsCloudSave   = function() {};
   window.fsPfCloudSave = function() {};
+  window.fsMeteoCloudSave = function() {};
+  window.fsMeteoInCloudSave = function() {};
   window.fsSyncOnLogin = function() {};
 
   if (typeof firebase === 'undefined') {
@@ -5108,6 +6660,8 @@ function centrioStoriaOpenModal(id) {
 
   window.fsCloudSave   = function(list) { _cloudSave('storia', list); };
   window.fsPfCloudSave = function(list) { _cloudSave('portafoglio', list); };
+  window.fsMeteoCloudSave = function(list) { _cloudSave('meteo', list); };
+  window.fsMeteoInCloudSave = function(list) { _cloudSave('meteo_inputs', list); };
 
   // ── Listener real-time: propaga modifiche/cancellazioni da altri device ──
   function _attachListener(docName, lsKey, renderFn) {
@@ -5134,7 +6688,9 @@ function centrioStoriaOpenModal(id) {
 
     var docs = [
       { name: 'storia',      ls: 'oros_storia_v1',      save: window.fsCloudSave,   render: function(){ if (typeof renderStoria === 'function') renderStoria(); } },
-      { name: 'portafoglio', ls: 'oros_portafoglio_v1', save: window.fsPfCloudSave, render: function(){ if (typeof portafoglioRender === 'function') portafoglioRender(); } }
+      { name: 'portafoglio', ls: 'oros_portafoglio_v1', save: window.fsPfCloudSave, render: function(){ if (typeof portafoglioRender === 'function') portafoglioRender(); } },
+      { name: 'meteo',        ls: 'oros_meteo_v1',        save: window.fsMeteoCloudSave,  render: function(){ if (typeof meteoRender === 'function') meteoRender(); } },
+      { name: 'meteo_inputs', ls: 'oros_meteo_inputs_v1', save: window.fsMeteoInCloudSave, render: function(){ if (typeof meteoInputsFromCloud === 'function') meteoInputsFromCloud(); } }
     ];
 
     docs.forEach(function(cfg) {
@@ -5142,7 +6698,9 @@ function centrioStoriaOpenModal(id) {
         .collection('data').doc(cfg.name).get()
         .then(function(snap) {
           var localTs   = localStorage.getItem(_tsKey(cfg.name)) || '';
-          var localList = JSON.parse(localStorage.getItem(cfg.ls) || '[]');
+          var localList;
+          try { localList = JSON.parse(localStorage.getItem(cfg.ls) || '[]'); } catch (e) { localList = []; }
+          if (!Array.isArray(localList)) localList = [];
 
           if (!snap.exists) {
             // Cloud vuoto → carica i dati locali
@@ -5151,6 +6709,9 @@ function centrioStoriaOpenModal(id) {
             var cloudTs = (snap.data() || {}).updatedAt || '';
             if (localTs && cloudTs && localTs > cloudTs) {
               // Modifiche locali offline più recenti → vincono e sovrascrivono il cloud
+              cfg.save(localList);
+            } else if (!cloudTs && localList.length > 0) {
+              // Doc cloud legacy senza timestamp: il listener lo ignorerebbe per sempre → riallinea dal locale
               cfg.save(localList);
             }
             // Altrimenti: cloud più recente (o uguale) → ci pensa il listener ad allinearlo
@@ -5288,13 +6849,6 @@ function pfDelete(id) {
   portafoglioRender();
 }
 
-function pfClearAll() {
-  orosConfirm('Vuoi davvero cancellare tutto il portafoglio?', function() {
-    pfSave([]);
-    portafoglioRender();
-  });
-}
-
 function pfSetFilter(f) {
   pfFilterCur = f;
   var btnAll = document.getElementById('pfFilterAll');
@@ -5356,7 +6910,7 @@ function aggiungiCspAPortafoglio() {
   var tab = tabs.find(function(t){ return t.id === activeTab; });
   if (!tab) return;
   var res = getResults(tab);
-  if (!res) { alert('Inserisci i dati prima di aggiungere al portafoglio.'); return; }
+  if (!res) { orosAlert('Inserisci i dati prima di aggiungere al portafoglio.'); return; }
   var ticker = escapeHtml((tab.data.ticker || 'CSP').toUpperCase());
   var preview =
     '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
@@ -5377,7 +6931,7 @@ function aggiungiCcAPortafoglio() {
   var tab = ccTabs.find(function(t){ return t.id === ccActiveTab; });
   if (!tab) return;
   var res = ccGetResults(tab);
-  if (!res) { alert('Inserisci i dati prima di aggiungere al portafoglio.'); return; }
+  if (!res) { orosAlert('Inserisci i dati prima di aggiungere al portafoglio.'); return; }
   var ticker = escapeHtml((tab.data.ticker || 'CC').toUpperCase());
 
   // Cattura dividendi se compilati (stessa logica di salvaCcCorrente)
@@ -5434,7 +6988,7 @@ function aggiungiBotAPortafoglio() {
   if (!tab) return;
   var price = botParseNum(tab.data.price);
   var qty   = botParseNum(tab.data.qty);
-  if (isNaN(price) || isNaN(qty)) { alert('Inserisci almeno Prezzo e N° titoli prima di aggiungere al portafoglio.'); return; }
+  if (isNaN(price) || isNaN(qty)) { orosAlert('Inserisci almeno Prezzo e N° titoli prima di aggiungere al portafoglio.'); return; }
   var res = botGetResults(tab);
   var ticker = escapeHtml((tab.data.ticker || 'BOT').toUpperCase());
   var botData = { ticker: ticker, price: tab.data.price, rimborso: String(BOT_RIMBORSO), qty: tab.data.qty, comm: String(BOT_COMM) };
@@ -5484,7 +7038,7 @@ function pfCloseConfirm() {
   var profitRaw = document.getElementById('pfCloseProfit').value.trim().replace(',', '.');
   var noteVal = document.getElementById('pfCloseNote').value.trim();
   var profit = parseFloat(profitRaw);
-  if (isNaN(profit)) { alert('Inserisci un valore numerico per il profitto/perdita.'); return; }
+  if (isNaN(profit)) { orosAlert('Inserisci un valore numerico per il profitto/perdita.'); return; }
   var list = pfLoad();
   var entry = list.find(function(e){ return e.id === id; });
   if (!entry) return;
@@ -6072,23 +7626,13 @@ function pfOpenDetailModal(id) {
   document.getElementById('storiaModalDelete').style.display = 'none';
 
   if (entry.status === 'open') {
-    if (isManual) {
-      loadBtn.textContent = 'Chiudi operazione';
-      loadBtn.style.background = 'rgba(38,166,154,1)';
-      loadBtn.style.color = '#fff';
-      loadBtn.onclick = function() {
-        document.getElementById('storiaModal').style.display = 'none';
-        pfOpenCloseModal(id);
-      };
-    } else {
-      loadBtn.textContent = 'Chiudi operazione';
-      loadBtn.style.background = 'rgba(38,166,154,1)';
-      loadBtn.style.color = '#fff';
-      loadBtn.onclick = function() {
-        document.getElementById('storiaModal').style.display = 'none';
-        pfOpenCloseModal(id);
-      };
-    }
+    loadBtn.textContent = 'Chiudi operazione';
+    loadBtn.style.background = 'rgba(38,166,154,1)';
+    loadBtn.style.color = '#fff';
+    loadBtn.onclick = function() {
+      document.getElementById('storiaModal').style.display = 'none';
+      pfOpenCloseModal(id);
+    };
   } else {
     loadBtn.textContent = '✓ Operazione chiusa';
     loadBtn.style.background = 'rgba(255,255,255,0.08)';
@@ -6234,8 +7778,8 @@ function pfManualConfirm() {
   var closeDate  = document.getElementById('pfManCloseDate').value;
   var note       = (document.getElementById('pfManNote').value || '').trim();
 
-  if (!ticker)                              { alert('Inserisci il ticker.'); return; }
-  if (isNaN(openPrice) || isNaN(openQty))  { alert('Inserisci prezzo e quantità di apertura.'); return; }
+  if (!ticker)                              { orosAlert('Inserisci il ticker.'); return; }
+  if (isNaN(openPrice) || isNaN(openQty))  { orosAlert('Inserisci prezzo e quantità di apertura.'); return; }
 
   var hasClosure = !isNaN(closePrice) && !isNaN(closeQty) && closePrice > 0 && closeQty > 0;
   var qty   = hasClosure ? Math.min(openQty, closeQty) : openQty;
@@ -6335,32 +7879,37 @@ function dataImport(which, inputEl) {
     try {
       parsed = JSON.parse(reader.result);
     } catch (e) {
-      orosConfirm('File non valido: non è un JSON leggibile.', function(){});
-      inputEl.value = '';
+      orosAlert('File non valido: non è un JSON leggibile.');
       return;
     }
     var list = parsed && parsed.data ? parsed.data : parsed;
     if (!Array.isArray(list)) {
-      orosConfirm('File non valido: struttura dati non riconosciuta.', function(){});
-      inputEl.value = '';
+      orosAlert('File non valido: struttura dati non riconosciuta.');
       return;
     }
     if (parsed && parsed._oros && parsed._oros !== which) {
       orosConfirm('Attenzione: questo backup sembra di "' + parsed._oros + '", non di "' + which + '". Importare comunque?', function() {
         _dataImportApply(which, list);
-        inputEl.value = '';
-      });
+      }, { okLabel: '\u2713 Importa', danger: false });
       return;
     }
     orosConfirm('Importare ' + list.length + ' voci? I dati attuali verranno sostituiti.', function() {
       _dataImportApply(which, list);
-      inputEl.value = '';
-    });
+    }, { okLabel: '\u2713 Importa', danger: false });
   };
   reader.readAsText(file);
+  // Reset subito: consente di ri-selezionare lo stesso file anche dopo un annulla
+  inputEl.value = '';
 }
 
 function _dataImportApply(which, list) {
+  // Sanitizza: solo oggetti, con id in charset sicuro (gli id finiscono in attributi onclick/data-* e selettori)
+  list = list.filter(function(e) { return e && typeof e === 'object' && !Array.isArray(e); });
+  list.forEach(function(e, i) {
+    if (typeof e.id !== 'string' || !/^[A-Za-z0-9_.\-]{1,64}$/.test(e.id)) {
+      e.id = Date.now() + '_imp' + i + '_' + Math.random().toString(36).slice(2, 7);
+    }
+  });
   if (which === 'portafoglio') {
     pfSave(list);
     portafoglioRender();

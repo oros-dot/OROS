@@ -1,6 +1,6 @@
 // OROS Service Worker — cache offline
 // Bump CACHE_VERSION ad ogni deploy per forzare l'aggiornamento
-var CACHE_VERSION = 'oros-v1';
+var CACHE_VERSION = 'oros-v3';
 var CORE_ASSETS = [
   './',
   './index.html'
@@ -36,8 +36,11 @@ self.addEventListener('fetch', function(e) {
   if (req.mode === 'navigate' || url.pathname.endsWith('index.html') || url.pathname.endsWith('/')) {
     e.respondWith(
       fetch(req).then(function(res) {
-        var copy = res.clone();
-        caches.open(CACHE_VERSION).then(function(c) { c.put(req, copy); });
+        // Cache solo risposte valide: un 404/500 cachato verrebbe servito offline
+        if (res && res.ok) {
+          var copy = res.clone();
+          caches.open(CACHE_VERSION).then(function(c) { c.put(req, copy); }).catch(function(){});
+        }
         return res;
       }).catch(function() {
         return caches.match(req).then(function(r) { return r || caches.match('./index.html'); });
@@ -50,8 +53,10 @@ self.addEventListener('fetch', function(e) {
   e.respondWith(
     caches.match(req).then(function(cached) {
       return cached || fetch(req).then(function(res) {
-        var copy = res.clone();
-        caches.open(CACHE_VERSION).then(function(c) { c.put(req, copy); });
+        if (res && res.ok) {
+          var copy = res.clone();
+          caches.open(CACHE_VERSION).then(function(c) { c.put(req, copy); }).catch(function(){});
+        }
         return res;
       });
     })
