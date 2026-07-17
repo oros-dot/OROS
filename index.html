@@ -6224,6 +6224,8 @@ function meteoTerResize() {
   var T = meteoTer;
   if (!T.cv) return;
   var r = T.cv.parentElement ? T.cv.parentElement.getBoundingClientRect() : { width: 600, height: 360 };
+  // Contenitore nascosto (pagina display:none) → 0x0: non committare, si rimisura in meteoTerStart
+  if (r.width < 10 || r.height < 10) return;
   T.dpr = Math.min(2, window.devicePixelRatio || 1);
   T.W = Math.max(280, r.width); T.H = Math.max(240, r.height);
   T.cv.width = Math.round(T.W * T.dpr);
@@ -6261,6 +6263,17 @@ function meteoTerInit() {
 function meteoTerStart() {
   var T = meteoTer;
   if (!meteoTerInit()) return;
+  // Self-heal: se l'init è avvenuto a pagina nascosta (via listener cloud) il buffer è
+  // sbagliato o vuoto → rimisura appena il contenitore è realmente misurabile
+  var par = T.cv && T.cv.parentElement;
+  if (par) {
+    var pr = par.getBoundingClientRect();
+    if (pr.width >= 10 && pr.height >= 10 &&
+        (T.cv.width !== Math.round(Math.max(280, pr.width) * Math.min(2, window.devicePixelRatio || 1)) ||
+         T.cv.height !== Math.round(Math.max(240, pr.height) * Math.min(2, window.devicePixelRatio || 1)))) {
+      meteoTerResize();
+    }
+  }
   if (T.rm) { meteoTerDraw(); return; }
   if (T.run) return;
   T.run = true;
@@ -6286,7 +6299,7 @@ function meteoTerFrame(ts) {
 }
 function meteoTerDraw() {
   var T = meteoTer;
-  if (!T.ctx) return;
+  if (!T.ctx || T.W < 10 || T.H < 10) return;
   var ctx = T.ctx, W = T.W, H = T.H;
   var light = document.documentElement.getAttribute('data-theme') === 'light';
 

@@ -1,6 +1,6 @@
 // OROS Service Worker — cache offline
 // Bump CACHE_VERSION ad ogni deploy per forzare l'aggiornamento
-var CACHE_VERSION = 'oros-v3';
+var CACHE_VERSION = 'oros-v4';
 var CORE_ASSETS = [
   './',
   './index.html'
