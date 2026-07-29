@@ -92,6 +92,45 @@ function escapeHtml(s) {
 function escapeAttr(s) {
   return escapeHtml(s);
 }
+// Converte una stringa JS (UTF-16) nella sua sequenza di byte UTF-8.
+// Serve a sha256(): la routine lavora byte per byte, e senza questa
+// conversione ogni carattere non ASCII produce un hash sbagliato.
+function orosUtf8(s) {
+  s = String(s == null ? '' : s);
+  var out = '', i, c, c2, cp;
+  for (i = 0; i < s.length; i++) {
+    c = s.charCodeAt(i);
+    if (c < 0x80) {
+      out += String.fromCharCode(c);
+    } else if (c < 0x800) {
+      out += String.fromCharCode(0xC0 | (c >> 6), 0x80 | (c & 0x3F));
+    } else if (c >= 0xD800 && c <= 0xDBFF && i + 1 < s.length &&
+               (c2 = s.charCodeAt(i + 1)) >= 0xDC00 && c2 <= 0xDFFF) {
+      cp = 0x10000 + ((c - 0xD800) << 10) + (c2 - 0xDC00);
+      out += String.fromCharCode(0xF0 | (cp >> 18), 0x80 | ((cp >> 12) & 0x3F),
+                                 0x80 | ((cp >> 6) & 0x3F), 0x80 | (cp & 0x3F));
+      i++;
+    } else {
+      out += String.fromCharCode(0xE0 | (c >> 12), 0x80 | ((c >> 6) & 0x3F), 0x80 | (c & 0x3F));
+    }
+  }
+  return out;
+}
+// Scrittura su localStorage a prova di quota esaurita / navigazione privata.
+// Senza questo controllo un solo salvataggio fallito interrompeva la funzione
+// chiamante a metà, lasciando fuori sincrono la copia cloud.
+function orosLsSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (e) {
+    console.warn('Scrittura locale fallita (' + key + '):', e);
+    if (typeof orosAlert === 'function') {
+      orosAlert('Memoria del dispositivo piena: l\u2019ultima modifica non \u00e8 stata salvata in locale.');
+    }
+    return false;
+  }
+}
 // Debounce: ritarda l'esecuzione finché non si smette di chiamare
 function debounce(fn, wait) {
   var t;
@@ -203,7 +242,7 @@ function goHome() {
 // Theme toggle
 function setTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
-  localStorage.setItem('csp-theme', t);
+  orosLsSet('csp-theme', t);
   var btn = document.getElementById('themeBtn');
   if (btn) btn.textContent = t === 'dark' ? '☀' : '🌙';
   var homeIcon = document.getElementById('homeThemeBtn');
@@ -239,8 +278,12 @@ const MAX_ATTEMPTS   = 5;
 const LOCK_MINUTES   = 15;
 const BRUTE_KEY      = 'oros_brute_v1';
 
-// Pure-JS SHA-256 (works on file://, no crypto.subtle needed)
+// SHA-256 in JS puro (funziona anche su file://, non serve crypto.subtle).
+// L'ingresso viene convertito in byte UTF-8: prima le password con
+// caratteri accentati generavano un hash diverso da quello di qualunque
+// calcolatore SHA-256, rendendo impossibile l'accesso.
 function sha256(str) {
+  str = orosUtf8(str);
   function rightRotate(value, amount) { return (value >>> amount) | (value << (32 - amount)); }
   var mathPow = Math.pow;
   var maxWord = mathPow(2, 32);
@@ -262,7 +305,7 @@ function sha256(str) {
   while (str.length % 64 - 56) str += '\x00';
   for (var i = 0; i < str.length; i++) {
     var j = str.charCodeAt(i);
-    if (j >> 8) return '';
+    if (j >> 8) return '';   // invariante: dopo orosUtf8 ogni codice è ≤ 255
     words[i >> 2] |= j << ((3 - i) % 4) * 8;
   }
   words[words.length] = ((asciiBitLength / maxWord) | 0);
@@ -302,27 +345,34 @@ function sha256(str) {
 }
 
 function sessionGet() {
-  try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch(e) { return null; }
+  try {
+    var s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+    // Convalida della forma: una chiave manomessa a mano non deve propagare
+    // valori di tipo inatteso al resto dell'applicazione.
+    if (!s || typeof s !== 'object') return null;
+    if (typeof s.user !== 'string' || typeof s.expires !== 'number') return null;
+    return s;
+  } catch (e) { return null; }
 }
 function sessionSet(user) {
-  localStorage.setItem(SESSION_KEY, JSON.stringify({ user, expires: Date.now() + SESSION_HOURS * 3600000 }));
+  orosLsSet(SESSION_KEY, JSON.stringify({ user: String(user), expires: Date.now() + SESSION_HOURS * 3600000 }));
 }
 function sessionClear() {
-  localStorage.removeItem(SESSION_KEY);
+  try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
 }
 function sessionValid() {
   var s = sessionGet();
-  return s && s.expires && Date.now() < s.expires;
+  return !!(s && Date.now() < s.expires);
 }
 
 function bruteGet() {
   try { return JSON.parse(localStorage.getItem(BRUTE_KEY) || '{"attempts":0,"lockedUntil":0}'); } catch(e) { return {attempts:0,lockedUntil:0}; }
 }
 function bruteSave(data) {
-  localStorage.setItem(BRUTE_KEY, JSON.stringify(data));
+  orosLsSet(BRUTE_KEY, JSON.stringify(data));
 }
 function bruteReset() {
-  localStorage.setItem(BRUTE_KEY, JSON.stringify({attempts:0,lockedUntil:0}));
+  orosLsSet(BRUTE_KEY, JSON.stringify({attempts:0,lockedUntil:0}));
 }
 
 function togglePswVisibility() {
@@ -461,10 +511,15 @@ document.addEventListener('DOMContentLoaded', authInit);
 </script>
 <script>
 // Auto-select input content on focus (works for all inputs including dynamically rendered)
+// Solo sui tipi che supportano davvero una selezione di testo: su date,
+// color, range e affini select() è inutile e su alcuni browser solleva
+// InvalidStateError, interrompendo la gestione dell'evento.
+var OROS_SELECTABLE = { text:1, search:1, url:1, tel:1, password:1, number:1, '':1 };
 document.addEventListener('focusin', function(e) {
-  if (e.target && (e.target.tagName === 'INPUT') && e.target.type !== 'checkbox' && e.target.type !== 'radio') {
-    e.target.select();
-  }
+  var el = e.target;
+  if (!el || el.tagName !== 'INPUT') return;
+  if (!OROS_SELECTABLE[(el.type || '').toLowerCase()]) return;
+  try { el.select(); } catch (err) {}
 });
 </script>
 <style>
@@ -492,9 +547,9 @@ document.addEventListener('focusin', function(e) {
   /* HEADER */
   header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: 28px;
+    margin-bottom: 24px;
     padding-bottom: 0;
     border-bottom: none;
   }
@@ -518,17 +573,6 @@ document.addEventListener('focusin', function(e) {
     text-transform: uppercase;
   }
 
-  .header-badge {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--accent-dim);
-    border: 1px solid rgba(0,229,160,0.25);
-    padding: 6px 14px;
-    border-radius: 20px;
-  }
-  .header-badge .dot { width: 7px; height: 7px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
-  .header-badge span { font-family: 'Inter', sans-serif; font-size: 10px; color: var(--accent); letter-spacing: 1px; }
   @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
 
   /* TABS ROW */
@@ -917,8 +961,6 @@ document.addEventListener('focusin', function(e) {
   .sc-btn { width: 100%; flex-shrink: 0; }
   .sc-search { width: 100%; }
   .sc-bar { flex-direction: column; align-items: flex-start; gap: 12px; }
-  .home-btn { flex: none !important; width: 90% !important; font-size: 18px !important; padding: 13px 20px !important; font-weight: 700 !important; letter-spacing: 0.3px !important; }
-  div:has(> .home-btn) { flex-direction: column !important; align-items: center !important; gap: 10px !important; }
 
   .container { padding: 20px 16px; }
   .panel { padding: 20px 16px; }
@@ -937,7 +979,6 @@ document.addEventListener('focusin', function(e) {
   .tab { padding: 6px 11px; font-size: 11px; flex-shrink: 0; }
   .tab .tab-ticker { font-size: 10px; letter-spacing: 0.5px; }
   .add-tab-btn { padding: 6px 10px; font-size: 16px; flex-shrink: 0; }
-  .pendant-btn { font-size: 11px; padding: 7px 12px; }
 
   /* Mobile: hide desktop sidebar, show mobile top bar */
   .sidebar { display: none !important; }
@@ -1356,6 +1397,10 @@ body.has-sidebar #pageMeteo {
   font-family: 'Inter', sans-serif; font-size: 14px; line-height: 1.75; color: var(--tv-text);
 }
 
+#pageMeteo .met-out-sez { margin-bottom: 15px; }
+#pageMeteo .met-out-sez:last-child { margin-bottom: 0; }
+#pageMeteo .met-out-tag { color: #7aa3ff; font-weight: 800; letter-spacing: .3px; }
+
 #pageMeteo .met-inrow { display: flex; gap: 6px; }
 #pageMeteo .met-dial {
   width: 22px; border: 1px solid var(--tv-bord); background: var(--tv-surf2);
@@ -1436,10 +1481,124 @@ body.has-sidebar #pageMeteo {
 .met-hd-out b { color: #7aa3ff; font-weight: 800; }
 @media (max-width: 768px) { #meteoHistSheet { padding: 20px; } }
 
+
+
+
+/* ── Calendario della scadenza: stessa grafica dello Storico in Macro Outlook ── */
+.oros-cal {
+  position: fixed; z-index: 10001; width: 252px; padding: 12px;
+  background: var(--tv-surf); border: 1px solid var(--tv-bord);
+  border-radius: 10px; box-shadow: 0 14px 38px var(--tv-shadow);
+  font-family: 'Inter', sans-serif; animation: fadeIn .15s ease;
+}
+.oros-cal-nav { display: flex; align-items: center; gap: 4px; margin-bottom: 10px; }
+.oros-cal-arrow {
+  width: 26px; height: 26px; border-radius: 7px; padding: 0; flex-shrink: 0;
+  border: 1px solid var(--tv-bord); background: var(--tv-surf2); color: var(--tv-muted);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: border-color .15s, color .15s; -webkit-tap-highlight-color: transparent;
+}
+.oros-cal-arrow:hover { border-color: var(--gold); color: var(--gold); }
+.oros-cal-title {
+  flex: 1; text-align: center; font-size: 12.5px; font-weight: 800;
+  color: var(--tv-text); text-transform: capitalize; letter-spacing: .3px;
+}
+.oros-cal-dow { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 3px; margin-bottom: 5px; }
+.oros-cal-dow span { text-align: center; font-size: 9px; font-weight: 700; color: var(--tv-muted); letter-spacing: .5px; }
+.oros-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); grid-auto-rows: 29px; gap: 3px; }
+.oros-cal-cell {
+  min-width: 0; border-radius: 7px; background: var(--tv-surf2); border: 1px solid transparent;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  font-size: 11px; font-weight: 600; color: var(--tv-text); cursor: pointer;
+  transition: border-color .15s, background .15s; -webkit-tap-highlight-color: transparent;
+}
+.oros-cal-cell:hover { border-color: var(--gold); background: var(--tv-surf); }
+.oros-cal-cell.vuota { background: transparent; cursor: default; }
+.oros-cal-cell.vuota:hover { border-color: transparent; background: transparent; }
+.oros-cal-cell.oggi { border-color: rgba(41,98,255,.55); }
+.oros-cal-cell.sel { background: var(--gold-dim); border-color: var(--gold); color: var(--gold); }
+.oros-cal-dot { width: 5px; height: 5px; border-radius: 50%; background: transparent; }
+.oros-cal-cell.tv .oros-cal-dot { background: var(--tv-gold); }
+.oros-cal-cell.sel .oros-cal-dot { background: var(--gold); }
+.oros-cal-foot { margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--tv-bord); display: flex; justify-content: center; }
+.oros-cal-tv {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px;
+  background: transparent; border: 1px solid var(--tv-bord); border-radius: 7px;
+  color: var(--tv-muted); font-family: 'Inter', sans-serif; font-size: 10.5px; font-weight: 600;
+  cursor: pointer; transition: border-color .15s, color .15s;
+}
+.oros-cal-tv:hover { border-color: var(--gold); color: var(--gold); }
+.oros-cal-tv i { width: 5px; height: 5px; border-radius: 50%; background: var(--tv-gold); display: inline-block; flex-shrink: 0; }
+.oros-cal-trigger {
+  width: 100%; text-align: left; cursor: pointer;
+  background: var(--tv-bg); border: 1px solid var(--tv-bord); border-radius: 6px;
+  padding: 9px 13px; color: var(--tv-text); font-family: 'Inter', sans-serif;
+  font-size: 14px; font-weight: 400; box-sizing: border-box; text-transform: capitalize;
+  transition: border-color .15s;
+}
+.oros-cal-trigger:hover { border-color: var(--gold); }
+
+/* ── Riga scadenza sotto la barra ── */
+.oros-scad {
+  position: relative; display: flex; align-items: center; gap: 6px;
+  margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--border);
+  font-family: 'Inter', sans-serif; font-size: 10px; line-height: 1.45;
+  cursor: pointer; transition: color .2s;
+}
+.oros-scad .oros-scad-d { font-weight: 700; border-bottom: 1px dotted currentColor; }
+.oros-scad:hover { filter: brightness(1.35); }
+.oros-scad:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 4px; }
+
+/* ── Tendina Quantita' per Opzione: si apre sotto il box ── */
+.oros-sel-wrap { position: relative; width: 100%; }
+.oros-sel-native { position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0; border: 0; padding: 0; }
+.oros-sel-btn {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 14px; color: var(--text); font-family: 'Inter', sans-serif;
+  font-size: 14px; font-weight: 400; cursor: pointer; text-align: left;
+  transition: border-color .2s, box-shadow .2s;
+}
+.oros-sel-btn:hover { border-color: rgba(255,255,255,.18); }
+.oros-sel-wrap.open .oros-sel-btn { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-dim); }
+.oros-sel-chev { flex-shrink: 0; color: var(--text-dim); transition: transform .2s; }
+.oros-sel-wrap.open .oros-sel-chev { transform: rotate(180deg); }
+.oros-sel-list {
+  display: none; position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 600;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 12px 32px var(--tv-shadow); padding: 4px;
+}
+.oros-sel-wrap.open .oros-sel-list { display: block; animation: fadeIn .15s ease; }
+.oros-sel-opt {
+  padding: 9px 12px; border-radius: 6px; font-family: 'Inter', sans-serif;
+  font-size: 14px; font-weight: 400; color: var(--text); cursor: pointer;
+  transition: background .15s;
+}
+.oros-sel-opt:hover { background: rgba(255,255,255,.05); }
+.oros-sel-opt.sel { color: var(--gold); background: var(--gold-dim); }
+[data-theme="light"] .oros-sel-btn:hover { border-color: rgba(0,0,0,.18); }
+[data-theme="light"] .oros-sel-opt:hover { background: rgba(0,0,0,.045); }
+
 /* Storico — header collassabile */
 #pageMeteo .met-hist-head {
   display: flex; align-items: center; justify-content: space-between;
   cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none;
+}
+/* Hover sull'intero pannello, come il bottone Dividendi della CC.
+   L'ombra interna schiarisce il fondo senza sostituirlo. */
+#pageMeteo .met-hist-panel { transition: border-color .2s, box-shadow .2s; }
+#pageMeteo .met-hist-panel:hover {
+  border-color: rgba(255,255,255,.16);
+  box-shadow: inset 0 0 0 999px rgba(255,255,255,.025);
+}
+[data-theme="light"] #pageMeteo .met-hist-panel:hover {
+  border-color: rgba(0,0,0,.16);
+  box-shadow: inset 0 0 0 999px rgba(0,0,0,.02);
+}
+/* Da aperto il pannello e' contenuto, non piu' un bottone: niente hover. */
+#pageMeteo .met-hist-panel:has(.met-hist-head.open):hover {
+  border-color: var(--tv-bord);
+  box-shadow: none;
 }
 #pageMeteo .met-hist-chev { color: var(--tv-muted); transition: transform .25s; flex-shrink: 0; }
 #pageMeteo .met-hist-head.open .met-hist-chev { transform: rotate(180deg); }
@@ -1490,7 +1649,6 @@ body.has-sidebar #pageMeteo {
   #pageMeteo .met-cal-grid { grid-auto-rows: 40px; }
   #pageMeteo .met-cal-cell { border-radius: 7px; }
   #pageMeteo .met-cal-num { font-size: 11px; }
-  #pageMeteo .met-hdate { min-width: 90px; }
 }
 
 /* ── SWIPE PAGE TRANSITION (card) ── */
@@ -1561,8 +1719,8 @@ body.has-sidebar #pageMeteo {
 /* ── SCREENER ── */
 .sc-wrap { padding: 20px; max-width: 1600px; margin: 0 auto; }
 .sc-bar {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 16px; flex-wrap: wrap; gap: 12px;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
 }
 .sc-bar h2 { 
   font-size: 24px; font-weight: 800; letter-spacing: -.3px;
@@ -1571,6 +1729,9 @@ body.has-sidebar #pageMeteo {
   font-family: 'Inter', sans-serif;
 }
 .sc-bar p  { font-size: 12px; color: var(--tv-muted); margin-top: 2px; }
+@media (max-width: 768px) {
+  .sc-bar { flex-direction: column; align-items: flex-start; gap: 12px; }
+}
 .sc-search { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .sc-inp {
   width: 260px;
@@ -1730,12 +1891,14 @@ body.has-sidebar #pageMeteo {
   gap: 8px;
   letter-spacing: 0.3px;
 }
-.div-toggle-btn:hover { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); }
-.div-toggle-btn.open  { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); border-radius: 8px 8px 0 0; border-bottom-color: transparent; }
-.div-arrow { margin-left: auto; transition: transform 0.2s; font-size: 10px; }
+.div-toggle-btn:hover { border-color: rgba(255,255,255,.16); background: rgba(255,255,255,.025); }
+[data-theme="light"] .div-toggle-btn:hover { border-color: rgba(0,0,0,.16); background: rgba(0,0,0,.02); }
+.div-toggle-btn.open  { border-color: var(--border); color: var(--gold); background: var(--surface2); border-radius: 8px 8px 0 0; border-bottom-color: transparent; }
+.div-toggle-btn.open:hover { border-color: var(--border); color: var(--gold); background: var(--surface2); border-bottom-color: transparent; }
+.div-arrow { margin-left: auto; transition: transform 0.2s; flex-shrink: 0; color: var(--text-dim); }
 .div-toggle-btn.open .div-arrow { transform: rotate(180deg); }
 .div-section { margin-top: 0; }
-.div-section .panel { border-radius: 0 0 8px 8px !important; border: 1px solid var(--gold) !important; border-top: none !important; margin-top: 0 !important; }
+.div-section .panel { border-radius: 0 0 8px 8px !important; border: 1px solid var(--border) !important; border-top: none !important; margin-top: 0 !important; }
 
 
 /* ── CC page same styles ── */
@@ -1877,14 +2040,6 @@ body.has-sidebar #pageMeteo {
   border-color: rgba(192,132,252,0.7);
   box-shadow: 0 0 0 2px rgba(192,132,252,0.15);
 }
-#pageCentro .field input.centro-yellow {
-  background: rgba(240,180,41,0.05);
-  border-color: rgba(240,180,41,0.3);
-}
-#pageCentro .field input.centro-yellow:focus {
-  border-color: rgba(240,180,41,0.7);
-  box-shadow: 0 0 0 2px rgba(240,180,41,0.15);
-}
 #pageCentro .output-card,
 #pageCentro .output-mini {
   background: var(--tv-bg);
@@ -1906,42 +2061,8 @@ body.has-sidebar #pageMeteo {
 #pageCentro .out-sub { color: var(--tv-muted); font-family: 'Inter', sans-serif; }
 #pageCentro .gear-btn { border-color: var(--tv-bord); color: var(--tv-muted); }
 #pageCentro .gear-btn:hover { border-color: rgba(192,132,252,0.6); color: #c084fc; background: rgba(192,132,252,.08); }
-#pageCentro .centro-sub-title {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: rgba(192,132,252,0.7);
-  font-family: 'Inter', sans-serif;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--tv-bord);
-}
-#pageCentro .centro-divider {
-  height: 1px;
-  background: var(--tv-bord);
-  margin: 20px 0;
-}
-#pageCentro .centro-mm-title {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: rgba(192,132,252,0.9);
-  font-family: 'Inter', sans-serif;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(192,132,252,0.2);
-}
-[data-theme="light"] #pageCentro .field input.centro-yellow {
-  background: rgba(240,180,41,0.08);
-  border-color: rgba(200,140,0,0.35);
-}
 [data-theme="light"] #pageCentro .output-card.supporto-card { background: rgba(38,166,154,.06); }
 [data-theme="light"] #pageCentro .output-card.resistenza-card { background: rgba(239,83,80,.06); }
-
-/* centro page input yellow focus auto-select */
-#pageCentro .centro-yellow { background: rgba(240,180,41,0.05); border-color: rgba(240,180,41,0.3); }
 
 @media (max-width: 768px) {
   #pageCentro .panel-grid { grid-template-columns: 1fr !important; }
@@ -2104,9 +2225,6 @@ input[type="number"]:focus {
   transition: background .25s, border-color .25s, color .25s;
 }
 #pageBOT .field input:focus { border-color: var(--tv-blue); box-shadow: 0 0 0 2px rgba(41,98,255,.15); }
-#pageBOT .field input.bot-yellow { background: rgba(240,180,41,0.05); border-color: rgba(240,180,41,0.3); }
-#pageBOT .field input.bot-yellow:focus { border-color: rgba(240,180,41,0.7); box-shadow: 0 0 0 2px rgba(240,180,41,0.15); }
-[data-theme="light"] #pageBOT .field input.bot-yellow { background: rgba(240,180,41,0.08); border-color: rgba(200,140,0,0.35); }
 
 /* Sidebar icon colors matching home dropdown */
 #navScreener { color: #2962ff; }
@@ -2357,7 +2475,7 @@ input[type="date"]::-webkit-date-and-time-value {
 
   <div style="position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;"></div>
 
-  <div style="position:relative;z-index:2;max-width:700px;">
+  <div style="position:relative;z-index:2;max-width:760px;">
     <div style="font-size:11px;letter-spacing:6px;color:#787b86;text-transform:uppercase;margin-bottom:24px;font-family:'Inter',sans-serif;">
       Options Analytics Platform
     </div>
@@ -2473,7 +2591,6 @@ input[type="date"]::-webkit-date-and-time-value {
   <div class="sc-bar">
     <div>
       <h2>Screener Azioni</h2>
-      <p>Mercato Italia · powered by TradingView</p>
     </div>
     <div class="sc-search">
       <input class="sc-inp" id="scInput" type="text" placeholder="es. MIL:SPMI · AAPL">
@@ -2493,7 +2610,6 @@ input[type="date"]::-webkit-date-and-time-value {
   <header>
     <div class="logo-area">
       <h1>Cash Secured Put</h1>
-      <p>Options Premium Analyzer</p>
     </div>
     <button class="gear-btn" id="gearBtn" title="Impostazioni">⚙</button>
   </header>
@@ -2514,7 +2630,6 @@ input[type="date"]::-webkit-date-and-time-value {
   <header>
     <div class="logo-area">
       <h1>Covered Call</h1>
-      <p>Options Premium Analyzer</p>
     </div>
     <button class="gear-btn" id="ccGearBtn" title="Impostazioni">⚙</button>
   </header>
@@ -2535,7 +2650,6 @@ input[type="date"]::-webkit-date-and-time-value {
   <header>
     <div class="logo-area">
       <h1>Rendimento BOT</h1>
-      <p>Calcolatore Buoni Ordinari del Tesoro</p>
     </div>
     <button class="gear-btn" id="botGearBtn" title="Impostazioni">⚙</button>
   </header>
@@ -2599,7 +2713,7 @@ input[type="date"]::-webkit-date-and-time-value {
 <div id="pagePortafoglio" style="display:none;">
 <div class="sc-wrap" style="max-width:1200px;padding:32px 24px;">
 
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
     <div>
       <h2 style="font-size:24px;font-weight:800;letter-spacing:-.5px;background:#7aa3ff;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-family:'Inter',sans-serif;">Portafoglio</h2>
     </div>
@@ -2813,7 +2927,7 @@ input[type="date"]::-webkit-date-and-time-value {
 <div id="pageStoria" style="display:none;">
 <div class="sc-wrap" style="max-width:1200px;padding:32px 24px;">
 
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
     <div>
       <h2 style="font-size:24px;font-weight:800;letter-spacing:-.5px;background:#7aa3ff;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-family:'Inter',sans-serif;">Storico Simulazioni</h2>
     </div>
@@ -2844,7 +2958,6 @@ input[type="date"]::-webkit-date-and-time-value {
   <header>
     <div class="logo-area">
       <h1>Sup-Res MM</h1>
-      <p>Supporto e Resistenza del Market Maker di S&amp;P 500</p>
     </div>
     <button class="gear-btn" id="centroGearBtn" title="Informazioni formule">⚙</button>
   </header>
@@ -2940,11 +3053,9 @@ input[type="date"]::-webkit-date-and-time-value {
 
   <!-- ── Mini Storico ─────────────────────────── -->
   <div style="margin-top:16px;">
-    <button id="centroHistoryToggle" onclick="centroToggleHistory()" style="width:100%;padding:10px 16px;background:transparent;border:1px solid var(--tv-bord);border-radius:8px;color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:space-between;"
-      onmouseover="this.style.borderColor='rgba(38,166,154,0.4)';this.style.color='rgba(38,166,154,0.8)'"
-      onmouseout="if(!centroHistoryOpen)this.style.borderColor='var(--tv-bord)';this.style.color=centroHistoryOpen?'rgba(38,166,154,0.8)':'var(--tv-muted)'">
-      <span>📋 Storico volatilità ATM</span>
-      <span id="centroHistoryArrow" style="font-size:10px;transition:transform 0.2s;">▼</span>
+    <button class="div-toggle-btn" id="centroHistoryToggle" onclick="centroToggleHistory()">
+      📋 Storico volatilità ATM
+      <svg class="div-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
     <div id="centroHistoryBox" style="display:none;background:var(--tv-surf);border:1px solid var(--tv-bord);border-top:none;border-radius:0 0 8px 8px;overflow:hidden;">
       <!-- Chart -->
@@ -2961,9 +3072,9 @@ input[type="date"]::-webkit-date-and-time-value {
 
 <!-- ════ METEO PAGE (Macro Outlook) ════ -->
 <div id="pageMeteo" style="display:none;">
-<div class="sc-wrap" style="max-width:860px;padding:32px 24px;">
+<div class="sc-wrap" style="max-width:1200px;padding:32px 24px;">
 
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;gap:12px;">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
     <div>
       <h2 style="font-size:24px;font-weight:800;letter-spacing:-.5px;background:#7aa3ff;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-family:'Inter',sans-serif;">Macro Outlook</h2>
     </div>
@@ -3066,7 +3177,7 @@ input[type="date"]::-webkit-date-and-time-value {
   </div>
 
   <!-- 4 · STORICO (collassabile, calendario) -->
-  <div class="panel">
+  <div class="panel met-hist-panel">
     <div class="met-hist-head" id="meteoHistHead" onclick="meteoHistToggle()">
       <div class="section-title" style="margin-bottom:0;">Storico</div>
       <svg class="met-hist-chev" id="meteoHistChev" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -3238,6 +3349,61 @@ input[type="date"]::-webkit-date-and-time-value {
 </div>
 
 <!-- ════ SETTINGS MODAL ════ -->
+
+<div id="vrpInfoOverlay" style="display:none;position:fixed;inset:0;background:rgba(9,11,17,.92);z-index:10000;backdrop-filter:blur(8px);">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(620px,95vw);max-height:88vh;overflow-y:auto;background:var(--tv-surf);border:1px solid var(--tv-bord);border-radius:12px;padding:32px;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:6px;">
+      <div>
+        <div style="font-size:17px;font-weight:700;color:var(--tv-text);">La barra dell’extra premio</div>
+        <div style="font-size:11px;color:var(--tv-muted);margin-top:3px;">Come funziona e come si legge</div>
+      </div>
+      <button onclick="vrpInfoClose()" style="background:rgba(239,83,80,.12);border:1px solid rgba(239,83,80,.3);color:var(--tv-red);border-radius:6px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;">✕ Chiudi</button>
+    </div>
+
+    <div style="font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--tv-gold);margin:0 0 8px;">Cosa divide la barra</div>
+    <div style="font-size:13px;line-height:1.75;color:var(--tv-text);margin-bottom:10px;">La barra prende il premio netto che stai per incassare e lo taglia in due pezzi: la parte che ti sta semplicemente ripagando il rischio che ti prendi, e la parte che è margine vero. Sono due cose molto diverse e finora le vedevi sommate in un unico numero.</div>
+
+    <div style="font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--tv-gold);margin:22px 0 8px;">La parte verde-blu — il valore equo</div>
+    <div style="font-size:13px;line-height:1.75;color:var(--tv-text);margin-bottom:10px;">È quanto varrebbe questa opzione se fosse prezzata esattamente sul rischio che il titolo ha davvero mostrato nell’ultimo mese. <b {B}>Non è guadagno</b>: è il compenso per il rischio che accetti. Se incassassi soltanto questa parte, ciclo dopo ciclo finiresti in pareggio: i premi incassati verrebbero mangiati dalle assegnazioni.</div>
+
+    <div style="font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--tv-gold);margin:22px 0 8px;">La parte oro — l’extra premio</div>
+    <div style="font-size:13px;line-height:1.75;color:var(--tv-text);margin-bottom:10px;">È quanto il mercato ti sta pagando <b {B}>in più</b> del rischio effettivo. Questa è l’unica fonte di margine reale nella vendita di opzioni. Nasce dal fatto che chi compra protezione è disposto a pagarla sopra il suo valore statistico, un po’ come un’assicurazione. Se questa fetta non c’è, stai vendendo rischio gratis.</div>
+
+    <div style="font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--tv-gold);margin:22px 0 8px;">Che cos’è la IV</div>
+    <div style="font-size:13px;line-height:1.75;color:var(--tv-text);margin-bottom:10px;">IV sta per <b {B}>volatilità implicita</b>: la volatilità che il mercato sta scontando dentro il prezzo dell’opzione. Non la scrivi tu, la ricava il programma andando al contrario. Prende il premio che hai inserito, il prezzo attuale, lo strike, i giorni a scadenza e il tasso, e cerca per tentativi successivi quale volatilità, messa dentro la formula di Black-Scholes, restituisce esattamente quel premio. Quel numero è la IV.</div>
+
+    <div style="font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--tv-gold);margin:22px 0 8px;">Che cos’è la HV</div>
+    <div style="font-size:13px;line-height:1.75;color:var(--tv-text);margin-bottom:10px;">HV sta per <b {B}>volatilità storica</b>, detta anche realizzata: quanto il titolo si è mosso davvero negli ultimi 30 giorni. Si misura come deviazione standard dei rendimenti giornalieri, riportata su base annua. Questa la inserisci tu nel campo HV %.<br><br>
+    Dove leggerla: su TradingView apri il grafico giornaliero, aggiungi l’indicatore <i>Historical Volatility</i>, imposta lunghezza 30 e leggi il valore.<br><br>
+    <b {B}>Attenzione:</b> il campo chiamato <i>Volatility</i> dello screener di TradingView non è questo. Quello misura l’escursione media giornaliera fra massimo e minimo, ed è un numero circa dieci volte più piccolo. Usarlo al posto della HV farebbe uscire rapporti attorno a 15 invece che attorno a 1.</div>
+
+    <div style="font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--tv-gold);margin:22px 0 8px;">Il rapporto IV / HV</div>
+    <div style="font-size:13px;line-height:1.75;color:var(--tv-text);margin-bottom:10px;">È il numero che riassume tutto. Sopra 1 il mercato paga più del rischio misurato, sotto 1 paga meno.<br><br>
+    <b {B}>Non vale la regola “più alto è meglio”.</b> Un rapporto molto alto quasi sempre significa che il mercato sa qualcosa che il grafico non mostra ancora: una trattativa in corso, una decisione regolatoria attesa, un contenzioso, un aumento di capitale. La HV guarda indietro e non può vederlo. Per questo sopra la soglia massima la barra diventa rossa: non è un premio, è un avviso.</div>
+
+    <div style="font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--tv-gold);margin:22px 0 8px;">Come si legge in pratica</div>
+    <div style="font-size:13px;line-height:1.75;color:var(--tv-text);margin-bottom:10px;">
+      • <b {B}>Barra quasi tutta verde-blu</b> — il premio ti paga solo il rischio. Nessun margine da raccogliere: il capitale probabilmente rende di più in BOT.<br>
+      • <b {B}>Fetta oro ben visibile, rapporto dentro la banda</b> — è la situazione che cerchi. Il mercato sta sovrapagando.<br>
+      • <b {B}>Barra rossa</b> — fermati e cerca cosa sta succedendo sul titolo prima di vendere.<br>
+      • <b {B}>Nessuna barra nuova</b> — non hai compilato Prezzo attuale oppure HV %. La pagina torna a comportarsi come prima.
+    </div>
+
+    <div style="font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--tv-gold);margin:22px 0 8px;">Sulla Covered Call cambia una cosa</div>
+    <div style="font-size:13px;line-height:1.75;color:var(--tv-text);margin-bottom:10px;">Le call fuori dal denaro costano meno delle put alla stessa distanza dallo strike: è lo <i>skew</i>, e dipende dal fatto che quasi tutti comprano protezione al ribasso, non al rialzo. Per questo la banda della CC parte più in basso (0,95 contro 1,15): con le soglie della CSP non passerebbe mai nulla.<br><br>
+    C’è anche una differenza di ragionamento. Se una CSP non paga abbastanza, l’alternativa è tenere il capitale in BOT. Se una CC non paga abbastanza, l’alternativa è <b {B}>tenere le azioni a reddito zero</b>. Non è lo stesso confronto: sulla CC il rapporto è un’informazione che ti aiuta a scegliere strike e scadenza, non un veto. L’unico veto resta il tuo: mai uno strike sotto il prezzo medio di carico.</div>
+
+    <div style="font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--tv-gold);margin:22px 0 8px;">Due limiti da tenere a mente</div>
+    <div style="font-size:13px;line-height:1.75;color:var(--tv-text);margin-bottom:10px;">
+      <b {B}>Il premio che scrivi tu decide tutto.</b> Se inserisci il prezzo medio invece del bid, l’extra premio risulterà più alto di quello che incasserai davvero. Su un titolo con spread largo la differenza si mangia l’intero margine e lo trasferisce al market maker. Usa sempre il bid.<br><br>
+      <b {B}>I giorni a scadenza contano.</b> Li imposti nell’ingranaggio e valgono per tutti i titoli dello stesso ciclo. Sbagliarli di dieci giorni sposta la IV di parecchi punti: da 30 a 20 giorni, a parità di premio, la IV sale di circa un terzo.
+    </div>
+
+    <div style="font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--tv-gold);margin:22px 0 8px;">Le soglie non sono una verità</div>
+    <div style="font-size:13px;line-height:1.75;color:var(--tv-text);margin-bottom:10px;">Le bande preimpostate sono un punto di partenza ragionato, non un valore validato sui tuoi titoli. Annota il rapporto ogni volta che vendi, confrontalo con com’è andata dopo 8-12 cicli, poi correggi le soglie nell’ingranaggio. Solo allora saranno tue.</div>
+  </div>
+</div>
+
 <div id="settingsOverlay" style="display:none;position:fixed;inset:0;background:rgba(9,11,17,.92);z-index:9999;backdrop-filter:blur(8px);">
   <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,95vw);max-height:90vh;overflow-y:auto;background:var(--tv-surf);border:1px solid var(--tv-bord);border-radius:12px;padding:32px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
@@ -3259,6 +3425,58 @@ input[type="date"]::-webkit-date-and-time-value {
       <input id="s_commissioni" type="text" value="1.14" style="width:100%;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:9px 13px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;box-sizing:border-box;">
       <div style="font-size:11px;color:var(--tv-muted);margin-top:4px;">Default: €1.14/contratto</div>
     </div>
+    <div style="margin-bottom:20px;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--tv-bord);">📊 Extra premio (IV / HV)</div>
+      <div style="font-size:11px;color:var(--tv-muted);margin-top:4px;line-height:1.5;margin-top:0;margin-bottom:14px;">
+        Sotto <b style="color:var(--tv-text);">Premio Netto</b> di CSP e CC compare una barra divisa in due: la parte verde è il <b style="color:var(--tv-text);">valore equo</b>, cioè quanto varrebbe l'opzione se fosse prezzata sulla volatilità realizzata del titolo. La parte oro è l'<b style="color:var(--tv-text);">extra premio</b>: quanto il mercato ti sta pagando in più del rischio effettivo. È l'unica fonte di margine reale nella vendita di opzioni.<br><br>
+        Per vederla devi compilare <b style="color:var(--tv-text);">Prezzo attuale</b> e <b style="color:var(--tv-text);">HV %</b> nella pagina. Se li lasci vuoti la barra torna a quella di prima e non cambia nulla.<br><br>
+        <b style="color:var(--tv-text);">Dove trovi la HV:</b> su TradingView apri il grafico giornaliero del titolo, aggiungi l'indicatore <i>Historical Volatility</i>, imposta lunghezza 30 e leggi il valore. Il campo chiamato <i>Volatility</i> dello screener TradingView misura tutt'altro (l'escursione media giornaliera) e non va usato qui.
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;">
+        <div>
+          <label style="font-size:11px;color:var(--tv-muted);display:block;margin-bottom:5px;">Data di scadenza</label>
+          <button type="button" id="s_vrpScadenza" class="oros-cal-trigger" onclick="orosCalApri(this)">—</button>
+          <div style="font-size:11px;color:var(--tv-muted);margin-top:4px;line-height:1.5;">Il programma propone da solo il <b>terzo venerdì del mese</b>, quando scadono le opzioni su azioni IDEM. I giorni li ricalcola ogni volta che apri l’app, quindi non c’è niente da aggiornare a mano. Puoi cambiarla anche toccando la data sotto la barra, nelle pagine CSP e CC.</div>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--tv-muted);display:block;margin-bottom:5px;">Prezzo del BOT</label>
+          <input id="s_vrpBotPrezzo" type="text" value="97,89" oninput="vrpBotPreview()" style="width:100%;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:9px 13px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;box-sizing:border-box;">
+          <div style="font-size:11px;color:var(--tv-muted);margin-top:4px;line-height:1.5;">Prezzo di mercato del BOT adesso: un numero sotto 100. Il tasso lo calcola il programma da solo.</div>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--tv-muted);display:block;margin-bottom:5px;">Giorni residui del BOT</label>
+          <input id="s_vrpBotGiorni" type="text" value="365" oninput="vrpBotPreview()" style="width:100%;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:9px 13px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;box-sizing:border-box;">
+          <div style="font-size:11px;color:var(--tv-muted);margin-top:4px;line-height:1.5;">Quanti giorni mancano al rimborso. Per un BOT annuale appena emesso sono 365. Serve per riportare il rendimento su base annua.</div>
+        </div>
+      </div>
+      <div id="s_vrpTassoOut" style="font-size:11px;color:var(--tv-muted);margin-top:4px;line-height:1.5;margin-top:10px;padding:9px 12px;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;">—</div>
+      <div style="font-size:11px;color:var(--tv-muted);margin-top:4px;line-height:1.5;">Un BOT non paga cedole: lo compri sotto 100 e a scadenza ti rimborsano 100. Quella differenza è tutto il tuo rendimento. Il programma la riporta su base annua con la formula composta, così un BOT semestrale e uno annuale diventano confrontabili. Sul calcolo dell’extra premio questo tasso incide pochissimo: non è un numero da inseguire.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;">
+        <div>
+          <label style="font-size:11px;color:var(--tv-muted);display:block;margin-bottom:5px;">Banda CSP — minimo</label>
+          <input id="s_vrpCspMin" type="text" value="1.15" style="width:100%;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:9px 13px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--tv-muted);display:block;margin-bottom:5px;">Banda CSP — massimo</label>
+          <input id="s_vrpCspMax" type="text" value="1.40" style="width:100%;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:9px 13px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;box-sizing:border-box;">
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--tv-muted);margin-top:4px;line-height:1.5;">Sotto il minimo il premio è al valore equo: nessun margine da raccogliere. Sopra il massimo il premio è troppo alto per essere solo compenso al rischio — di solito significa che il mercato sa qualcosa (M&amp;A, decisione regolatoria, contenzioso): la barra diventa rossa e ti dice di cercare la notizia prima di vendere.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;">
+        <div>
+          <label style="font-size:11px;color:var(--tv-muted);display:block;margin-bottom:5px;">Banda CC — minimo</label>
+          <input id="s_vrpCcMin" type="text" value="0.95" style="width:100%;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:9px 13px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--tv-muted);display:block;margin-bottom:5px;">Banda CC — massimo</label>
+          <input id="s_vrpCcMax" type="text" value="1.20" style="width:100%;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:9px 13px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;box-sizing:border-box;">
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--tv-muted);margin-top:4px;line-height:1.5;">Banda più bassa per le Covered Call: a parità di distanza dallo strike le call OTM costano meno delle put per via dello skew, quindi con la banda CSP non passerebbero mai. Sulla CC il rapporto è un'informazione, non un veto: l'alternativa a non vendere è tenere le azioni a reddito zero, non il BOT.</div>
+      <div style="font-size:11px;color:var(--tv-muted);margin-top:4px;line-height:1.5;margin-top:14px;padding:10px 12px;background:var(--tv-bg);border-left:2px solid var(--tv-gold);border-radius:0 4px 4px 0;">
+        <b style="color:var(--tv-text);">Le soglie sono un punto di partenza, non una verità.</b> Vanno calibrate sui tuoi dati: annota il rapporto al momento della vendita e confrontalo con l'esito dopo 8–12 cicli, poi correggi questi numeri.
+      </div>
+    </div>
     <div style="margin-bottom:24px;">
       <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--tv-bord);">🔢 Formule</div>
       <div style="display:flex;flex-direction:column;gap:7px;">
@@ -3268,6 +3486,12 @@ input[type="date"]::-webkit-date-and-time-value {
         <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">COMMISSIONI</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-blue);" id="f_commissioni">= €/contratto × N° contratti</div></div>
         <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">PREMIO NETTO</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-green);" id="f_premioNetto">= (Lordo − Comm.) × (1 − Cap.Gain%)</div></div>
         <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">RENDIMENTO ANNUO</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-green);">= (Netto ÷ Cash) × 12</div></div>
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">CONTROVALORE TOTALE</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-blue);">= N° contratti × Quantità × Strike</div></div>
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">TASSO RISK-FREE</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-blue);">= (100 ÷ Prezzo BOT) ^ (365 ÷ Giorni residui) − 1</div></div>
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">VOLATILITÀ IMPLICITA (IV)</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-gold);">= la σ per cui Black-Scholes(Prezzo, Strike, Giorni, Tasso, σ) = Premio</div></div>
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">VALORE EQUO</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-gold);">= Black-Scholes calcolato con σ = HV × N° azioni, poi al netto</div></div>
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">EXTRA PREMIO</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-gold);">= Premio Netto − Valore Equo netto</div></div>
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">RAPPORTO IV / HV</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-gold);">= IV ÷ HV</div></div>
       </div>
     </div>
     <button id="saveSettings" style="width:100%;padding:12px;background:var(--tv-blue);border:none;border-radius:6px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;">✓ Salva e Applica</button>
@@ -3288,7 +3512,21 @@ let COMMISSIONI_UNIT = 1.14;
 document.getElementById('gearBtn').addEventListener('click', () => {
   document.getElementById('s_capitalGain').value = (CAPITAL_GAIN * 100).toString();
   document.getElementById('s_commissioni').value = COMMISSIONI_UNIT.toString();
+  document.getElementById('s_vrpScadenza').textContent = orosScadenzaLabel();
+  document.getElementById('s_vrpBotPrezzo').value = String(VRP_BOT_PREZZO).replace('.', ',');
+  document.getElementById('s_vrpBotGiorni').value = String(VRP_BOT_GIORNI);
+  vrpBotPreview();
+  document.getElementById('s_vrpCspMin').value = String(VRP_CSP_MIN);
+  document.getElementById('s_vrpCspMax').value = String(VRP_CSP_MAX);
+  document.getElementById('s_vrpCcMin').value  = String(VRP_CC_MIN);
+  document.getElementById('s_vrpCcMax').value  = String(VRP_CC_MAX);
   document.getElementById('settingsOverlay').style.display = 'block';
+});
+document.getElementById('vrpInfoOverlay').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('vrpInfoOverlay')) vrpInfoClose();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { vrpInfoClose(); orosSelCloseAll(); orosCalChiudi(); }
 });
 document.getElementById('closeSettings').addEventListener('click', () => {
   document.getElementById('settingsOverlay').style.display = 'none';
@@ -3302,15 +3540,602 @@ document.getElementById('saveSettings').addEventListener('click', () => {
   const co = parseFloat(document.getElementById('s_commissioni').value.replace(',', '.'));
   if (!isNaN(cg) && cg >= 0 && cg <= 100) CAPITAL_GAIN = cg / 100;
   if (!isNaN(co) && co >= 0) COMMISSIONI_UNIT = co;
+
+  const bp = parseFloat((document.getElementById('s_vrpBotPrezzo').value || '').replace(',', '.'));
+  const bg = parseFloat((document.getElementById('s_vrpBotGiorni').value || '').replace(',', '.'));
+  const vt = vrpTassoDaBot(bp, bg);
+  const p1 = parseFloat((document.getElementById('s_vrpCspMin').value  || '').replace(',', '.'));
+  const p2 = parseFloat((document.getElementById('s_vrpCspMax').value  || '').replace(',', '.'));
+  const c1 = parseFloat((document.getElementById('s_vrpCcMin').value   || '').replace(',', '.'));
+  const c2 = parseFloat((document.getElementById('s_vrpCcMax').value   || '').replace(',', '.'));
+  if (!isNaN(vt) && vt >= 0 && vt <= 50) { VRP_TASSO = vt; VRP_BOT_PREZZO = bp; VRP_BOT_GIORNI = bg; }
+  if (!isNaN(p1) && p1 > 0 && !isNaN(p2) && p2 > p1) { VRP_CSP_MIN = p1; VRP_CSP_MAX = p2; }
+  if (!isNaN(c1) && c1 > 0 && !isNaN(c2) && c2 > c1) { VRP_CC_MIN  = c1; VRP_CC_MAX  = c2; }
   // Update formula display
   document.getElementById('f_premioNetto').textContent =
     `= (Premio Lordo − Commissioni) × (1 − ${(CAPITAL_GAIN*100).toFixed(0)}%)`;
   document.getElementById('f_commissioni').textContent =
     `= €${fmtDec(COMMISSIONI_UNIT, 2)}/contratto × N° contratti`;
+  orosCfgSave();
   document.getElementById('settingsOverlay').style.display = 'none';
   renderAll();
   if (compareVisible) renderCompare();
+  if (typeof ccRenderAll === 'function' && ccTabs.length) ccRenderAll();
 });
+
+
+// ══════════════════════════════════════
+// MOTORE EXTRA PREMIO (VRP)
+// Inverte Black-Scholes sul premio inserito per ricavare la volatilita'
+// implicita, e la confronta con la volatilita' realizzata (HV) del titolo.
+// Se l'implicita e' piu' alta, il mercato sta pagando piu' del rischio reale.
+// Tutto opzionale: senza Prezzo attuale e HV le pagine funzionano come prima.
+// ══════════════════════════════════════
+let VRP_SCADENZA = orosProssimaScadenza();  // data di scadenza (AAAA-MM-GG), terzo venerdi' del mese
+let VRP_TASSO   = 2.0;   // tasso risk-free % annuo (ricavato dal prezzo del BOT)
+let VRP_BOT_PREZZO = 97.89;  // prezzo di mercato del BOT
+let VRP_BOT_GIORNI = 365;    // giorni residui del BOT
+let VRP_CSP_MIN = 1.15;  // banda put  — sotto: nessun margine
+let VRP_CSP_MAX = 1.40;  // banda put  — sopra: anomalo
+let VRP_CC_MIN  = 0.95;  // banda call — piu' bassa per lo skew
+let VRP_CC_MAX  = 1.20;
+
+
+// Dal prezzo di mercato del BOT al rendimento annuo composto.
+// Un BOT non paga cedole: compri sotto 100 e a scadenza incassi 100.
+// La differenza e' il rendimento, riportato su base annua sui giorni residui.
+function vrpTassoDaBot(prezzo, giorni) {
+  if (!(prezzo > 0) || !(prezzo < 100) || !(giorni > 0)) return NaN;
+  return (Math.pow(100 / prezzo, 365 / giorni) - 1) * 100;
+}
+
+function vrpInfoOpen()  { var o = document.getElementById('vrpInfoOverlay'); if (o) o.style.display = 'block'; }
+function vrpInfoClose() { var o = document.getElementById('vrpInfoOverlay'); if (o) o.style.display = 'none'; }
+
+// Anteprima live del tasso mentre si digita nell'ingranaggio
+function vrpBotPreview() {
+  var pEl = document.getElementById('s_vrpBotPrezzo');
+  var gEl = document.getElementById('s_vrpBotGiorni');
+  var out = document.getElementById('s_vrpTassoOut');
+  if (!pEl || !gEl || !out) return;
+  var p = parseFloat((pEl.value || '').replace(',', '.'));
+  var g = parseFloat((gEl.value || '').replace(',', '.'));
+  var t = vrpTassoDaBot(p, g);
+  if (isNaN(t)) {
+    out.innerHTML = '<span style="color:var(--tv-red);">Inserisci un prezzo sotto 100 e i giorni residui.</span>';
+  } else {
+    out.innerHTML = 'Scarto da 100: <b style="color:var(--tv-text);">' + fmtDec(100 - p, 2) +
+      '</b> punti \u2192 tasso annuo <b style="color:var(--tv-gold);">' + fmtDec(t, 2) + '%</b>';
+  }
+}
+
+
+
+// ══════════════════════════════════════
+// IMPOSTAZIONI PERSISTENTI
+// Ogni parametro salvato dall'ingranaggio (di qualunque pagina) resta
+// memorizzato finche' non viene cambiato di nuovo. I valori vecchi
+// vengono sovrascritti, non affiancati.
+// Nota: e' memoria locale del dispositivo, non sincronizzata sul cloud.
+// ══════════════════════════════════════
+var OROS_CFG_KEY = 'oros_impostazioni_v1';
+
+function orosCfgSave() {
+  try {
+    orosLsSet(OROS_CFG_KEY, JSON.stringify({
+      capitalGain:  CAPITAL_GAIN,
+      commissioni:  COMMISSIONI_UNIT,
+      vrpScadenza:  VRP_SCADENZA,
+      vrpTasso:     VRP_TASSO,
+      vrpBotPrezzo: VRP_BOT_PREZZO,
+      vrpBotGiorni: VRP_BOT_GIORNI,
+      vrpCspMin:    VRP_CSP_MIN,
+      vrpCspMax:    VRP_CSP_MAX,
+      vrpCcMin:     VRP_CC_MIN,
+      vrpCcMax:     VRP_CC_MAX,
+      botRimborso:  (typeof BOT_RIMBORSO !== 'undefined' ? BOT_RIMBORSO : null),
+      botComm:      (typeof BOT_COMM !== 'undefined' ? BOT_COMM : null)
+    }));
+  } catch (e) {
+    // spazio esaurito o navigazione privata: si prosegue coi valori in memoria
+    console.warn('Impostazioni non salvate:', e);
+  }
+}
+
+function orosCfgLoad() {
+  var raw = null;
+  try { raw = localStorage.getItem(OROS_CFG_KEY); } catch (e) { return; }
+  if (!raw) return;
+  var c = null;
+  try { c = JSON.parse(raw); } catch (e) { return; }
+  if (!c || typeof c !== 'object') return;
+
+  // Ogni valore riletto passa dagli stessi controlli del salvataggio:
+  // un file manomesso o di una versione vecchia non puo' rompere i calcoli.
+  var ok = function (v, min, max) { return typeof v === 'number' && isFinite(v) && v >= min && v <= max; };
+  if (ok(c.capitalGain, 0, 1))      CAPITAL_GAIN     = c.capitalGain;
+  if (ok(c.commissioni, 0, 10000))  COMMISSIONI_UNIT = c.commissioni;
+  if (ok(c.vrpTasso, 0, 50))        VRP_TASSO        = c.vrpTasso;
+  if (ok(c.vrpBotPrezzo, 0, 100))   VRP_BOT_PREZZO   = c.vrpBotPrezzo;
+  if (ok(c.vrpBotGiorni, 1, 3650))  VRP_BOT_GIORNI   = c.vrpBotGiorni;
+  if (ok(c.vrpCspMin, 0, 10) && ok(c.vrpCspMax, 0, 10) && c.vrpCspMax > c.vrpCspMin) {
+    VRP_CSP_MIN = c.vrpCspMin; VRP_CSP_MAX = c.vrpCspMax;
+  }
+  if (ok(c.vrpCcMin, 0, 10) && ok(c.vrpCcMax, 0, 10) && c.vrpCcMax > c.vrpCcMin) {
+    VRP_CC_MIN = c.vrpCcMin; VRP_CC_MAX = c.vrpCcMax;
+  }
+  if (typeof BOT_RIMBORSO !== 'undefined' && ok(c.botRimborso, 0, 1000000)) BOT_RIMBORSO = c.botRimborso;
+  if (typeof BOT_COMM     !== 'undefined' && ok(c.botComm, 0, 10000))       BOT_COMM     = c.botComm;
+
+  // La scadenza salvata vale finche' non e' passata; poi si torna
+  // automaticamente al terzo venerdi' utile, cosi' il calcolo non resta rotto.
+  if (typeof c.vrpScadenza === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(c.vrpScadenza)) {
+    VRP_SCADENZA = c.vrpScadenza;
+    if (!(orosGiorniScadenza() >= 0)) VRP_SCADENZA = orosProssimaScadenza();
+  }
+}
+
+// ══════════════════════════════════════
+// SCADENZA
+// Le opzioni su azioni IDEM scadono il terzo venerdi' del mese.
+// Si memorizza una data, non un conteggio di giorni: una data non
+// decade, i giorni li ricalcola il programma a ogni apertura.
+// ══════════════════════════════════════
+function orosTerzoVenerdi(anno, mese) {
+  var d = new Date(anno, mese, 1);
+  var off = (5 - d.getDay() + 7) % 7;   // 5 = venerdi'
+  return new Date(anno, mese, 1 + off + 14);
+}
+
+function orosData2Iso(d) {
+  var m = String(d.getMonth() + 1), g = String(d.getDate());
+  return d.getFullYear() + '-' + (m.length < 2 ? '0' + m : m) + '-' + (g.length < 2 ? '0' + g : g);
+}
+
+function orosProssimaScadenza() {
+  var o = new Date();
+  var oggi = new Date(o.getFullYear(), o.getMonth(), o.getDate());
+  var t = orosTerzoVenerdi(o.getFullYear(), o.getMonth());
+  if (t < oggi) t = orosTerzoVenerdi(o.getFullYear(), o.getMonth() + 1);
+  return orosData2Iso(t);
+}
+
+// Giorni di calendario mancanti. Calcolo in UTC sui soli anno/mese/giorno
+// per non farsi sballare dal cambio dell'ora legale.
+function orosGiorniScadenza() {
+  var p = String(VRP_SCADENZA || '').split('-');
+  if (p.length !== 3) return NaN;
+  var a = +p[0], m = +p[1], g = +p[2];
+  if (!isFinite(a) || !isFinite(m) || !isFinite(g)) return NaN;
+  var fine = Date.UTC(a, m - 1, g);
+  var o = new Date();
+  var oggi = Date.UTC(o.getFullYear(), o.getMonth(), o.getDate());
+  return Math.round((fine - oggi) / 86400000);
+}
+
+function orosScadenzaLabel() {
+  var p = String(VRP_SCADENZA || '').split('-');
+  if (p.length !== 3) return '\u2014';
+  var d = new Date(+p[0], +p[1] - 1, +p[2]);
+  if (isNaN(d.getTime())) return '\u2014';
+  try {
+    return d.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'long' });
+  } catch (e) {
+    return p[2] + '/' + p[1] + '/' + p[0];
+  }
+}
+
+
+// ══════════════════════════════════════
+// CALENDARIO DELLA SCADENZA
+// Al posto del selettore nativo del browser, che cambia aspetto da un
+// sistema all'altro ed e' poco leggibile: stessa grafica del calendario
+// dello Storico in Macro Outlook, in versione compatta.
+// Il pallino oro segna il terzo venerdi' del mese visualizzato.
+// ══════════════════════════════════════
+var OROS_CAL = { mese: null, riga: null };
+
+function orosCalAperto() { return !!document.getElementById('orosCalPop'); }
+
+function orosCalChiudi() {
+  var el = document.getElementById('orosCalPop');
+  if (el) el.parentNode.removeChild(el);
+  OROS_CAL.riga = null;
+}
+
+function orosCalApri(riga) {
+  if (orosCalAperto()) { orosCalChiudi(); return; }
+  var p = String(VRP_SCADENZA || '').split('-');
+  var base = (p.length === 3 && isFinite(+p[0])) ? new Date(+p[0], +p[1] - 1, 1) : new Date();
+  OROS_CAL.mese = new Date(base.getFullYear(), base.getMonth(), 1);
+  OROS_CAL.riga = riga || null;
+
+  var pop = document.createElement('div');
+  pop.id = 'orosCalPop';
+  pop.className = 'oros-cal';
+  document.body.appendChild(pop);
+  orosCalRender();
+  orosCalPosiziona();
+}
+
+function orosCalPosiziona() {
+  var pop = document.getElementById('orosCalPop');
+  var riga = OROS_CAL.riga;
+  if (!pop) return;
+  var r = riga && riga.getBoundingClientRect ? riga.getBoundingClientRect() : null;
+  var vw = window.innerWidth || 360, vh = window.innerHeight || 640;
+  var w = pop.offsetWidth || 252, h = pop.offsetHeight || 300;
+  var top, left;
+  if (r && (r.width || r.height)) {
+    top = r.bottom + 8;
+    if (top + h > vh - 8) top = Math.max(8, r.top - h - 8);
+    left = r.left;
+    if (left + w > vw - 8) left = Math.max(8, vw - w - 8);
+  } else {
+    top = Math.max(8, (vh - h) / 2);
+    left = Math.max(8, (vw - w) / 2);
+  }
+  pop.style.top = Math.round(top) + 'px';
+  pop.style.left = Math.round(left) + 'px';
+}
+
+function orosCalShift(delta) {
+  if (!OROS_CAL.mese) return;
+  OROS_CAL.mese = new Date(OROS_CAL.mese.getFullYear(), OROS_CAL.mese.getMonth() + delta, 1);
+  orosCalRender();
+  orosCalPosiziona();
+}
+
+function orosCalPick(v) {
+  orosCalChiudi();
+  orosScadenzaSet(v);
+}
+
+function orosCalRender() {
+  var pop = document.getElementById('orosCalPop');
+  if (!pop || !OROS_CAL.mese) return;
+  var anno = OROS_CAL.mese.getFullYear(), mese = OROS_CAL.mese.getMonth();
+  var offset = (new Date(anno, mese, 1).getDay() + 6) % 7;      // lunedi' = 0
+  var giorni = new Date(anno, mese + 1, 0).getDate();
+  var o = new Date();
+  var isoOggi = orosData2Iso(new Date(o.getFullYear(), o.getMonth(), o.getDate()));
+  var isoTv = orosData2Iso(orosTerzoVenerdi(anno, mese));
+  var titolo;
+  try { titolo = OROS_CAL.mese.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }); }
+  catch (e) { titolo = (mese + 1) + '/' + anno; }
+
+  var frecciaSx = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M10 3l-5 5 5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var frecciaDx = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  var celle = '';
+  for (var i = 0; i < offset; i++) celle += '<div class="oros-cal-cell vuota"></div>';
+  for (var g = 1; g <= giorni; g++) {
+    var iso = orosData2Iso(new Date(anno, mese, g));
+    var cls = 'oros-cal-cell';
+    if (iso === VRP_SCADENZA) cls += ' sel';
+    else if (iso === isoOggi) cls += ' oggi';
+    if (iso === isoTv) cls += ' tv';
+    celle += '<div class="' + cls + '" onclick="orosCalPick(\'' + iso + '\')" title="' + iso + '">' +
+             '<span>' + g + '</span><span class="oros-cal-dot"></span></div>';
+  }
+
+  var etTv;
+  try { etTv = orosTerzoVenerdi(anno, mese).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }); }
+  catch (e) { etTv = isoTv; }
+
+  pop.innerHTML =
+    '<div class="oros-cal-nav">' +
+      '<button type="button" class="oros-cal-arrow" onclick="orosCalShift(-12)" title="Anno precedente" aria-label="Anno precedente">' + frecciaSx + frecciaSx + '</button>' +
+      '<button type="button" class="oros-cal-arrow" onclick="orosCalShift(-1)" title="Mese precedente" aria-label="Mese precedente">' + frecciaSx + '</button>' +
+      '<div class="oros-cal-title">' + titolo + '</div>' +
+      '<button type="button" class="oros-cal-arrow" onclick="orosCalShift(1)" title="Mese successivo" aria-label="Mese successivo">' + frecciaDx + '</button>' +
+      '<button type="button" class="oros-cal-arrow" onclick="orosCalShift(12)" title="Anno successivo" aria-label="Anno successivo">' + frecciaDx + frecciaDx + '</button>' +
+    '</div>' +
+    '<div class="oros-cal-dow"><span>L</span><span>M</span><span>M</span><span>G</span><span>V</span><span>S</span><span>D</span></div>' +
+    '<div class="oros-cal-grid">' + celle + '</div>' +
+    '<div class="oros-cal-foot">' +
+      '<button type="button" class="oros-cal-tv" onclick="orosCalPick(\'' + isoTv + '\')">' +
+        '<i></i>terzo venerd\u00ec \u00b7 ' + etTv +
+      '</button>' +
+    '</div>';
+}
+
+// Chiusura: click fuori, Esc, scorrimento, ridimensionamento
+document.addEventListener('click', function (e) {
+  if (!orosCalAperto()) return;
+  var t = e.target;
+  while (t && t !== document) {
+    if (t.classList && (t.classList.contains('oros-cal') ||
+                        t.classList.contains('oros-scad') ||
+                        t.classList.contains('oros-cal-trigger'))) return;
+    t = t.parentElement;
+  }
+  orosCalChiudi();
+}, true);
+window.addEventListener('scroll', function () { if (orosCalAperto()) orosCalChiudi(); }, true);
+window.addEventListener('resize', function () { if (orosCalAperto()) orosCalChiudi(); });
+
+function orosScadenzaSet(v) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
+  VRP_SCADENZA = v;
+  orosCfgSave();
+  var trg = document.getElementById('s_vrpScadenza');
+  if (trg) trg.textContent = orosScadenzaLabel();
+  if (typeof renderAll === 'function') renderAll();
+  if (typeof ccRenderAll === 'function') ccRenderAll();
+}
+
+// Riga di sola lettura sotto la barra: mostra la data, non il conteggio.
+// Una data si verifica a colpo d'occhio, "23 giorni" no.
+// Tutta la riga e' coperta da un input data trasparente: toccandola si
+// apre il selettore nativo, con navigazione fra mesi e anni.
+function orosScadenzaHtml() {
+  var gg = orosGiorniScadenza();
+  var lab = orosScadenzaLabel();
+  var col = 'var(--tv-muted)', coda = '';
+  if (!isFinite(gg)) {
+    col = 'var(--tv-red)'; coda = ' \u00b7 data non valida';
+  } else if (gg < 0) {
+    col = 'var(--tv-red)'; coda = ' \u00b7 gi\u00e0 passata';
+  } else if (gg <= 2) {
+    col = 'var(--tv-gold)'; coda = ' \u00b7 verifica';
+  } else {
+    coda = ' \u00b7 ' + gg + ' giorni';
+  }
+  return '<div class="oros-scad" style="color:' + col + ';" role="button" tabindex="0" ' +
+    'onclick="orosCalApri(this)" ' +
+    'onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();orosCalApri(this);}" ' +
+    'title="Tocca per cambiare la data di scadenza">' +
+    '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;">' +
+      '<rect x="2.2" y="3.2" width="11.6" height="10.6" rx="1.6" stroke="currentColor" stroke-width="1.3"/>' +
+      '<path d="M5.4 1.8v2.6M10.6 1.8v2.6M2.2 6.6h11.6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>' +
+    '</svg>' +
+    '<span>Calcolato su scadenza <b class="oros-scad-d">' + lab + '</b>' + coda + '</span>' +
+  '</div>';
+}
+
+function vrpNormCdf(x) {
+  if (!isFinite(x)) return x > 0 ? 1 : 0;
+  var a1=0.254829592, a2=-0.284496736, a3=1.421413741, a4=-1.453152027, a5=1.061405429, p=0.3275911;
+  var s = x < 0 ? -1 : 1;
+  var ax = Math.abs(x) / Math.SQRT2;
+  var t = 1 / (1 + p * ax);
+  var y = 1 - ((((a5*t + a4)*t + a3)*t + a2)*t + a1) * t * Math.exp(-ax*ax);
+  return 0.5 * (1 + s * y);
+}
+
+function vrpBs(type, S, K, T, r, sig) {
+  if (!(T > 0) || !(sig > 0) || !(S > 0) || !(K > 0))
+    return type === 'put' ? Math.max(0, K - S) : Math.max(0, S - K);
+  var sq = sig * Math.sqrt(T);
+  var d1 = (Math.log(S / K) + (r + sig * sig / 2) * T) / sq;
+  var d2 = d1 - sq;
+  var v = (type === 'put')
+    ? K * Math.exp(-r * T) * vrpNormCdf(-d2) - S * vrpNormCdf(-d1)
+    : S * vrpNormCdf(d1) - K * Math.exp(-r * T) * vrpNormCdf(d2);
+  return isFinite(v) ? Math.max(0, v) : NaN;
+}
+
+// Bisezione: robusta, nessun rischio di divergenza come in Newton-Raphson.
+function vrpImplied(type, S, K, T, r, price) {
+  if (!(price > 0) || !(T > 0) || !(S > 0) || !(K > 0)) return NaN;
+  var lo = 0.005, hi = 5;
+  if (!(vrpBs(type, S, K, T, r, hi) >= price)) return NaN;  // premio fuori scala
+  if (vrpBs(type, S, K, T, r, lo) > price)     return NaN;  // premio sotto il valore intrinseco
+  // Uscita per convergenza: oltre la precisione del double le iterazioni
+  // successive sono valutazioni Black-Scholes inutili, ripetute a ogni
+  // battuta di tasto su ogni scheda aperta.
+  for (var i = 0; i < 100 && (hi - lo) > 1e-7; i++) {
+    var m = (lo + hi) / 2;
+    if (vrpBs(type, S, K, T, r, m) < price) lo = m; else hi = m;
+  }
+  return (lo + hi) / 2;
+}
+
+// Ritorna null se mancano i dati opzionali: in quel caso la pagina resta identica a prima.
+function vrpCalc(type, spot, strike, premio, hvPct, nAzioni) {
+  if (!(spot > 0) || !(strike > 0) || !(premio > 0) || !(hvPct > 0) || !(nAzioni > 0)) return null;
+  var hv = hvPct / 100;
+  var gg = orosGiorniScadenza();
+  if (!(gg > 0)) return null;
+  var T  = gg / 365;
+  var r  = VRP_TASSO / 100;
+  if (!(T > 0) || !(hv > 0)) return null;
+  var iv       = vrpImplied(type, spot, strike, T, r, premio);
+  var fairUnit = vrpBs(type, spot, strike, T, r, hv);
+  if (!isFinite(fairUnit) || fairUnit < 0) fairUnit = 0;
+  var ratio = (isFinite(iv) && iv > 0) ? iv / hv : NaN;
+  var mn = (type === 'put') ? VRP_CSP_MIN : VRP_CC_MIN;
+  var mx = (type === 'put') ? VRP_CSP_MAX : VRP_CC_MAX;
+  var stato = 'nd';
+  if (isFinite(ratio)) stato = (ratio > mx) ? 'anomalo' : (ratio >= mn ? 'extra' : 'equo');
+  return {
+    iv: iv, hv: hv, ratio: ratio, stato: stato, min: mn, max: mx,
+    fairUnit: fairUnit,
+    fairLordo:  fairUnit * nAzioni,
+    extraLordo: (premio - fairUnit) * nAzioni,
+    fairNetto: 0, extraNetto: 0
+  };
+}
+
+// Porta il valore equo sulla stessa base netta del premio mostrato nella card.
+function vrpApplyNet(vrp, commissioniTot, premioNetto) {
+  if (!vrp) return;
+  var fn = vrp.fairLordo - commissioniTot;
+  vrp.fairNetto  = Math.max(0, fn - fn * CAPITAL_GAIN);
+  vrp.extraNetto = premioNetto - vrp.fairNetto;
+}
+
+// Barra: [valore equo | extra premio]. Se i dati non ci sono, torna la barra originale.
+
+// Cella IV/HV per le tabelle di confronto.
+// Oro = dentro la banda, rosso = sopra la banda (verifica), grigio = nessun extra.
+function vrpCompareCell(res) {
+  var v = res ? res.vrp : null;
+  if (!v || !isFinite(v.ratio)) return '<td style="color:var(--text-dim);">\u2014</td>';
+  var col = (v.stato === 'anomalo') ? 'var(--tv-red)'
+          : (v.stato === 'extra')   ? 'var(--tv-gold)'
+          : 'var(--text-dim)';
+  return '<td style="color:' + col + ';font-weight:700;">' + fmtDec(v.ratio, 2) +
+         (v.stato === 'anomalo' ? ' \u26A0' : '') + '</td>';
+}
+
+// Indice del candidato migliore per il confronto.
+// Non e' semplicemente il rapporto piu' alto: deve superare quattro guardrail.
+//   1. il rapporto deve essere calcolabile (servono prezzo attuale e HV)
+//   2. deve stare DENTRO la banda: sotto non paga, sopra non e' un vincitore
+//      ma un titolo su cui indagare prima di vendere
+//   3. l'extra premio deve restare positivo dopo commissioni e imposta
+//   4. il premio netto deve essere positivo
+// Se nessuno passa i guardrail torna -1 e il badge non compare affatto:
+// l'assenza del badge e' un'informazione, non un errore.
+
+// ══════════════════════════════════════
+// Tendina personalizzata per "Quantita' per Opzione".
+// La select nativa resta nel DOM (nascosta) come unica fonte di verita':
+// tutto il codice esistente continua a leggerla e scriverla senza modifiche.
+// ══════════════════════════════════════
+function orosSelHtml(cur, isCustom, valCustom) {
+  var opts = ['100', '500', '1000'];
+  var v = isCustom ? 'custom' : (opts.indexOf(String(cur)) > -1 ? String(cur) : '');
+  var lab = isCustom ? 'Valore libero\u2026' : (v || '\u2014 seleziona \u2014');
+  return '<div class="oros-sel-wrap">' +
+    '<select class="oros-sel-native" data-field="quantitaOpz_sel" tabindex="-1" aria-hidden="true">' +
+      '<option value=""' + (v === '' ? ' selected' : '') + ' disabled>\u2014 seleziona \u2014</option>' +
+      opts.map(function (o) { return '<option value="' + o + '"' + (v === o ? ' selected' : '') + '>' + o + '</option>'; }).join('') +
+      '<option value="custom"' + (v === 'custom' ? ' selected' : '') + '>Valore libero\u2026</option>' +
+    '</select>' +
+    '<button type="button" class="oros-sel-btn" onclick="orosSelToggle(this)">' +
+      '<span class="oros-sel-label">' + lab + '</span>' +
+      '<svg class="oros-sel-chev" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+    '</button>' +
+    '<div class="oros-sel-list">' +
+      opts.map(function (o) { return '<div class="oros-sel-opt' + (v === o ? ' sel' : '') + '" data-v="' + o + '" onclick="orosSelPick(this)">' + o + '</div>'; }).join('') +
+      '<div class="oros-sel-opt' + (v === 'custom' ? ' sel' : '') + '" data-v="custom" onclick="orosSelPick(this)">Valore libero\u2026</div>' +
+    '</div>' +
+    (isCustom ? '<input type="text" inputmode="numeric" placeholder="es. 2000" data-field="quantitaOpz" value="' + escapeAttr(valCustom) + '" style="margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:\'Inter\',sans-serif;font-size:14px;font-weight:400;outline:none;width:100%;transition:all 0.2s;">' : '') +
+  '</div>';
+}
+
+function orosSelCloseAll() {
+  var open = document.querySelectorAll('.oros-sel-wrap.open');
+  for (var i = 0; i < open.length; i++) open[i].classList.remove('open');
+}
+
+function orosSelToggle(btn) {
+  var wrap = btn.parentElement;
+  var wasOpen = wrap.classList.contains('open');
+  orosSelCloseAll();
+  if (!wasOpen) wrap.classList.add('open');
+}
+
+function orosSelPick(opt) {
+  var wrap = opt.parentElement ? opt.parentElement.parentElement : null;
+  if (!wrap) return;
+  var sel = wrap.querySelector('select[data-field="quantitaOpz_sel"]');
+  orosSelCloseAll();
+  if (!sel) return;
+  sel.value = opt.getAttribute('data-v');
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+// Riallinea l'etichetta quando il valore viene cambiato via codice
+// (per esempio il lotto compilato in automatico dal ticker).
+function orosSelSync(root) {
+  var wraps = (root || document).querySelectorAll('.oros-sel-wrap');
+  for (var i = 0; i < wraps.length; i++) {
+    var wrap = wraps[i];
+    var sel = wrap.querySelector('select[data-field="quantitaOpz_sel"]');
+    var lab = wrap.querySelector('.oros-sel-label');
+    if (!sel || !lab) continue;
+    var v = sel.value;
+    lab.textContent = (v === 'custom') ? 'Valore libero\u2026' : (v ? v : '\u2014 seleziona \u2014');
+    var os = wrap.querySelectorAll('.oros-sel-opt');
+    for (var j = 0; j < os.length; j++) {
+      if (os[j].getAttribute('data-v') === v) os[j].classList.add('sel');
+      else os[j].classList.remove('sel');
+    }
+  }
+}
+
+document.addEventListener('click', function (e) {
+  var t = e.target;
+  while (t && t !== document) {
+    if (t.classList && t.classList.contains('oros-sel-wrap')) return;
+    t = t.parentElement;
+  }
+  orosSelCloseAll();
+});
+
+function vrpBestIdx(results) {
+  var best = -1, bestVal = -Infinity;
+  for (var i = 0; i < results.length; i++) {
+    var r = results[i];
+    var v = r && r.res ? r.res.vrp : null;
+    if (!v) continue;
+    if (!isFinite(v.ratio)) continue;
+    if (v.stato !== 'extra') continue;
+    if (!(v.extraNetto > 0)) continue;
+    if (!(r.res.premioNetto > 0)) continue;
+    if (v.ratio > bestVal) { bestVal = v.ratio; best = i; }
+  }
+  return best;
+}
+
+function vrpBarHtml(res, fallbackKey, fallbackWidth) {
+  var v = res ? res.vrp : null;
+  if (!v || !isFinite(v.ratio)) {
+    return '<div class="perf-bar"><div class="perf-bar-fill" data-bar="' + fallbackKey +
+           '" style="width:' + fallbackWidth + '%"></div></div>';
+  }
+  var fair   = Math.max(0, v.fairNetto);
+  var extra  = v.extraNetto;
+  var pos    = extra > 0 ? extra : 0;
+  var totale = fair + pos;
+  var fairW  = totale > 0 ? Math.max(0, Math.min(100, fair / totale * 100)) : 100;
+  var extraW = Math.max(0, 100 - fairW);
+
+  var gradEquo  = 'linear-gradient(90deg,#26a69a 0%,#00bcd4 55%,#2962ff 100%)';
+  var gradExtra = 'linear-gradient(90deg,#e0952a 0%,#f0b429 45%,#ffd76e 100%)';
+  var gradAnom  = 'linear-gradient(90deg,#ff8a4c 0%,#ef5350 100%)';
+  var gradSpent = 'linear-gradient(90deg,#4a5568 0%,#6b7688 100%)';
+  var extraCol = 'var(--tv-gold)';
+  var testo;
+  if (extra <= 0) {
+    extraCol = '#8a94a6';
+    testo = 'Nessun extra: il premio sta sotto il valore equo della HV. Stai vendendo rischio, non margine.';
+  } else if (v.stato === 'anomalo') {
+    extraCol = 'var(--tv-red)';
+    testo = 'Extra oltre ' + fmtDec(v.max, 2) + ': troppo alto per essere solo premio al rischio. Cerca la notizia prima di vendere.';
+  } else if (v.stato === 'extra') {
+    testo = 'Extra premio reale: il mercato paga sopra il rischio misurato sulla HV.';
+  } else {
+    testo = 'Extra sottile: rapporto sotto la soglia di ' + fmtDec(v.min, 2) + '. Vendi solo se vuoi comunque l\'esposizione.';
+  }
+
+  var fillEquo  = (extra > 0) ? gradEquo : gradSpent;
+  var fillExtra = (v.stato === 'anomalo') ? gradAnom : gradExtra;
+  var swEquo    = (extra > 0) ? gradEquo : gradSpent;
+  var swExtra   = (extra > 0) ? fillExtra : 'var(--tv-bord)';
+  var sw = 'display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:6px;vertical-align:middle;';
+
+  return '' +
+  '<div style="margin-top:12px;">' +
+    '<div style="display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--tv-bord);box-shadow:inset 0 1px 3px rgba(0,0,0,.35);">' +
+      '<div style="width:' + fairW.toFixed(2) + '%;background:' + fillEquo + ';transition:width .45s cubic-bezier(.4,0,.2,1);"></div>' +
+      (extra > 0
+        ? '<div style="width:' + extraW.toFixed(2) + '%;background:' + fillExtra + ';box-shadow:-2px 0 0 rgba(0,0,0,.35);transition:width .45s cubic-bezier(.4,0,.2,1);"></div>'
+        : '') +
+    '</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:3px 16px;margin-top:9px;font-size:10px;color:var(--tv-muted);line-height:1.5;">' +
+      '<span><i style="' + sw + 'background:' + swEquo + ';"></i>Valore equo <b style="color:var(--tv-text);font-weight:700;">' + fmt(fair) + '</b></span>' +
+      '<span><i style="' + sw + 'background:' + swExtra + ';"></i>Extra premio <b style="color:' + extraCol + ';font-weight:700;">' + fmt(extra) + '</b></span>' +
+      '<span>IV/HV <b style="color:' + extraCol + ';font-weight:700;">' + fmtDec(v.ratio, 2) + '</b></span>' +
+      '<span>IV <b style="color:var(--tv-text);font-weight:700;">' + fmtDec(v.iv * 100, 1) + '%</b></span>' +
+    '</div>' +
+    '<div style="margin-top:6px;font-size:10px;color:var(--tv-muted);line-height:1.45;">' + testo + '</div>' +
+  '</div>';
+}
 
 function compute(d) {
   const controvalore = d.quantitaOpz * d.strike;
@@ -3323,7 +4148,10 @@ function compute(d) {
   const rendAnnuoLordo = rendScadLordo * 12;
   const rendScadNetto = premioNetto / d.cash;
   const rendAnnuoNetto = rendScadNetto * 12;
-  return { premioLordo, premioNetto, rendScadLordo, rendAnnuoLordo, rendScadNetto, rendAnnuoNetto, quantita };
+  const controvaloreTot = quantita * controvalore;
+  const vrp = vrpCalc('put', d.spot, d.strike, d.premio, d.hv, quantita * d.quantitaOpz);
+  vrpApplyNet(vrp, commissioni, premioNetto);
+  return { premioLordo, premioNetto, rendScadLordo, rendAnnuoLordo, rendScadNetto, rendAnnuoNetto, quantita, controvaloreTot, vrp };
 }
 
 // Formato italiano: . per le migliaia, , per i decimali
@@ -3354,7 +4182,7 @@ function createTab(data = null) {
   const id = `tab_${tabCounter}`;
   const tab = {
     id,
-    data: data || { ticker: '', strike: '', premio: '', quantitaOpz: '', cash: '' }
+    data: data || { ticker: '', strike: '', premio: '', quantitaOpz: '', cash: '', spot: '', hv: '' }
   };
   tabs.push(tab);
   setActive(id);
@@ -3401,36 +4229,40 @@ function getResults(tab) {
   const premio = parseNum(d.premio);
   const quantitaOpz = parseNum(d.quantitaOpz);
   const cash = parseNum(d.cash);
+  const spot = parseNum(d.spot);
+  const hv   = parseNum(d.hv);
   const hasData = !isNaN(strike) && !isNaN(premio) && strike > 0 && premio >= 0 && quantitaOpz > 0 && cash > 0;
-  return hasData ? compute({ strike, premio, quantitaOpz, cash }) : null;
+  return hasData ? compute({ strike, premio, quantitaOpz, cash, spot, hv }) : null;
 }
 
 function updateOutputs(tab) {
   const res = getResults(tab);
   const annuoNettoBar = res ? Math.min(res.rendAnnuoNetto * 100 / 0.8, 100) : 0;
-  const annuoLordoBar = res ? Math.min(res.rendAnnuoLordo * 100 / 0.8, 100) : 0;
   const c = document.getElementById('panelsContainer');
   const set = (sel, val) => { const el = c.querySelector('[data-out="'+sel+'"]'); if (el) el.textContent = val; };
   const setW = (sel, w) => { const el = c.querySelector('[data-bar="'+sel+'"]'); if (el) el.style.width = w; };
   set('premioLordo', res ? fmt(res.premioLordo) : '—');
-  set('premioLordoSub', res ? 'Quantità contratti: ' + res.quantita : 'Inserisci i dati per calcolare');
+  set('premioLordoSub', res ? 'Quantità contratti: ' + res.quantita + '  ·  Controvalore totale: ' + fmt(res.controvaloreTot) : 'Inserisci i dati per calcolare');
   set('premioNetto', res ? fmt(res.premioNetto) : '—');
   set('premioNettoSub', res ? 'Dopo commissioni (' + COMMISSIONI_UNIT + '/contratto) e capital gain ' + Math.round(CAPITAL_GAIN * 100) + '%' : '');
   set('rendScadNetto', res ? fmtPct(res.rendScadNetto) : '—');
   set('rendAnnuoNetto', res ? fmtPct(res.rendAnnuoNetto) : '—');
   set('rendScadLordo', res ? fmtPct(res.rendScadLordo) : '—');
   set('rendAnnuoLordo', res ? fmtPct(res.rendAnnuoLordo) : '—');
-  setW('lordo', annuoLordoBar + '%');
+  const vb = c.querySelector('[data-vrpbar="csp"]');
+  if (vb) vb.innerHTML = vrpBarHtml(res, 'netto', annuoNettoBar);
+  const vs = c.querySelector('[data-vrpscad="csp"]');
+  if (vs) vs.innerHTML = orosScadenzaHtml();
   setW('netto', annuoNettoBar + '%');
+  orosSelSync(c);
   if (compareVisible) renderCompare();
 }
 
 function renderTabs() {
   const row = document.getElementById('tabsRow');
   const addBtn = document.getElementById('addTabBtn');
-  const compareBtn = document.getElementById('compareBtn');
 
-  // Remove old tabs
+  // Rimuove le schede precedenti
   row.querySelectorAll('.tab').forEach(el => el.remove());
 
   tabs.forEach(tab => {
@@ -3455,15 +4287,26 @@ const OROS_LOTTI = {A2A:5000,ACE:500,AMP:500,ARIS:500,AVIO:100,AZM:500,BGN:100,I
 const OROS_NOMI = {"A2A":5000,"ACEA":500,"AMPLIFON":500,"ARISTON HOLDING":500,"AVIO":100,"AZIMUT HOLDING":500,"BANCA GENERALI":100,"BANCA IFIS":100,"BANCA MEDIOLANUM":500,"BANCA MONTE DEI PASCHI DI SIENA":1000,"BANCO BPM":1000,"BFF BANK":500,"BPER BANCA":1000,"BREMBO":500,"BRUNELLO CUCINELLI":100,"BUZZI":100,"CAMPARI":1000,"CAREL INDUSTRIES":100,"DANIELI C":100,"DE LONGHI":500,"DIASORIN":100,"ENAV":500,"ENEL":500,"ENI":500,"ERG":500,"FERRARI":100,"FINCANTIERI":100,"FINECOBANK":500,"GENERALI":100,"GEOX":500,"GVS":500,"HERA":1000,"INDUSTRIE DE NORA":100,"INTERPUMP GROUP":100,"INTESA SANPAOLO":1000,"INWIT":500,"IREN":1000,"ITALGAS":1000,"IVECO GROUP":700,"JUVENTUS FC":100,"LEONARDO":500,"LOTTOMATICA GROUP":500,"MAIRE":1000,"MFE A":200,"MFE B":200,"MONCLER":500,"MONDADORI":1000,"NEXI":500,"OVS":500,"PIAGGIO":1000,"PIRELLI C":500,"POSTE ITALIANE":500,"PRYSMIAN":100,"RAI WAY":500,"RECORDATI":100,"REPLY":50,"SAFILO GROUP":500,"SAIPEM":1000,"SALVATORE FERRAGAMO":500,"SANLORENZO":100,"SESA":10,"SNAM":1000,"STELLANTIS":500,"STMICROELECTRONICS":500,"TAMBURI INVESTMENT PARTNERS":500,"TECHNOGYM":500,"TECHNOPROBE":500,"TELECOM ITALIA":1000,"TENARIS":500,"TERNA":1000,"UNICREDIT":500,"UNIPOL":500,"WEBUILD":1000};
 function orosNormStr(s){return (s||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9]+/g,' ').trim();}
 function orosNormTicker(s){s=(s||'').toUpperCase().trim();if(s.indexOf(':')>=0)s=s.split(':').pop();s=s.replace(/\.(MI|MIL|IT)$/,'').trim();return s;}
+// Lettura solo di proprietà proprie: un ticker come "constructor" o
+// "toString" pescava una funzione dalla catena dei prototipi e finiva
+// dentro quantitaOpz, mandando in NaN tutti i calcoli della scheda.
+function orosOwn(map, key){
+  return Object.prototype.hasOwnProperty.call(map, key) ? map[key] : null;
+}
 function orosLookupLot(raw){
   const tk = orosNormTicker(raw);
-  if(OROS_LOTTI[tk]) return OROS_LOTTI[tk];
+  const byTicker = orosOwn(OROS_LOTTI, tk);
+  if(typeof byTicker === 'number') return byTicker;
   const nm = orosNormStr(raw);
   if(!nm) return null;
-  if(OROS_NOMI[nm]) return OROS_NOMI[nm];
+  const byName = orosOwn(OROS_NOMI, nm);
+  if(typeof byName === 'number') return byName;
   if(nm.length>=3){
     let hit=null, count=0;
-    for(const k in OROS_NOMI){ if(k.indexOf(nm)===0){ hit=OROS_NOMI[k]; if(++count>1) break; } }
+    for(const k in OROS_NOMI){
+      if(!Object.prototype.hasOwnProperty.call(OROS_NOMI, k)) continue;
+      if(k.indexOf(nm)===0){ hit=OROS_NOMI[k]; if(++count>1) break; }
+    }
     if(count===1) return hit;
   }
   return null;
@@ -3507,7 +4350,6 @@ function renderPanels() {
   const res = getResults(tab);
 
   const annuoNettoBar = res ? Math.min(res.rendAnnuoNetto * 100 / 0.8, 100) : 0;
-  const annuoLordoBar = res ? Math.min(res.rendAnnuoLordo * 100 / 0.8, 100) : 0;
 
   container.innerHTML = `
     <div class="panel">
@@ -3531,19 +4373,24 @@ function renderPanels() {
               <input type="text" inputmode="decimal" placeholder="20000" value="${escapeAttr(d.cash)}" data-field="cash">
             </div>
             <div class="field full">
-              <label>Premio<span class="tip"><span class="tip-i">i</span><span class="tip-box">Premio unitario dell'opzione. È il guadagno per azione che incassi vendendo la Put.</span></span></label>
-              <input type="text" inputmode="decimal" placeholder="0.036" value="${escapeAttr(d.premio)}" data-field="premio">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:12px;">
+                <div class="field">
+                  <label>Premio<span class="tip"><span class="tip-i">i</span><span class="tip-box">Premio unitario dell'opzione. È il guadagno per azione che incassi vendendo la Put. Usa il prezzo BID: è quello che incassi davvero.</span></span></label>
+                  <input type="text" inputmode="decimal" placeholder="0.036" value="${escapeAttr(d.premio)}" data-field="premio">
+                </div>
+                <div class="field">
+                  <label>Prezzo attuale<span class="tip"><span class="tip-i">i</span><span class="tip-box">Prezzo di mercato del titolo adesso. Serve solo per il calcolo dell'extra premio: se lo lasci vuoto la pagina funziona come prima.</span></span></label>
+                  <input type="text" inputmode="decimal" placeholder="opz." value="${escapeAttr(d.spot)}" data-field="spot">
+                </div>
+                <div class="field">
+                  <label>HV %<span class="tip"><span class="tip-i">i</span><span class="tip-box">Volatilità storica annualizzata a 30 giorni. Su TradingView: indicatore Historical Volatility, lunghezza 30, grafico giornaliero. Non usare il campo Volatility dello screener: misura un'altra cosa.</span></span></label>
+                  <input type="text" inputmode="decimal" placeholder="opz." value="${escapeAttr(d.hv)}" data-field="hv">
+                </div>
+              </div>
             </div>
             <div class="field full">
               <label>Quantità per Opzione<span class="tip"><span class="tip-i">i</span><span class="tip-box">Azioni per contratto. In Italia solitamente 100, 500 o 1000.</span></span></label>
-              <select data-field="quantitaOpz_sel" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;cursor:pointer;width:100%;transition:border-color 0.2s;">
-                <option value="" ${!d.quantitaOpz&&!d._qtaCustom?'selected':''} disabled>— seleziona —</option>
-                <option value="100"  ${d.quantitaOpz==100&&!d._qtaCustom?'selected':''}>100</option>
-                <option value="500"  ${d.quantitaOpz==500&&!d._qtaCustom?'selected':''}>500</option>
-                <option value="1000" ${d.quantitaOpz==1000&&!d._qtaCustom?'selected':''}>1000</option>
-                <option value="custom" ${d._qtaCustom?'selected':''}>✏️ Valore libero…</option>
-              </select>
-              ${d._qtaCustom ? `<input type="text" inputmode="numeric" placeholder="es. 2000" data-field="quantitaOpz" value="${escapeAttr(d.quantitaOpz)}" style="margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;width:100%;transition:all 0.2s;">` : ''}
+              ${orosSelHtml(d.quantitaOpz, d._qtaCustom, d.quantitaOpz)}
             </div>
             <div class="field full" style="display:flex;gap:8px;margin-top:4px;">
               <button onclick="goToCC()" style="flex:1;padding:8px 12px;background:transparent;border:1px solid rgba(240,180,41,0.2);border-radius:6px;color:rgba(240,180,41,0.5);font-family:'Inter',sans-serif;font-size:11px;font-weight:500;cursor:pointer;transition:all 0.25s;letter-spacing:0.3px;display:flex;align-items:center;justify-content:center;gap:4px;"
@@ -3575,16 +4422,16 @@ function renderPanels() {
             <div class="out-label">Premio Lordo</div>
             <div class="out-value" data-out="premioLordo">${res ? fmt(res.premioLordo) : '—'}</div>
             <div class="out-sub" data-out="premioLordoSub">
-              ${res ? `Quantità contratti: ${res.quantita}` : 'Inserisci i dati per calcolare'}
+              ${res ? `Quantità contratti: ${res.quantita}  ·  Controvalore totale: ${fmt(res.controvaloreTot)}` : 'Inserisci i dati per calcolare'}
             </div>
-            <div class="perf-bar"><div class="perf-bar-fill" data-bar="lordo" style="width:${annuoLordoBar}%"></div></div>
           </div>
 
           <div class="output-card primary">
             <div class="out-label">Premio Netto</div>
             <div class="out-value" data-out="premioNetto">${res ? fmt(res.premioNetto) : '—'}</div>
-            <div class="out-sub" data-out="premioNettoSub">${res ? 'Dopo commissioni (' + COMMISSIONI_UNIT + '/contratto) e capital gain ' + Math.round(CAPITAL_GAIN * 100) + '%' : ''}</div>
-            <div class="perf-bar"><div class="perf-bar-fill" data-bar="netto" style="width:${annuoNettoBar}%"></div></div>
+            <div class="out-sub"><span data-out="premioNettoSub">${res ? 'Dopo commissioni (' + COMMISSIONI_UNIT + '/contratto) e capital gain ' + Math.round(CAPITAL_GAIN * 100) + '%' : ''}</span><span class="tip" onclick="vrpInfoOpen()" style="cursor:pointer;"><span class="tip-i">i</span><span class="tip-box">Tocca per la spiegazione completa della barra: com’è calcolata, cosa sono IV e HV, come si legge.</span></span></div>
+            <div data-vrpbar="csp">${vrpBarHtml(res, 'netto', annuoNettoBar)}</div>
+            <div data-vrpscad="csp">${orosScadenzaHtml()}</div>
           </div>
 
           <div class="output-row">
@@ -3649,9 +4496,13 @@ function renderPanels() {
           if (inp) inp.focus();
         }, 0);
       } else if (e.target.value !== '') {
+        // Se si torna da "valore libero" a un lotto fisso serve un re-render:
+        // updateOutputs aggiorna solo gli output e lascerebbe in pagina il
+        // campo da compilare a mano.
+        const eraLibero = !!tab.data._qtaCustom;
         tab.data._qtaCustom = false;
         tab.data.quantitaOpz = parseInt(e.target.value);
-        updateOutputs(tab);
+        if (eraLibero) renderPanels(); else updateOutputs(tab);
       }
     });
   }
@@ -3671,15 +4522,14 @@ function renderCompare() {
   });
 
   // find best rendimento annuo netto
-  const netVals = results.map(r => r.res ? r.res.rendAnnuoNetto : -Infinity);
-  const bestIdx = netVals.indexOf(Math.max(...netVals));
+  const bestIdx = vrpBestIdx(results);
 
   section.innerHTML = `
     <div class="compare-section">
       <div class="compare-header">
         <div class="compare-title">⊞ Confronto Titoli</div>
       </div>
-      <div class="panel" style="padding:0;overflow:hidden">
+      <div class="panel" style="padding:0;overflow-x:auto;overflow-y:hidden">
         <table class="compare-table">
           <thead>
             <tr>
@@ -3690,6 +4540,7 @@ function renderCompare() {
               <th>Premio Netto</th>
               <th>Rend. Scad. Netto</th>
               <th>Rend. Annuo Netto</th>
+              <th>IV / HV</th>
             </tr>
           </thead>
           <tbody>
@@ -3697,7 +4548,7 @@ function renderCompare() {
               <tr>
                 <td>
                   <span class="ticker-badge">${escapeHtml(r.ticker.toUpperCase())}</span>
-                  ${i === bestIdx && r.res ? '<span class="best-badge">BEST</span>' : ''}
+                  ${i === bestIdx ? '<span class="best-badge">BEST</span>' : ''}
                 </td>
                 <td class="gold-val">${r.tab.data.strike ? '€' + fmtDec(parseNum(r.tab.data.strike), 3) : '—'}</td>
                 <td class="gold-val">${r.tab.data.cash ? '€' + fmtDec(parseNum(r.tab.data.cash), 0) : '—'}</td>
@@ -3705,6 +4556,7 @@ function renderCompare() {
                 <td class="green-val">${r.res ? fmt(r.res.premioNetto) : '—'}</td>
                 <td class="green-val">${r.res ? fmtPct(r.res.rendScadNetto) : '—'}</td>
                 <td class="green-val">${r.res ? fmtPct(r.res.rendAnnuoNetto) : '—'}</td>
+                ${vrpCompareCell(r.res)}
               </tr>
             `).join('')}
           </tbody>
@@ -3724,9 +4576,18 @@ function goToCC() {
   // Pre-popola il tab CC attivo con i dati CSP
   const ccTab = ccTabs.find(t => t.id === ccActiveTab);
   if (ccTab) {
+    // Si riportano: ticker, n. contratti, quantita' per opzione e strike.
+    // Lo strike della CSP diventa lo strike minimo della CC: e' il prezzo a cui
+    // eri disposto a comprare, quindi dopo l'assegnazione e' circa il tuo PMC.
     ccTab.data.ticker      = d.ticker      || ccTab.data.ticker;
     ccTab.data.contratti   = contratti !== '' ? String(contratti) : ccTab.data.contratti;
     ccTab.data.quantitaOpz = d.quantitaOpz  || ccTab.data.quantitaOpz;
+    ccTab.data.strike      = d.strike      || ccTab.data.strike;
+    // Premio, prezzo attuale e HV si azzerano: vanno letti live dal grafico
+    // al momento in cui si vende la Call, non ereditati dalla CSP.
+    ccTab.data.premio      = '';
+    ccTab.data.spot        = '';
+    ccTab.data.hv          = '';
     if (d.quantitaOpz && !d._qtaCustom) ccTab.data._qc = false;
     else if (d._qtaCustom) ccTab.data._qc = true;
   }
@@ -3764,15 +4625,23 @@ function buildScreener(theme) {
   if (!window._tvNavIntercepted) {
     window._tvNavIntercepted = true;
 
+    // Host TradingView legittimi: dominio esatto o sottodominio reale.
+    // Il vecchio controllo indexOf('tradingview.com') accettava anche
+    // https://sito-ostile.example/?x=tradingview.com
+    function _isTvUrl(u) {
+      try {
+        var h = new URL(u, window.location.href).hostname;
+        return h === 'tradingview.com' || h.slice(-16) === '.tradingview.com' ||
+               h === 'tradingview-widget.com' || h.slice(-23) === '.tradingview-widget.com';
+      } catch (ex) { return false; }
+    }
+
     // Override location.assign
     try {
       var _origAssign = window.location.assign.bind(window.location);
       window.location.assign = function(url) {
-        if (url && url.indexOf('tradingview.com') > -1) {
-          window.open(url, '_blank', 'noopener');
-        } else {
-          _origAssign(url);
-        }
+        if (url && _isTvUrl(url)) window.open(url, '_blank', 'noopener');
+        else _origAssign(url);
       };
     } catch(e) {}
 
@@ -3780,22 +4649,10 @@ function buildScreener(theme) {
     try {
       var _origReplace = window.location.replace.bind(window.location);
       window.location.replace = function(url) {
-        if (url && url.indexOf('tradingview.com') > -1) {
-          window.open(url, '_blank', 'noopener');
-        } else {
-          _origReplace(url);
-        }
+        if (url && _isTvUrl(url)) window.open(url, '_blank', 'noopener');
+        else _origReplace(url);
       };
     } catch(e) {}
-
-    // Host TradingView legittimi: dominio esatto o sottodominio reale (indexOf era aggirabile)
-    function _isTvUrl(u) {
-      try {
-        var h = new URL(u).hostname;
-        return h === 'tradingview.com' || h.slice(-16) === '.tradingview.com' ||
-               h === 'tradingview-widget.com' || h.slice(-23) === '.tradingview-widget.com';
-      } catch (ex) { return false; }
-    }
     // Catch postMessage from TV iframe (symbol click event)
     window.addEventListener('message', function(e) {
       if (!e.data) return;
@@ -3815,16 +4672,20 @@ function buildScreener(theme) {
       } catch(ex) {}
     });
 
-    // Fast interval fallback: if page starts navigating to TV, catch it and open new tab
+    // Rete di sicurezza: se la pagina inizia a navigare verso TradingView
+    // la si riporta indietro e si apre in una scheda nuova.
+    // Era a 30 ms (33 risvegli al secondo per tutta la vita della pagina,
+    // anche in background): a 250 ms con stop a scheda nascosta il
+    // comportamento è identico e il consumo di batteria trascurabile.
     var _origHref = window.location.href;
     setInterval(function() {
-      if (window.location.href !== _origHref &&
-          window.location.href.indexOf('tradingview.com') > -1) {
-        var dest = window.location.href;
+      if (document.hidden) return;
+      var dest = window.location.href;
+      if (dest !== _origHref && _isTvUrl(dest)) {
         try { history.replaceState(null, '', _origHref); } catch(e) {}
         window.open(dest, '_blank', 'noopener');
       }
-    }, 30);
+    }, 250);
   }
   // Remove old widget completely
   mount.innerHTML = '';
@@ -3902,8 +4763,10 @@ function computeCC(d) {
   const premioNetto  = pnc - pnc * CAPITAL_GAIN;
   const rsl = cash > 0 ? premioLordo / cash : 0;
   const rsn = cash > 0 ? premioNetto  / cash : 0;
+  const vrp = vrpCalc('call', d.spot, d.strike, d.premio, d.hv, d.contratti * d.quantitaOpz);
+  vrpApplyNet(vrp, commissioni, premioNetto);
   return {
-    premioLordo, premioNetto, controvalore, cash, commissioni,
+    premioLordo, premioNetto, controvalore, cash, commissioni, vrp,
     rendScadLordo: rsl, rendAnnuoLordo: rsl * 12,
     rendScadNetto: rsn, rendAnnuoNetto: rsn * 12
   };
@@ -3925,9 +4788,11 @@ function ccGetResults(tab) {
   const premio     = ccParseNum(d.premio);
   const quantitaOpz= ccParseNum(d.quantitaOpz);
   const contratti  = ccParseNum(d.contratti);
+  const spot = ccParseNum(d.spot);
+  const hv   = ccParseNum(d.hv);
   if ([strike, premio, quantitaOpz, contratti].some(isNaN)) return null;
   if (strike <= 0 || premio < 0 || quantitaOpz <= 0 || contratti <= 0) return null;
-  return computeCC({ strike, premio, quantitaOpz, contratti });
+  return computeCC({ strike, premio, quantitaOpz, contratti, spot, hv });
 }
 
 function ccCreateTab(data) {
@@ -3935,7 +4800,7 @@ function ccCreateTab(data) {
   const id = 'cct' + ccTabCounter;
   ccTabs.push({
     id,
-    data: data || { ticker: '', strike: '', premio: '', quantitaOpz: '', contratti: '', _qc: false }
+    data: data || { ticker: '', strike: '', premio: '', quantitaOpz: '', contratti: '', spot: '', hv: '', _qc: false }
   });
   ccSetActive(id);
 }
@@ -3974,7 +4839,6 @@ function ccUpdateOutputs(tab) {
   if (!c) return;
   const set  = (k, v) => { const el = c.querySelector(`[data-out="${k}"]`);  if (el) el.textContent = v; };
   const setW = (k, v) => { const el = c.querySelector(`[data-bar="${k}"]`); if (el) el.style.width = v; };
-  const aln = res ? Math.min(res.rendAnnuoLordo * 100 / 0.8, 100) : 0;
   const ann = res ? Math.min(res.rendAnnuoNetto * 100 / 0.8, 100) : 0;
   set('ccPL',  res ? fmt(res.premioLordo)  : '—');
   set('ccPS',  res ? 'Controvalore: ' + fmt(res.controvalore) + '  ·  Cash: ' + fmt(res.cash) : 'Inserisci i dati per calcolare');
@@ -3984,8 +4848,12 @@ function ccUpdateOutputs(tab) {
   set('ccRAN', res ? fmtPct(res.rendAnnuoNetto)  : '—');
   set('ccRSL', res ? fmtPct(res.rendScadLordo)   : '—');
   set('ccRAL', res ? fmtPct(res.rendAnnuoLordo)  : '—');
-  setW('ccBL', aln + '%');
+  const vb = c.querySelector('[data-vrpbar="cc"]');
+  if (vb) vb.innerHTML = vrpBarHtml(res, 'ccBN', ann);
+  const vs = c.querySelector('[data-vrpscad="cc"]');
+  if (vs) vs.innerHTML = orosScadenzaHtml();
   setW('ccBN', ann + '%');
+  orosSelSync(c);
   if (ccCompareVisible) ccRenderCompare();
 }
 
@@ -3996,7 +4864,6 @@ function ccRenderPanel() {
   if (!tab) { container.innerHTML = ''; return; }
   const d   = tab.data;
   const res = ccGetResults(tab);
-  const aln = res ? Math.min(res.rendAnnuoLordo * 100 / 0.8, 100) : 0;
   const ann = res ? Math.min(res.rendAnnuoNetto * 100 / 0.8, 100) : 0;
 
   container.innerHTML = `
@@ -4014,23 +4881,28 @@ function ccRenderPanel() {
               <input type="text" inputmode="decimal" placeholder="3.00" value="${escapeAttr(d.strike)}" data-field="strike">
             </div>
             <div class="field">
-              <label>Premio<span class="tip"><span class="tip-i">i</span><span class="tip-box">Premio unitario della Call. È quanto incassi per azione vendendo il diritto d'acquisto.</span></span></label>
-              <input type="text" inputmode="decimal" placeholder="0.01" value="${escapeAttr(d.premio)}" data-field="premio">
-            </div>
-            <div class="field full">
               <label>N° Contratti<span class="tip"><span class="tip-i">i</span><span class="tip-box">Quanti contratti vuoi vendere. Devi possedere le azioni sottostanti (lotto × contratti).</span></span></label>
               <input type="text" inputmode="numeric" placeholder="6" value="${escapeAttr(d.contratti)}" data-field="contratti">
             </div>
             <div class="field full">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:12px;">
+                <div class="field">
+                  <label>Premio<span class="tip"><span class="tip-i">i</span><span class="tip-box">Premio unitario della Call. È quanto incassi per azione vendendo il diritto d'acquisto. Usa il prezzo BID.</span></span></label>
+                  <input type="text" inputmode="decimal" placeholder="0.01" value="${escapeAttr(d.premio)}" data-field="premio">
+                </div>
+                <div class="field">
+                  <label>Prezzo attuale<span class="tip"><span class="tip-i">i</span><span class="tip-box">Prezzo di mercato del titolo adesso. Serve solo per il calcolo dell'extra premio: se lo lasci vuoto la pagina funziona come prima.</span></span></label>
+                  <input type="text" inputmode="decimal" placeholder="opz." value="${escapeAttr(d.spot)}" data-field="spot">
+                </div>
+                <div class="field">
+                  <label>HV %<span class="tip"><span class="tip-i">i</span><span class="tip-box">Volatilità storica annualizzata a 30 giorni. Su TradingView: indicatore Historical Volatility, lunghezza 30, grafico giornaliero. Non usare il campo Volatility dello screener: misura un'altra cosa.</span></span></label>
+                  <input type="text" inputmode="decimal" placeholder="opz." value="${escapeAttr(d.hv)}" data-field="hv">
+                </div>
+              </div>
+            </div>
+            <div class="field full">
               <label>Quantità per Opzione<span class="tip"><span class="tip-i">i</span><span class="tip-box">Azioni per contratto. Deve corrispondere al lotto minimo del titolo.</span></span></label>
-              <select data-field="quantitaOpz_sel" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;cursor:pointer;width:100%;transition:border-color 0.2s;">
-                <option value="" ${!d.quantitaOpz&&!d._qc?'selected':''} disabled>— seleziona —</option>
-                <option value="100"  ${d.quantitaOpz==100&&!d._qc?'selected':''}>100</option>
-                <option value="500"  ${d.quantitaOpz==500&&!d._qc?'selected':''}>500</option>
-                <option value="1000" ${d.quantitaOpz==1000&&!d._qc?'selected':''}>1000</option>
-                <option value="custom" ${d._qc?'selected':''}>✏️ Valore libero…</option>
-              </select>
-              ${d._qc ? `<input type="text" inputmode="numeric" placeholder="es. 2000" data-field="quantitaOpz" value="${escapeAttr(d.quantitaOpz)}" style="margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;width:100%;">` : ''}
+              ${orosSelHtml(d.quantitaOpz, d._qc, d.quantitaOpz)}
             </div>
             <div class="field full" style="margin-top:4px;display:flex;gap:8px;">
               <button onclick="salvaCcCorrente()" style="flex:1;padding:8px 12px;background:transparent;border:1px solid rgba(38,166,154,0.2);border-radius:6px;color:rgba(38,166,154,0.5);font-family:'Inter',sans-serif;font-size:11px;font-weight:500;cursor:pointer;transition:all 0.25s;letter-spacing:0.3px;display:flex;align-items:center;justify-content:center;gap:4px;"
@@ -4054,14 +4926,14 @@ function ccRenderPanel() {
             <div class="out-label">Premio Lordo</div>
             <div class="out-value" data-out="ccPL">${res ? fmt(res.premioLordo) : '—'}</div>
             <div class="out-sub" data-out="ccPS">${res ? 'Controvalore: ' + fmt(res.controvalore) + '  ·  Cash: ' + fmt(res.cash) : 'Inserisci i dati per calcolare'}</div>
-            <div class="perf-bar"><div class="perf-bar-fill" data-bar="ccBL" style="width:${aln}%"></div></div>
           </div>
 
           <div class="output-card primary">
             <div class="out-label">Premio Netto</div>
             <div class="out-value" data-out="ccPN">${res ? fmt(res.premioNetto) : '—'}</div>
-            <div class="out-sub" data-out="ccPT">${res ? 'Dopo comm. (€' + fmtDec(res.commissioni, 2) + ') e cap. gain ' + Math.round(CAPITAL_GAIN*100) + '%' : ''}</div>
-            <div class="perf-bar"><div class="perf-bar-fill" data-bar="ccBN" style="width:${ann}%"></div></div>
+            <div class="out-sub"><span data-out="ccPT">${res ? 'Dopo comm. (€' + fmtDec(res.commissioni, 2) + ') e cap. gain ' + Math.round(CAPITAL_GAIN*100) + '%' : ''}</span><span class="tip" onclick="vrpInfoOpen()" style="cursor:pointer;"><span class="tip-i">i</span><span class="tip-box">Tocca per la spiegazione completa della barra: com’è calcolata, cosa sono IV e HV, come si legge.</span></span></div>
+            <div data-vrpbar="cc">${vrpBarHtml(res, 'ccBN', ann)}</div>
+            <div data-vrpscad="cc">${orosScadenzaHtml()}</div>
           </div>
 
           <div class="output-row">
@@ -4080,7 +4952,7 @@ function ccRenderPanel() {
   if (divCont) {
     divCont.innerHTML = `
     <button class="div-toggle-btn" id="ccDivBtn" onclick="ccToggleDividendi(this)">
-      💰 Dividendi <span class="div-arrow">▼</span>
+      💰 Dividendi <svg class="div-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
 
     <div class="div-section" id="ccDivSection" style="display:none;">
@@ -4143,8 +5015,10 @@ function ccRenderPanel() {
         if (i) i.focus();
       }, 0);
     } else if (e.target.value !== '') {
+      // vedi nota nella CSP: tornando a un lotto fisso il campo libero va rimosso
+      const eraLibero = !!tab.data._qc;
       tab.data._qc = false; tab.data.quantitaOpz = parseInt(e.target.value);
-      ccUpdateOutputs(tab);
+      if (eraLibero) ccRenderPanel(); else ccUpdateOutputs(tab);
       setTimeout(ccCalcDividendi, 0);
     }
   });
@@ -4164,23 +5038,23 @@ function ccRenderCompare() {
   const results = ccTabs.map((tab, i) => ({
     tab, res: ccGetResults(tab), ticker: tab.data.ticker || ('T' + (i + 1))
   }));
-  const netVals = results.map(r => r.res ? r.res.rendAnnuoNetto : -Infinity);
-  const bestIdx = netVals.indexOf(Math.max(...netVals));
+  const bestIdx = vrpBestIdx(results);
   section.innerHTML = `
     <div class="compare-section">
       <div class="compare-header"><div class="compare-title">⊞ Confronto Covered Call</div></div>
-      <div class="panel" style="padding:0;overflow:hidden">
+      <div class="panel" style="padding:0;overflow-x:auto;overflow-y:hidden">
         <table class="compare-table"><thead><tr>
-          <th>Titolo</th><th>Strike</th><th>Contratti</th><th>Premio Lordo</th><th>Premio Netto</th><th>Rend. Scad. Netto</th><th>Rend. Annuo Netto</th>
+          <th>Titolo</th><th>Strike</th><th>Contratti</th><th>Premio Lordo</th><th>Premio Netto</th><th>Rend. Scad. Netto</th><th>Rend. Annuo Netto</th><th>IV / HV</th>
         </tr></thead><tbody>
         ${results.map((r, i) => `<tr>
-          <td><span class="ticker-badge">${escapeHtml(r.ticker.toUpperCase())}</span>${i===bestIdx&&r.res?'<span class="best-badge">BEST</span>':''}</td>
+          <td><span class="ticker-badge">${escapeHtml(r.ticker.toUpperCase())}</span>${i===bestIdx?'<span class="best-badge">BEST</span>':''}</td>
           <td class="gold-val">${r.tab.data.strike ? '€' + fmtDec(ccParseNum(r.tab.data.strike), 3) : '—'}</td>
           <td class="gold-val">${r.tab.data.contratti || '—'}</td>
           <td class="green-val">${r.res ? fmt(r.res.premioLordo)  : '—'}</td>
           <td class="green-val">${r.res ? fmt(r.res.premioNetto)  : '—'}</td>
           <td class="green-val">${r.res ? fmtPct(r.res.rendScadNetto)  : '—'}</td>
           <td class="green-val">${r.res ? fmtPct(r.res.rendAnnuoNetto) : '—'}</td>
+          ${vrpCompareCell(r.res)}
         </tr>`).join('')}
         </tbody></table>
       </div>
@@ -4191,6 +5065,14 @@ function ccRenderCompare() {
 document.getElementById('ccGearBtn').addEventListener('click', () => {
   document.getElementById('s_capitalGain').value = (CAPITAL_GAIN * 100).toString();
   document.getElementById('s_commissioni').value = COMMISSIONI_UNIT.toString();
+  document.getElementById('s_vrpScadenza').textContent = orosScadenzaLabel();
+  document.getElementById('s_vrpBotPrezzo').value = String(VRP_BOT_PREZZO).replace('.', ',');
+  document.getElementById('s_vrpBotGiorni').value = String(VRP_BOT_GIORNI);
+  vrpBotPreview();
+  document.getElementById('s_vrpCspMin').value = String(VRP_CSP_MIN);
+  document.getElementById('s_vrpCspMax').value = String(VRP_CSP_MAX);
+  document.getElementById('s_vrpCcMin').value  = String(VRP_CC_MIN);
+  document.getElementById('s_vrpCcMax').value  = String(VRP_CC_MAX);
   document.getElementById('settingsOverlay').style.display = 'block';
 });
 document.getElementById('ccAddTabBtn').addEventListener('click', () => {
@@ -4306,7 +5188,10 @@ function ccCalcDividendi() {
 
       // Engine glow
       const grd = ctx.createRadialGradient(0, 18, 0, 0, 18, 22);
-      grd.addColorStop(0, color.replace(')', ',0.9)').replace('rgb','rgba').replace('#','').length < 10 ? color + 'cc' : color);
+      // I colori delle navicelle sono tutti esadecimali a 6 cifre: 'cc' è
+      // il canale alfa. La catena di replace precedente calcolava sempre
+      // questo stesso valore passando per tre sostituzioni a vuoto.
+      grd.addColorStop(0, color + 'cc');
       grd.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = grd;
       ctx.beginPath();
@@ -4372,7 +5257,6 @@ function ccCalcDividendi() {
       };
     }
 
-    let t = 0;
     let nextShooter = 3000;
 
     var _spaceRunning = false;
@@ -4442,7 +5326,6 @@ function ccCalcDividendi() {
         drawShip(ctx, s.x * W, cy, s.scale, s.color, angle);
       });
 
-      t = ts;
       requestAnimationFrame(draw);
     }
     window.__orosSpaceResume = function() {
@@ -4474,9 +5357,8 @@ function storiaLoad() {
   try { return JSON.parse(localStorage.getItem(STORIA_KEY) || '[]'); } catch(e) { return []; }
 }
 function storiaSave(list) {
-  localStorage.setItem(STORIA_KEY, JSON.stringify(list));
-  fsCloudSave(list); // sync to cloud
-
+  orosLsSet(STORIA_KEY, JSON.stringify(list));
+  fsCloudSave(list); // allineamento cloud
 }
 
 function storiaAdd(tipo, inputData, results, label) {
@@ -4962,7 +5844,6 @@ function botRenderAll() {
 function botRenderTabs() {
   var row = document.getElementById('botTabsRow');
   var addBtn = document.getElementById('botAddTabBtn');
-  var cmpBtn = document.getElementById('botCompareBtn');
   if (!row) return;
   row.querySelectorAll('.tab').forEach(function(el){ el.remove(); });
   botTabs.forEach(function(tab) {
@@ -5099,7 +5980,9 @@ function botRenderCompare() {
   html += '</tr></thead><tbody>';
   var rows = [
     ['Prezzo', function(r,d){ return d.price ? escapeHtml(d.price) : '—'; }],
-    ['N° Titoli', function(r,d){ return d.qty ? Number(d.qty).toLocaleString('it-IT') : '—'; }],
+    // Number("40.000") vale 40: il punto è un separatore di migliaia
+    // italiano, va letto con lo stesso parser usato per i calcoli.
+    ['N° Titoli', function(r,d){ var q = botParseNum(d.qty); return isNaN(q) ? '—' : q.toLocaleString('it-IT'); }],
     ['Investimento', function(r){ return r ? botFmtEur(r.investimento) : '—'; }],
     ['Gain Lordo', function(r){ return r ? botFmtEur(r.gain) : '—'; }],
     ['Capital Gain', function(r){ return r ? botFmtEur(r.capGain) : '—'; }],
@@ -5135,6 +6018,7 @@ document.getElementById('botSaveSettings').addEventListener('click', function() 
   var c = botParseNum(document.getElementById('bot_s_comm').value);
   if (!isNaN(r) && r > 0) BOT_RIMBORSO = r;
   if (!isNaN(c) && c >= 0) BOT_COMM = c;
+  if (typeof orosCfgSave === 'function') orosCfgSave();
   document.getElementById('botGearOverlay').style.display = 'none';
   botRenderAll();
 });
@@ -5156,16 +6040,10 @@ var centroHistoryOpen = false;
 
 function centroToggleHistory() {
   centroHistoryOpen = !centroHistoryOpen;
-  var box   = document.getElementById('centroHistoryBox');
-  var arrow = document.getElementById('centroHistoryArrow');
-  var btn   = document.getElementById('centroHistoryToggle');
-  if (box)   box.style.display = centroHistoryOpen ? 'block' : 'none';
-  if (arrow) arrow.style.transform = centroHistoryOpen ? 'rotate(180deg)' : 'none';
-  if (btn) {
-    btn.style.borderColor  = centroHistoryOpen ? 'rgba(38,166,154,0.4)' : 'var(--tv-bord)';
-    btn.style.color        = centroHistoryOpen ? 'rgba(38,166,154,0.8)' : 'var(--tv-muted)';
-    btn.style.borderRadius = centroHistoryOpen ? '8px 8px 0 0' : '8px';
-  }
+  var box = document.getElementById('centroHistoryBox');
+  var btn = document.getElementById('centroHistoryToggle');
+  if (box) box.style.display = centroHistoryOpen ? 'block' : 'none';
+  if (btn) btn.classList.toggle('open', centroHistoryOpen);
   if (centroHistoryOpen) centroRenderHistory();
 }
 
@@ -5295,7 +6173,7 @@ function centroRenderChart(list) {
       },
       scales: {
         x: {
-          grid: { color: gridColor, drawBorder: false },
+          grid: { color: gridColor },
           ticks: {
             color: tickColor,
             font: { family: 'Inter', size: 10 },
@@ -5304,7 +6182,7 @@ function centroRenderChart(list) {
           }
         },
         y: {
-          grid: { color: gridColor, drawBorder: false },
+          grid: { color: gridColor },
           ticks: {
             color: tickColor,
             font: { family: 'Inter', size: 11 },
@@ -5540,10 +6418,12 @@ function centrioStoriaOpenModal(id) {
   var d = entry.data || {};
   var r = entry.results || {};
 
+  // I valori arrivano da input utente / cloud / backup importato:
+  // vanno sempre passati da escapeHtml prima di finire in innerHTML.
   var mkRow = function(label, val, color) {
     return '<tr>' +
-      '<td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + label + '</td>' +
-      '<td style="padding:8px 12px;color:' + (color||'var(--tv-text)') + ';font-family:\'Inter\',sans-serif;font-size:12px;font-weight:' + (color ? '700' : '400') + ';">' + val + '</td>' +
+      '<td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + escapeHtml(label) + '</td>' +
+      '<td style="padding:8px 12px;color:' + (color||'var(--tv-text)') + ';font-family:\'Inter\',sans-serif;font-size:12px;font-weight:' + (color ? '700' : '400') + ';">' + escapeHtml(val) + '</td>' +
     '</tr>';
   };
 
@@ -5645,7 +6525,7 @@ function meteoLoad() {
   catch(e) { return []; }
 }
 function meteoPersist(list) {
-  localStorage.setItem(METEO_KEY, JSON.stringify(list));
+  orosLsSet(METEO_KEY, JSON.stringify(list));
   if (typeof window.fsMeteoCloudSave === 'function') window.fsMeteoCloudSave(list);
 }
 
@@ -5774,7 +6654,7 @@ function meteoRecalc() {
   var parla = document.getElementById('meteoParla');
   if (parla) {
     var txt = meteoCommento(c, ball, st);
-    parla.textContent = txt;
+    parla.innerHTML = meteoFormatOut(txt);
     parla.style.display = txt ? 'block' : 'none';
   }
 
@@ -5795,7 +6675,7 @@ function meteoInputsCollect() {
 }
 function meteoInputsSaveNow() {
   var o = meteoInputsCollect();
-  localStorage.setItem(METEO_IKEY, JSON.stringify(o));
+  orosLsSet(METEO_IKEY, JSON.stringify(o));
   if (typeof window.fsMeteoInCloudSave === 'function') window.fsMeteoInCloudSave([o]);
 }
 var meteoInputsDeb = debounce(meteoInputsSaveNow, 900);
@@ -5877,9 +6757,11 @@ function meteoHistToggle() {
   if (meteoCal.open) meteoCalRender();
 }
 function meteoCalShift(delta) {
-  meteoCal.m += delta;
-  if (meteoCal.m < 0) { meteoCal.m = 11; meteoCal.y--; }
-  else if (meteoCal.m > 11) { meteoCal.m = 0; meteoCal.y++; }
+  // Normalizzazione via Date: regge anche uno scarto diverso da ±1
+  // (la versione precedente saltava direttamente a gennaio o dicembre).
+  var d = new Date(meteoCal.y, meteoCal.m + delta, 1);
+  meteoCal.y = d.getFullYear();
+  meteoCal.m = d.getMonth();
   meteoCalRender();
 }
 function meteoCalRender() {
@@ -6033,14 +6915,28 @@ function meteoHistOpen(date) {
   var ov = document.getElementById('meteoHistOverlay');
   if (ov) ov.style.display = 'block';
 }
-// evidenzia le intestazioni dei blocchi (TESI. CONVINZIONE ecc.)
+// Spezza l'outlook in sezioni staccate, ognuna con la sua intestazione in blu.
+// Il testo generato non cambia: cambia solo come viene impaginato.
 function meteoFormatOut(txt) {
   var TAGS = ['TESI.', 'CONVINZIONE', 'POSIZIONAMENTO.', 'COSA PUÒ ROMPERLA.', 'DA MONITORARE.'];
-  var esc = txt.replace(/&/g, '&amp;').replace(/</g, '&lt;');
-  for (var i = 0; i < TAGS.length; i++) {
-    esc = esc.split(TAGS[i]).join((i ? '<br><br>' : '') + '<b>' + TAGS[i] + '</b>');
+  var esc = String(txt == null ? '' : txt).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  if (!esc.trim()) return '';
+  // segnaposto davanti a ogni intestazione, poi si spezza di li'
+  for (var i = 0; i < TAGS.length; i++) esc = esc.split(TAGS[i]).join('\u0001' + TAGS[i]);
+  var parti = esc.split('\u0001');
+  var html = '';
+  for (var j = 0; j < parti.length; j++) {
+    var p = parti[j].trim();
+    if (!p) continue;
+    var tag = '';
+    for (var k = 0; k < TAGS.length; k++) {
+      if (p.indexOf(TAGS[k]) === 0) { tag = TAGS[k]; p = p.slice(tag.length).trim(); break; }
+    }
+    html += '<div class="met-out-sez">' +
+              (tag ? '<b class="met-out-tag">' + tag + '</b> ' : '') + p +
+            '</div>';
   }
-  return esc;
+  return html;
 }
 function meteoHistClose() {
   var ov = document.getElementById('meteoHistOverlay');
@@ -6664,7 +7560,7 @@ function meteoOpenPage() {
   function _cloudSave(docName, list) {
     if (!window._orosUserId) return;
     var ts = new Date().toISOString();
-    localStorage.setItem(_tsKey(docName), ts);
+    orosLsSet(_tsKey(docName), ts);
     _db.collection('users').doc(window._orosUserId)
       .collection('data').doc(docName)
       .set({ list: list, updatedAt: ts })
@@ -6689,15 +7585,19 @@ function meteoOpenPage() {
         var localTs = localStorage.getItem(_tsKey(docName)) || '';
         // Cloud più recente → adotta cloud (sostituzione completa, niente merge)
         if (cloudTs && cloudTs > localTs) {
-          localStorage.setItem(lsKey, JSON.stringify(data.list || []));
-          localStorage.setItem(_tsKey(docName), cloudTs);
+          orosLsSet(lsKey, JSON.stringify(Array.isArray(data.list) ? data.list : []));
+          orosLsSet(_tsKey(docName), cloudTs);
           if (typeof renderFn === 'function') renderFn();
         }
       }, function(e){ console.warn('Firestore listener error (' + docName + '):', e); });
   }
 
   window.fsSyncOnLogin = function(userId) {
-    window._orosUserId = userId.toLowerCase().replace(/\s+/g, '_');
+    // L'id finisce dentro un path Firestore: si ammettono solo caratteri
+    // sicuri, così nessun valore anomalo può alterare la collezione puntata.
+    var uid = String(userId || '').toLowerCase().replace(/[^a-z0-9_.-]+/g, '_').slice(0, 64);
+    if (!uid || uid === '.' || uid === '..') return;
+    window._orosUserId = uid;
 
     var docs = [
       { name: 'storia',      ls: 'oros_storia_v1',      save: window.fsCloudSave,   render: function(){ if (typeof renderStoria === 'function') renderStoria(); } },
@@ -6815,7 +7715,7 @@ var pfFilterCur = 'all';
 var _pfChart = null;
 var _pfPendingEntry = null; // entry in attesa di conferma modal
 var pfSumMode = false;
-var pfSumSelected = {}; // { id: true }
+var pfSumSelected = Object.create(null); // { id: true } — senza prototipo: nessun falso positivo su chiavi tipo "constructor" 
 var _pfManualEditId = null; // id dell'operazione manuale in modifica
 
 function pfEntryNetProfit(entry) {
@@ -6832,7 +7732,7 @@ function pfEntryNetProfit(entry) {
 
 function pfToggleSumMode() {
   pfSumMode = !pfSumMode;
-  if (!pfSumMode) pfSumSelected = {};
+  if (!pfSumMode) pfSumSelected = Object.create(null);
   portafoglioRender({skipChart: true});
 }
 
@@ -6846,8 +7746,8 @@ function pfLoad() {
   try { return JSON.parse(localStorage.getItem(PORTAFOGLIO_KEY) || '[]'); } catch(e) { return []; }
 }
 function pfSave(list) {
-  localStorage.setItem(PORTAFOGLIO_KEY, JSON.stringify(list));
-  fsPfCloudSave(list); // sync to cloud (cross-device)
+  orosLsSet(PORTAFOGLIO_KEY, JSON.stringify(list));
+  fsPfCloudSave(list); // allineamento cloud (multi-dispositivo)
 }
 
 function pfAdd(entry) {
@@ -7003,8 +7903,11 @@ function aggiungiBotAPortafoglio() {
   var qty   = botParseNum(tab.data.qty);
   if (isNaN(price) || isNaN(qty)) { orosAlert('Inserisci almeno Prezzo e N° titoli prima di aggiungere al portafoglio.'); return; }
   var res = botGetResults(tab);
-  var ticker = escapeHtml((tab.data.ticker || 'BOT').toUpperCase());
-  var botData = { ticker: ticker, price: tab.data.price, rimborso: String(BOT_RIMBORSO), qty: tab.data.qty, comm: String(BOT_COMM) };
+  // In archivio va il valore grezzo; l'escape si applica solo dove il dato
+  // viene scritto nell'HTML, altrimenti si accumula una doppia codifica.
+  var tickerRaw = (tab.data.ticker || 'BOT').toUpperCase();
+  var ticker = escapeHtml(tickerRaw);
+  var botData = { ticker: tickerRaw, price: tab.data.price, rimborso: String(BOT_RIMBORSO), qty: tab.data.qty, comm: String(BOT_COMM) };
   var preview =
     '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
       '<span style="background:rgba(122,163,255,0.12);color:#7aa3ff;border:1px solid rgba(122,163,255,0.3);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;font-family:\'Inter\',sans-serif;">BOT</span>' +
@@ -7264,11 +8167,11 @@ function pfRenderChart(closedList) {
       },
       scales: {
         x: {
-          grid: { color: gridColor, drawBorder: false },
+          grid: { color: gridColor },
           ticks: { color: tickColor, font: { family: 'Inter', size: 10 }, maxRotation: 35, maxTicksLimit: 10 }
         },
         y: {
-          grid: { color: gridColor, drawBorder: false },
+          grid: { color: gridColor },
           ticks: {
             color: tickColor,
             font: { family: 'Inter', size: 11 },
@@ -7801,10 +8704,11 @@ function pfManualConfirm() {
   var net   = gross !== null ? gross - tax - PF_COMM : null;
   var now   = new Date().toISOString();
 
+  var entry;
   if (_pfManualEditId) {
     // MODIFICA entry esistente
     var list = pfLoad();
-    var entry = list.find(function(e){ return e.id === _pfManualEditId; });
+    entry = list.find(function(e){ return e.id === _pfManualEditId; });
     if (!entry) return;
     entry.data      = { ticker: ticker, openPrice: openPrice, openQty: openQty, closePrice: hasClosure ? closePrice : null, closeQty: hasClosure ? closeQty : null };
     entry.results   = hasClosure ? { gross: gross, tax: tax, comm: PF_COMM, net: net } : null;
@@ -7823,7 +8727,7 @@ function pfManualConfirm() {
     pfSave(list);
   } else {
     // NUOVA entry
-    var entry = {
+    entry = {
       id:      Date.now() + '_' + Math.random().toString(36).slice(2, 7),
       tipo:    'manual',
       data:    { ticker: ticker, openPrice: openPrice, openQty: openQty, closePrice: hasClosure ? closePrice : null, closeQty: hasClosure ? closeQty : null },
@@ -7910,6 +8814,9 @@ function dataImport(which, inputEl) {
       _dataImportApply(which, list);
     }, { okLabel: '\u2713 Importa', danger: false });
   };
+  reader.onerror = function() {
+    orosAlert('Impossibile leggere il file selezionato.');
+  };
   reader.readAsText(file);
   // Reset subito: consente di ri-selezionare lo stesso file anche dopo un annulla
   inputEl.value = '';
@@ -7930,6 +8837,19 @@ function _dataImportApply(which, list) {
     storiaSave(list);
     renderStoria();
   }
+}
+
+// ── Impostazioni salvate: si rileggono a fine caricamento, quando
+//    tutte le variabili di tutte le pagine sono state dichiarate ──
+try {
+  if (typeof orosCfgLoad === 'function') {
+    orosCfgLoad();
+    if (typeof renderAll    === 'function') renderAll();
+    if (typeof ccRenderAll  === 'function') ccRenderAll();
+    if (typeof botRenderAll === 'function') botRenderAll();
+  }
+} catch (e) {
+  console.warn('Rilettura impostazioni fallita:', e);
 }
 
 // ── Service Worker (PWA offline) ──
