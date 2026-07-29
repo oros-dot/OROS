@@ -964,6 +964,8 @@ document.addEventListener('focusin', function(e) {
 
   .container { padding: 20px 16px; }
   .panel { padding: 20px 16px; }
+  /* Stessa distanza logo OROS <-> titolo pagina su tutte le pagine */
+  .sc-wrap { padding: 20px 16px !important; }
 
   /* iOS: font < 16px sui campi provoca lo zoom automatico al focus */
   .field input, .field select, .field textarea { font-size: 16px; }
@@ -2679,7 +2681,7 @@ input[type="date"]::-webkit-date-and-time-value {
   <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(520px,95vw);max-height:90vh;overflow-y:auto;background:var(--tv-surf);border:1px solid var(--tv-bord);border-radius:12px;padding:32px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
       <div>
-        <div style="font-size:17px;font-weight:700;color:var(--tv-text);">⚙ Impostazioni BOT</div>
+        <div style="font-size:17px;font-weight:700;color:var(--tv-text);">⚙ Impostazioni</div>
         <div style="font-size:11px;color:var(--tv-muted);margin-top:3px;">Parametri modificabili e formule</div>
       </div>
       <button onclick="document.getElementById('botGearOverlay').style.display='none'" style="background:rgba(239,83,80,.12);border:1px solid rgba(239,83,80,.3);color:var(--tv-red);border-radius:6px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;">✕ Chiudi</button>
@@ -2915,7 +2917,7 @@ input[type="date"]::-webkit-date-and-time-value {
 <div id="pfGearModal" style="display:none;position:fixed;inset:0;background:rgba(9,11,17,.92);z-index:9999;backdrop-filter:blur(8px);">
   <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(420px,95vw);background:var(--tv-surf);border:1px solid var(--tv-bord);border-radius:12px;padding:28px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-      <div style="font-size:16px;font-weight:700;color:var(--tv-text);font-family:'Inter',sans-serif;">⚙ Impostazioni Portafoglio</div>
+      <div style="font-size:16px;font-weight:700;color:var(--tv-text);font-family:'Inter',sans-serif;">⚙ Impostazioni</div>
       <button onclick="document.getElementById('pfGearModal').style.display='none'" style="background:rgba(239,83,80,.12);border:1px solid rgba(239,83,80,.3);color:var(--tv-red);border-radius:6px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;">✕</button>
     </div>
     <div style="margin-bottom:16px;">
@@ -2968,7 +2970,7 @@ input[type="date"]::-webkit-date-and-time-value {
     <div class="logo-area">
       <h1>Sup-Res MM</h1>
     </div>
-    <button class="gear-btn" id="centroGearBtn" title="Informazioni formule">⚙</button>
+    <button class="gear-btn" id="centroGearBtn" title="Impostazioni">⚙</button>
   </header>
 
   <!-- ── FUTURES block ─────────────────────────────────── -->
@@ -3087,7 +3089,7 @@ input[type="date"]::-webkit-date-and-time-value {
     <div>
       <h2 style="font-size:24px;font-weight:800;letter-spacing:-.5px;background:#7aa3ff;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-family:'Inter',sans-serif;">Macro Outlook</h2>
     </div>
-    <button class="gear-btn" id="meteoGearBtn" title="Soglie e dove trovare i numeri" onclick="document.getElementById('meteoGearOverlay').style.display='block'">⚙</button>
+    <button class="gear-btn" id="meteoGearBtn" title="Impostazioni" onclick="document.getElementById('meteoGearOverlay').style.display='block'">⚙</button>
   </div>
 
   <!-- 1 · DATI DEL GIORNO -->
@@ -3215,7 +3217,7 @@ input[type="date"]::-webkit-date-and-time-value {
   <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,95vw);max-height:90vh;overflow-y:auto;background:var(--tv-surf);border:1px solid var(--tv-bord);border-radius:12px;padding:32px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
       <div>
-        <div style="font-size:17px;font-weight:700;color:var(--tv-text);">⚙ Soglie automatiche — Macro Outlook</div>
+        <div style="font-size:17px;font-weight:700;color:var(--tv-text);">⚙ Impostazioni</div>
         <div style="font-size:11px;color:var(--tv-muted);margin-top:3px;">Tu metti i numeri, le regole fanno il resto</div>
       </div>
       <button onclick="document.getElementById('meteoGearOverlay').style.display='none'" style="background:rgba(239,83,80,.12);border:1px solid rgba(239,83,80,.3);color:var(--tv-red);border-radius:6px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;">✕ Chiudi</button>
@@ -3302,7 +3304,7 @@ input[type="date"]::-webkit-date-and-time-value {
   <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,95vw);max-height:90vh;overflow-y:auto;background:var(--tv-surf);border:1px solid var(--tv-bord);border-radius:12px;padding:32px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
       <div>
-        <div style="font-size:17px;font-weight:700;color:var(--tv-text);">⚙ Formule — Sup-Res MM</div>
+        <div style="font-size:17px;font-weight:700;color:var(--tv-text);">⚙ Impostazioni</div>
         <div style="font-size:11px;color:var(--tv-muted);margin-top:3px;">Logica di calcolo supporto e resistenza</div>
       </div>
       <button onclick="document.getElementById('centroGearOverlay').style.display='none'" style="background:rgba(239,83,80,.12);border:1px solid rgba(239,83,80,.3);color:var(--tv-red);border-radius:6px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;">✕ Chiudi</button>
