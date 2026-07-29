@@ -2,7 +2,7 @@
 <html lang="it" data-theme="dark">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="OROS">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -964,6 +964,9 @@ document.addEventListener('focusin', function(e) {
 
   .container { padding: 20px 16px; }
   .panel { padding: 20px 16px; }
+
+  /* iOS: font < 16px sui campi provoca lo zoom automatico al focus */
+  .field input, .field select, .field textarea { font-size: 16px; }
   .sc-bar { flex-direction: column; align-items: flex-start; }
   .sc-search { width: 100%; }
   .sc-inp { width: 100%; min-width: 0; }
@@ -982,7 +985,7 @@ document.addEventListener('focusin', function(e) {
 
   /* Mobile: hide desktop sidebar, show mobile top bar */
   .sidebar { display: none !important; }
-  body.has-sidebar { padding-left: 0 !important; padding-top: 12px; padding-bottom: calc(86px + env(safe-area-inset-bottom)); height: auto !important; overflow: auto !important; }
+  body.has-sidebar { padding-left: 0 !important; padding-top: 12px; padding-bottom: calc(98px + env(safe-area-inset-bottom)); height: auto !important; overflow-x: hidden !important; overflow-y: auto !important; }
   body.has-sidebar #mobileBottomBar { display: flex !important; }
   body.has-sidebar #mobileOrosLogo { display: block !important; }
   body.has-sidebar #pageScreener,
@@ -1063,6 +1066,7 @@ html {
   min-height: 100vh;
   transition: background .25s, color .25s;
   max-width: 100%;
+  overflow-x: hidden;
 }
 body {
   background: var(--tv-bg);
@@ -1231,9 +1235,10 @@ body:not(.has-sidebar) {
   height: 100%;
 }
 
-/* iPhone Safari: prevent elastic bounce on body */
+/* iPhone: rimbalzo verticale morbido attivo, bloccato solo l'asse X */
 html, body {
-  overscroll-behavior: none;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: auto;
 }
 
 /* ── BODY OFFSET WHEN SIDEBAR VISIBLE ── */
@@ -1668,7 +1673,7 @@ body.has-sidebar #pageMeteo {
   display: none;
   position: fixed;
   left: 12px; right: 12px;
-  bottom: calc(10px + env(safe-area-inset-bottom));
+  bottom: calc(22px + env(safe-area-inset-bottom, 0px));
   height: 60px;
   z-index: 500;
   align-items: center;
@@ -2105,6 +2110,10 @@ input[type="number"]:focus {
 #screenerMount { position: relative; }
 #screenerMount iframe { display: block; }
 #screenerMount .tradingview-widget-container { height: 100% !important; }
+
+/* Trio Premio / Prezzo / HV: etichette su una riga, input sempre allineati */
+.trio-row .field { justify-content: flex-end; }
+.trio-row .field > label { white-space: nowrap; }
 
 /* ── Tooltip system (hover, no JS) ── */
 .tip {
@@ -4373,13 +4382,13 @@ function renderPanels() {
               <input type="text" inputmode="decimal" placeholder="20000" value="${escapeAttr(d.cash)}" data-field="cash">
             </div>
             <div class="field full">
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:12px;">
+              <div class="trio-row" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:12px;">
                 <div class="field">
                   <label>Premio<span class="tip"><span class="tip-i">i</span><span class="tip-box">Premio unitario dell'opzione. È il guadagno per azione che incassi vendendo la Put. Usa il prezzo BID: è quello che incassi davvero.</span></span></label>
                   <input type="text" inputmode="decimal" placeholder="0.036" value="${escapeAttr(d.premio)}" data-field="premio">
                 </div>
                 <div class="field">
-                  <label>Prezzo attuale<span class="tip"><span class="tip-i">i</span><span class="tip-box">Prezzo di mercato del titolo adesso. Serve solo per il calcolo dell'extra premio: se lo lasci vuoto la pagina funziona come prima.</span></span></label>
+                  <label>Prezzo<span class="tip"><span class="tip-i">i</span><span class="tip-box">Prezzo di mercato del titolo adesso, live. Serve solo per il calcolo dell'extra premio: se lo lasci vuoto la pagina funziona come prima.</span></span></label>
                   <input type="text" inputmode="decimal" placeholder="opz." value="${escapeAttr(d.spot)}" data-field="spot">
                 </div>
                 <div class="field">
@@ -4427,9 +4436,9 @@ function renderPanels() {
           </div>
 
           <div class="output-card primary">
-            <div class="out-label">Premio Netto</div>
+            <div class="out-label">Premio Netto<span class="tip" onclick="vrpInfoOpen()" style="cursor:pointer;"><span class="tip-i">i</span><span class="tip-box">Tocca per la spiegazione completa della barra: com’è calcolata, cosa sono IV e HV, come si legge.</span></span></div>
             <div class="out-value" data-out="premioNetto">${res ? fmt(res.premioNetto) : '—'}</div>
-            <div class="out-sub"><span data-out="premioNettoSub">${res ? 'Dopo commissioni (' + COMMISSIONI_UNIT + '/contratto) e capital gain ' + Math.round(CAPITAL_GAIN * 100) + '%' : ''}</span><span class="tip" onclick="vrpInfoOpen()" style="cursor:pointer;"><span class="tip-i">i</span><span class="tip-box">Tocca per la spiegazione completa della barra: com’è calcolata, cosa sono IV e HV, come si legge.</span></span></div>
+            <div class="out-sub"><span data-out="premioNettoSub">${res ? 'Dopo commissioni (' + COMMISSIONI_UNIT + '/contratto) e capital gain ' + Math.round(CAPITAL_GAIN * 100) + '%' : ''}</span></div>
             <div data-vrpbar="csp">${vrpBarHtml(res, 'netto', annuoNettoBar)}</div>
             <div data-vrpscad="csp">${orosScadenzaHtml()}</div>
           </div>
@@ -4885,13 +4894,13 @@ function ccRenderPanel() {
               <input type="text" inputmode="numeric" placeholder="6" value="${escapeAttr(d.contratti)}" data-field="contratti">
             </div>
             <div class="field full">
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:12px;">
+              <div class="trio-row" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:12px;">
                 <div class="field">
                   <label>Premio<span class="tip"><span class="tip-i">i</span><span class="tip-box">Premio unitario della Call. È quanto incassi per azione vendendo il diritto d'acquisto. Usa il prezzo BID.</span></span></label>
                   <input type="text" inputmode="decimal" placeholder="0.01" value="${escapeAttr(d.premio)}" data-field="premio">
                 </div>
                 <div class="field">
-                  <label>Prezzo attuale<span class="tip"><span class="tip-i">i</span><span class="tip-box">Prezzo di mercato del titolo adesso. Serve solo per il calcolo dell'extra premio: se lo lasci vuoto la pagina funziona come prima.</span></span></label>
+                  <label>Prezzo<span class="tip"><span class="tip-i">i</span><span class="tip-box">Prezzo di mercato del titolo adesso, live. Serve solo per il calcolo dell'extra premio: se lo lasci vuoto la pagina funziona come prima.</span></span></label>
                   <input type="text" inputmode="decimal" placeholder="opz." value="${escapeAttr(d.spot)}" data-field="spot">
                 </div>
                 <div class="field">
@@ -4929,9 +4938,9 @@ function ccRenderPanel() {
           </div>
 
           <div class="output-card primary">
-            <div class="out-label">Premio Netto</div>
+            <div class="out-label">Premio Netto<span class="tip" onclick="vrpInfoOpen()" style="cursor:pointer;"><span class="tip-i">i</span><span class="tip-box">Tocca per la spiegazione completa della barra: com’è calcolata, cosa sono IV e HV, come si legge.</span></span></div>
             <div class="out-value" data-out="ccPN">${res ? fmt(res.premioNetto) : '—'}</div>
-            <div class="out-sub"><span data-out="ccPT">${res ? 'Dopo comm. (€' + fmtDec(res.commissioni, 2) + ') e cap. gain ' + Math.round(CAPITAL_GAIN*100) + '%' : ''}</span><span class="tip" onclick="vrpInfoOpen()" style="cursor:pointer;"><span class="tip-i">i</span><span class="tip-box">Tocca per la spiegazione completa della barra: com’è calcolata, cosa sono IV e HV, come si legge.</span></span></div>
+            <div class="out-sub"><span data-out="ccPT">${res ? 'Dopo comm. (€' + fmtDec(res.commissioni, 2) + ') e cap. gain ' + Math.round(CAPITAL_GAIN*100) + '%' : ''}</span></div>
             <div data-vrpbar="cc">${vrpBarHtml(res, 'ccBN', ann)}</div>
             <div data-vrpscad="cc">${orosScadenzaHtml()}</div>
           </div>
