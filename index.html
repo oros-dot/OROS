@@ -1416,6 +1416,25 @@ body.has-sidebar #pageMeteo {
   -webkit-tap-highlight-color: transparent;
 }
 #pageMeteo .met-dial:hover { border-color: rgba(56,189,248,.5); color: #38bdf8; }
+#pageMeteo .met-inp.neg { color: var(--tv-red); }
+
+/* Tasto segno: compare attaccato al tastierino, solo su touch e a campo attivo */
+#meteoSegnoBar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 10050;
+  display: none; justify-content: flex-end; padding: 0 12px 6px 12px;
+  pointer-events: none; will-change: transform;
+}
+#meteoSegnoBar.on { display: flex; }
+#meteoSegnoBtn {
+  pointer-events: auto; min-width: 74px; height: 38px; padding: 0 16px;
+  border: 1px solid var(--tv-bord); border-radius: 10px;
+  background: rgba(30,34,45,.94);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  color: var(--tv-text); font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 700;
+  letter-spacing: .5px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 4px 14px rgba(0,0,0,.4);
+}
+#meteoSegnoBtn.neg { border-color: rgba(239,83,80,.6); color: var(--tv-red); background: rgba(239,83,80,.14); }
 
 /* Rullo stile sveglia iPhone */
 #meteoPickOverlay {
@@ -6510,13 +6529,127 @@ var METEO_MESI = ['gennaio','febbraio','marzo','aprile','maggio','giugno','lugli
 var meteoCal = { y: 0, m: 0, open: false, init: false };
 
 // ── Utility ──
+function meteoNormSeg(s) {
+  return String(s == null ? '' : s).replace(/[\u2212\u2012\u2013\u2014\u2015]/g, '-').replace(/\s+/g, '').trim();
+}
 function meteoNum(id) {
   var el = document.getElementById(id);
   if (!el) return null;
-  var v = (el.value || '').trim().replace(',', '.');
-  if (v === '') return null;
+  var v = meteoNormSeg(el.value).replace(',', '.');
+  if (v === '' || v === '-' || v === '+' || v === '-.' ) return null;
   var n = parseFloat(v);
   return isNaN(n) ? null : n;
+}
+
+// ── Segno meno col tastierino iOS ──
+// Il decimal pad di iPhone non ha il meno e non e' personalizzabile da web:
+// il tasto +/- compare appoggiato sopra la tastiera solo mentre scrivi in un campo macro.
+// Fallback silenzioso: una virgola a inizio campo inverte il segno (",23" -> "-23").
+function meteoPaintSign(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle('neg', meteoNormSeg(el.value).charAt(0) === '-');
+}
+function meteoPaintSigns() {
+  METEO_IN.forEach(meteoPaintSign);
+  meteoSegnoBtnPaint();
+}
+function meteoSegnoTasto(el) {
+  var v = String(el.value || '');
+  var m = /^[-\u2212,.]+/.exec(v);
+  if (!m) return false;
+  var head = m[0], rest = v.slice(head.length);
+  var seps = (head.match(/[,.]/g) || []).length;
+  if (!seps) return false;
+  var minus = (head.match(/[-\u2212]/g) || []).length;
+  var nuovo = (((seps + minus) % 2) === 1 ? '-' : '') + rest;
+  if (nuovo === v) return false;
+  el.value = nuovo;
+  return true;
+}
+var meteoSegnoOn = false, meteoSegnoEl = null, meteoSegnoBar = null, meteoSegnoBtn = null, meteoSegnoLock = 0;
+
+function meteoSegnoInverti(el) {
+  if (!el) return;
+  var v = meteoNormSeg(el.value);
+  el.value = (v.charAt(0) === '-') ? v.slice(1) : ('-' + v);
+  meteoTouched = true;
+  meteoRecalc();
+  try { var n = el.value.length; el.setSelectionRange(n, n); } catch(e) {}
+}
+function meteoSegnoBtnPaint() {
+  if (!meteoSegnoBtn) return;
+  var neg = !!meteoSegnoEl && meteoNormSeg(meteoSegnoEl.value).charAt(0) === '-';
+  meteoSegnoBtn.classList.toggle('neg', neg);
+}
+function meteoSegnoBarPos() {
+  if (!meteoSegnoBar) return;
+  var vv = window.visualViewport;
+  var h = meteoSegnoBar.offsetHeight || 44;
+  var y;
+  if (vv && (window.innerHeight - vv.height) > 100) y = vv.offsetTop + vv.height - h;      // sopra la tastiera
+  else y = (vv ? vv.offsetTop + vv.height : window.innerHeight) - h - 12;                   // ripiego: fondo schermo
+  meteoSegnoBar.style.transform = 'translateY(' + Math.max(0, Math.round(y)) + 'px)';
+}
+function meteoSegnoBarSync() {
+  if (!meteoSegnoBar) return;
+  var att = document.activeElement;
+  var on = !!att && METEO_IN.indexOf(att.id) >= 0;
+  if (on) meteoSegnoEl = att; 
+  meteoSegnoBar.classList.toggle('on', on);
+  if (on) { meteoSegnoBarPos(); meteoSegnoBtnPaint(); }
+}
+function meteoSegnoInit() {
+  if (meteoSegnoOn) return;
+  var pg = document.getElementById('pageMeteo');
+  if (!pg) return;
+  meteoSegnoOn = true;
+
+  // fallback: virgola a inizio campo = meno (capture, prima dell'oninput che lancia meteoRecalc)
+  pg.addEventListener('input', function(ev) {
+    var el = ev.target;
+    if (!el || !el.id || METEO_IN.indexOf(el.id) < 0) return;
+    if (meteoSegnoTasto(el)) { try { var n = el.value.length; el.setSelectionRange(n, n); } catch(e) {} }
+  }, true);
+
+  // il tasto serve solo dove la tastiera e' virtuale: su Mac il meno c'e' gia'
+  var coarse = !(window.matchMedia && window.matchMedia('(pointer: fine)').matches);
+  if (!coarse) return;
+
+  meteoSegnoBar = document.createElement('div');
+  meteoSegnoBar.id = 'meteoSegnoBar';
+  meteoSegnoBtn = document.createElement('button');
+  meteoSegnoBtn.id = 'meteoSegnoBtn';
+  meteoSegnoBtn.type = 'button';
+  meteoSegnoBtn.textContent = '+/\u2212';
+  meteoSegnoBtn.setAttribute('aria-label', 'Inverti il segno del valore');
+  meteoSegnoBar.appendChild(meteoSegnoBtn);
+  document.body.appendChild(meteoSegnoBar);
+
+  function azione(ev) {
+    ev.preventDefault();                       // tiene il focus: la tastiera non si chiude
+    var t = Date.now();
+    if (t - meteoSegnoLock < 350) return;
+    meteoSegnoLock = t;
+    meteoSegnoInverti(meteoSegnoEl);
+  }
+  if (window.PointerEvent) meteoSegnoBtn.addEventListener('pointerdown', azione, { passive: false });
+  else { meteoSegnoBtn.addEventListener('touchstart', azione, { passive: false }); meteoSegnoBtn.addEventListener('mousedown', azione, { passive: false }); }
+  meteoSegnoBar.addEventListener('mousedown', function(ev) { ev.preventDefault(); }, { passive: false });
+
+  pg.addEventListener('focusin', function(ev) {
+    if (!ev.target || METEO_IN.indexOf(ev.target.id) < 0) return;
+    meteoSegnoEl = ev.target;
+    meteoSegnoBarSync();
+    setTimeout(meteoSegnoBarSync, 120);
+    setTimeout(meteoSegnoBarSync, 400);
+  });
+  pg.addEventListener('focusout', function() { setTimeout(meteoSegnoBarSync, 60); });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', meteoSegnoBarSync);
+    window.visualViewport.addEventListener('scroll', meteoSegnoBarPos);
+  }
+  window.addEventListener('orientationchange', function() { setTimeout(meteoSegnoBarSync, 250); });
 }
 function meteoFmtN(x, dec) {
   return x.toFixed(dec === undefined ? 1 : dec).replace('.', ',').replace('-', '−');
@@ -6653,6 +6786,7 @@ function meteoRecalc() {
   var st = meteoStato(c);
 
   meteoPaintTgl();
+  meteoPaintSigns();
   meteoPaintChips(c);
   meteoPaintBall(ball);
 
@@ -6850,7 +6984,7 @@ function meteoStoriaRemove(date) {
 // ── Dettaglio giornata storica: ricostruisce dati e outlook da un'entry salvata ──
 function meteoNumFrom(dati, id) {
   if (!dati || dati[id] === undefined || dati[id] === '') return null;
-  var n = parseFloat(String(dati[id]).replace(',', '.'));
+  var n = parseFloat(meteoNormSeg(dati[id]).replace(',', '.'));
   return isNaN(n) ? null : n;
 }
 // Ricostruisce l'oggetto c (semafori + valori derivati) e ball (quadrante) dall'entry
@@ -7525,6 +7659,7 @@ function meteoPickOk() {
 // ── Apertura pagina ──
 var meteoInited = false;
 function meteoOpenPage() {
+  meteoSegnoInit();
   if (!meteoInited) {
     meteoInputsApply();
     meteoInited = true;
