@@ -220,7 +220,7 @@ function goHome() {
 
 // ── Swipe navigation (solo mobile) ──
 (function() {
-  var ORDER = ['screener','csp','cc','centro','bot','portafoglio','meteo','storia'];
+  var ORDER = ['screener','csp','cc','centro','bot','portafoglio','meteo','costruz','storia'];
   var sx = 0, sy = 0, st = 0, tracking = false;
   document.addEventListener('touchstart', function(e) {
     if (window.innerWidth > 768) return;
@@ -250,7 +250,7 @@ function goHome() {
     var p = ORDER[next];
     goPage(p);
     // Effetto card sulla pagina entrante
-    var name = { screener:'Screener', csp:'CSP', cc:'CC', centro:'Centro', bot:'BOT', portafoglio:'Portafoglio', meteo:'Meteo', storia:'Storia' }[p];
+    var name = { screener:'Screener', csp:'CSP', cc:'CC', centro:'Centro', bot:'BOT', portafoglio:'Portafoglio', meteo:'Meteo', costruz:'Costruz', storia:'Storia' }[p];
     var el = document.getElementById('page' + name);
     if (el) {
       el.classList.remove('swipe-in-left','swipe-in-right');
