@@ -3540,7 +3540,7 @@ input[type="date"]::-webkit-date-and-time-value {
       <div class="pb-hd" onclick="pbToggle(1)">
         <div class="pb-hd-x">
           <div class="pb-hd-t">Profilo <span class="pb-pill gold" id="pbPl1">in corso</span></div>
-          <div class="pb-hd-s">Dieci scelte. Da queste discende tutto il resto.</div><div class="pb-ruolo">Advisory · profilazione e adeguatezza</div>
+          <div class="pb-hd-s">Ventidue scelte. Da queste discende tutto il resto.</div><div class="pb-ruolo">Advisory · profilazione e adeguatezza</div>
         </div>
         <div class="pb-arrow"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       </div>
@@ -9994,6 +9994,22 @@ function pbSlots(){
 
 /* ══════════════ DOMANDE DI PROFILO ══════════════ */
 var PB_Q = [
+ { k:'quota', t:'Che quota del tuo patrimonio investibile è questo capitale?', i:'È la domanda che separa la tolleranza al rischio dalla capacità di perdita: la prima è un\u2019opinione, la seconda è un vincolo. Se qui c\u2019è quasi tutto, un profilo aggressivo non è sostenibile per quanto tu te la senta.', o:[
+   ['<25','Meno di un quarto','ampia capacità'],['25-50','Un quarto / metà',''],
+   ['50-75','Metà / tre quarti','capacità ridotta'],['>75','Quasi tutto','profilo da contenere']] },
+ { k:'riserva', t:'Hai una riserva di liquidità tenuta fuori da questo capitale?', i:'Senza riserva separata la prima spesa imprevista si paga vendendo il portafoglio, e statisticamente capita nel momento peggiore.', o:[
+   ['si','Sì, oltre 6 mesi di spese',''],['parz','3–6 mesi','copertura parziale'],['no','No','vincola la liquidità']] },
+ { k:'flussi', t:'Prelievi previsti nei prossimi 5 anni', i:'Un prelievo programmato non è rischio di mercato: è una scadenza. Va coperto con strumenti a scadenza, non con l\u2019azionario.', o:[
+   ['no','Nessuno',''],['occ','Occasionali, sotto il 10%',''],['prog','Programmati, sopra il 10%','riserva più alta']] },
+ { k:'strumenti', m:true, x:'nessuno', t:'Quali di questi hai già trattato in prima persona?', i:'Selezione multipla. Non serve a giudicarti: serve a dichiarare il perimetro di ciò che conosci, come in un questionario di adeguatezza. Finisce nei vincoli del prompt di ricerca.', o:[
+   ['etf','ETF e fondi',''],['az','Azioni singole',''],['bond','Obbligazioni singole',''],
+   ['der','Opzioni o futures',''],['lev','ETF a leva o inversi',''],['crypto','Cripto',''],
+   ['nessuno','Nessuno','profilo base']] },
+ { k:'anni', t:'Da quanto tempo investi?', i:'L\u2019anzianità operativa non è un permesso, è un dato: pesa sulla scelta di quanto satellite sia ragionevole tenere.', o:[
+   ['<1','Meno di 1 anno',''],['1-3','1–3 anni',''],['3-10','3–10 anni',''],['>10','Oltre 10 anni','']] },
+ { k:'finalita', t:'Finalità principale', i:'Cambia i criteri di ricerca, non solo i pesi: reddito porta alla distribuzione e al carry, protezione reale porta su linker, oro e materie prime.', o:[
+   ['crescita','Crescita del capitale',''],['reddito','Reddito periodico','cedola'],
+   ['reale','Protezione dall\u2019inflazione','attivi reali'],['data','Obiettivo a data certa','riserva più alta']] },
  { k:'orizzonte', t:'Fra quanti anni ti serviranno questi soldi?', i:'Sotto i 5 anni l\u2019azionario non è statisticamente affidabile: la probabilità di trovarsi in perdita al momento del bisogno resta alta.', o:[
    ['3-5','3–5 anni','tetto azionario ridotto'],['5-10','5–10 anni','orizzonte standard'],
    ['10-20','10–20 anni','assorbi un ciclo intero'],['20+','oltre 20 anni','nessun vincolo']] },
@@ -10001,6 +10017,22 @@ var PB_Q = [
    ['cons','circa −11%','difensivo'],['bil','circa −18%','bilanciato'],['din','circa −23%','dinamico'],['aggr','circa −29%','aggressivo']] },
  { k:'reazione', t:'Il portafoglio perde il 20% in tre mesi. Cosa fai davvero?', i:'Serve a verificare che la risposta precedente sia realistica. Se le due non coincidono te lo segnalo.', o:[
    ['vendo','Vendo tutto',''],['riduco','Riduco',''],['fermo','Non faccio nulla',''],['compro','Compro','ribilancio']] },
+ { k:'aree', m:true, max:2, x:'neutro', t:'Aree geografiche da sovrappesare', i:'Massimo due. Il sovrappeso si aggiunge al core globale, non lo sostituisce: il core resta a capitalizzazione mondiale, così l\u2019inclinazione resta misurabile e reversibile.', o:[
+   ['neutro','Nessuna, resto neutrale','capitalizzazione'],['eu','Europa',''],['us','Nord America',''],
+   ['jp','Giappone',''],['apac','Asia-Pacifico ex Giappone',''],['em','Mercati emergenti',''],
+   ['it','Italia','concentrato']] },
+ { k:'settori', m:true, max:2, x:'nessuno', t:'Settori da sovrappesare', i:'Massimo due. Un settore è una scommessa macro travestita da diversificazione: consuma il budget dei satelliti esattamente come un tematico, perché lo è.', o:[
+   ['nessuno','Nessuno',''],['tech','Tecnologia',''],['salute','Sanità',''],['fin','Finanza',''],
+   ['ind','Industria',''],['ener','Energia',''],['cons','Consumi di base','difensivo'],
+   ['util','Utility','difensivo'],['mat','Materiali',''],['imm','Immobiliare','']] },
+ { k:'fattori', m:true, max:2, x:'nessuno', t:'Stile azionario', i:'Massimo due. Non cambiano l\u2019indice del core, che resta a capitalizzazione: definiscono una gamba di stile separata, con la sua metodologia da verificare.', o:[
+   ['nessuno','Nessuno','core puro'],['value','Value',''],['quality','Quality',''],['mom','Momentum',''],
+   ['minvol','Bassa volatilità','riduce l\u2019oscillazione'],['div','Alto dividendo','flusso'],
+   ['small','Small cap','']] },
+ { k:'escludi', m:true, x:'niente', t:'Esclusioni', i:'Selezione multipla. Entrano come criteri di scarto in ogni scheda di ricerca e come vincoli assoluti nel prompt.', o:[
+   ['niente','Nessuna esclusione',''],['cina','Cina',''],['russia','Russia e CSI',''],
+   ['armi','Armamenti',''],['tabacco','Tabacco',''],['fossili','Carbone e petrolio',''],
+   ['gioco','Gioco d\u2019azzardo','']] },
  { k:'valuta', t:'Politica valutaria', i:'Sceglila una volta e vale per tutto. Decidere caso per caso è ciò che produce esposizioni valutarie invisibili: sul reddito fisso il cambio è rumore che raddoppia la volatilità, sull\u2019azionario è parzialmente diversificante.', o:[
    ['tutto','Copro tutto','stabilità, costo dell\u2019hedge'],['bond','Copro solo i bond','standard'],['niente','Non copro nulla','zero costi, più volatilità']] },
  { k:'complessita', t:'Quante posizioni vuoi seguire?', i:'Più righe non è più diversificazione: è più costi, più tempo e più occasioni di sbagliare. Con capitale limitato, poche posizioni ben dimensionate battono molte posizioni sotto-scala.', o:[
@@ -10009,6 +10041,11 @@ var PB_Q = [
    ['puro','Solo indici ampi','nessun tematico'],['satellite','Core + satelliti','tematici entro un tetto']] },
  { k:'tematici', t:'Tetto ai tematici', i:'Un tematico è una scommessa su un driver macro. Più di due tematici sono quasi sempre lo stesso driver travestito da due posizioni.', o:[
    ['0','Nessuno',''],['10','Fino al 10%',''],['20','Fino al 20%','richiede disciplina']] },
+ { k:'complessi', m:true, x:'nessuno', t:'Strumenti complessi ammessi', i:'Selezione multipla. Definisce il perimetro di ciò che la ricerca può proporti: quello che non spunti qui diventa un criterio di scarto automatico su ogni scheda.', o:[
+   ['nessuno','Nessuno','solo ETF/ETC lineari'],['sint','Replica sintetica','swap, rischio controparte'],
+   ['leva','ETF a leva',''],['short','ETF inversi',''],['opz','Opzioni coperte','']] },
+ { k:'leva', t:'Leva sul portafoglio', i:'Gli ETF a leva si ribilanciano ogni giorno: su orizzonti lunghi il rendimento diverge dal multiplo dell\u2019indice. La leva strutturale si fa a margine, non con il prodotto.', o:[
+   ['no','Nessuna',''],['125','Fino a 1,25x','a margine'],['150','Fino a 1,5x','solo con esperienza']] },
  { k:'proventi', t:'Proventi', i:'L\u2019accumulazione reinveste automaticamente e differisce l\u2019imposizione. La distribuzione paga una cedola tassata subito.', o:[
    ['acc','Accumulazione','differisce il fisco'],['dist','Distribuzione','cedola periodica']] },
  { k:'esg', t:'Vincoli ESG', i:'Cambia l\u2019indice da cercare, non la struttura del portafoglio: esistono versioni SRI o Paris-Aligned della quasi totalità degli indici principali.', o:[
@@ -10016,6 +10053,60 @@ var PB_Q = [
  { k:'regime', t:'Regime fiscale del rapporto', i:'Nel regime amministrato l\u2019intermediario calcola e versa le imposte. Nel dichiarativo devi compilare il quadro RW e pagare l\u2019IVAFE dello 0,20% annuo.', o:[
    ['amm','Amministrato','sostituto d\u2019imposta'],['dich','Dichiarativo','quadro RW']] }
 ];
+
+/* etichette delle risposte multiple, usate nelle schede e nel prompt */
+var PB_LAB = {
+  strumenti:{ etf:'ETF e fondi', az:'azioni singole', bond:'obbligazioni singole', der:'opzioni e futures',
+              lev:'ETF a leva o inversi', crypto:'cripto', nessuno:'nessuno' },
+  aree:{ eu:'Europa', us:'Nord America', jp:'Giappone', apac:'Asia-Pacifico ex Giappone',
+         em:'Mercati emergenti', it:'Italia' },
+  settori:{ tech:'Tecnologia', salute:'Sanità', fin:'Finanza', ind:'Industria', ener:'Energia',
+            cons:'Consumi di base', util:'Utility', mat:'Materiali', imm:'Immobiliare' },
+  fattori:{ value:'Value', quality:'Quality', mom:'Momentum', minvol:'Bassa volatilità',
+            div:'Alto dividendo', small:'Small cap' },
+  complessi:{ sint:'replica sintetica', leva:'ETF a leva', short:'ETF inversi', opz:'opzioni coperte' }
+};
+var PB_ESCL = {
+  cina:'Esposizione Cina sopra il 5% del patrimonio dello strumento',
+  russia:'Qualunque esposizione a Russia e paesi CSI',
+  armi:'Emittenti su armamenti: usa la versione SRI o Screened dello stesso indice',
+  tabacco:'Emittenti del tabacco: usa la versione SRI o Screened',
+  fossili:'Carbone termico e oil&gas non convenzionale: usa la versione Screened o Paris-Aligned',
+  gioco:'Gioco d\u2019azzardo: usa la versione SRI'
+};
+
+/* ── selezione multipla ──
+   Il valore in PB.p diventa un array. 'x' è l'opzione esclusiva: sceglierla
+   azzera le altre, sceglierne un'altra la toglie. 'mx' è il tetto: oltre il
+   tetto la selezione più vecchia esce, così il click non resta mai senza effetto. */
+function pbHas(k, v){ var a = PB.p[k]; return Object.prototype.toString.call(a) === '[object Array]' && a.indexOf(v) >= 0; }
+function pbSel(k, x){
+  var a = PB.p[k];
+  if (Object.prototype.toString.call(a) !== '[object Array]') return [];
+  return a.filter(function(v){ return v !== x; });
+}
+function pbQOk(q){ return q.m ? ((PB.p[q.k] || []).length > 0) : !!PB.p[q.k]; }
+function pbPickM(k, v, mx, x){
+  var a = Object.prototype.toString.call(PB.p[k]) === '[object Array]' ? PB.p[k].slice() : [];
+  if (x && v === x) a = a.indexOf(v) >= 0 ? [] : [v];
+  else {
+    if (x) a = a.filter(function(y){ return y !== x; });
+    var i = a.indexOf(v);
+    if (i >= 0) a.splice(i, 1);
+    else { if (mx && a.length >= mx) a.shift(); a.push(v); }
+  }
+  PB.p[k] = a; PB.slots = []; pbSave(); pbR1();
+}
+/* criteri di scarto aggiuntivi che discendono dalle risposte multiple */
+function pbNoPlus(cat){
+  var a = [], eq = ['CORE_W','CORE_ACWI','EM','TEM','SMALL'].indexOf(cat) >= 0;
+  if (Object.prototype.toString.call(PB.p.complessi) === '[object Array]') {
+    if (!pbHas('complessi','sint')) a.push('Replica sintetica: non ammessa dal profilo');
+    if (!pbHas('complessi','leva') && !pbHas('complessi','short')) a.push('Qualunque prodotto a leva, inverso o strutturato');
+  }
+  if (eq) pbSel('escludi','niente').forEach(function(x){ if (PB_ESCL[x]) a.push(PB_ESCL[x]); });
+  return a;
+}
 
 function pbTip(txt){ return '<span class="tip"><span class="tip-i">i</span><span class="tip-box">' + pbEsc(txt) + '</span></span>'; }
 function pbPick(k, v){ PB.p[k] = v; PB.slots = []; pbSave(); pbR1(); }
@@ -10046,9 +10137,14 @@ function pbR1(){
   var w = document.getElementById('pbQList'); if (!w) return;
   w.innerHTML = PB_Q.map(function(q){
     return '<div class="pb-q"><div class="pb-qt">' + pbEsc(q.t) + ' ' + pbTip(q.i) +
-      (PB.p[q.k] ? '' : ' <span class="pb-pill req">scegli</span>') + '</div><div class="pb-opts">' +
+      (q.m ? ' <span class="pb-pill">' + (q.max ? 'max ' + q.max : 'scelta multipla') + '</span>' : '') +
+      (pbQOk(q) ? '' : ' <span class="pb-pill req">scegli</span>') + '</div><div class="pb-opts">' +
       q.o.map(function(o){
-        return '<div class="pb-opt' + (PB.p[q.k] === o[0] ? ' on' : '') + '" onclick="pbPick(\'' + q.k + '\',\'' + o[0] + '\')">' +
+        var on = q.m ? pbHas(q.k, o[0]) : PB.p[q.k] === o[0];
+        var call = q.m
+          ? 'pbPickM(\'' + q.k + '\',\'' + o[0] + '\',' + (q.max || 0) + ',\'' + (q.x || '') + '\')'
+          : 'pbPick(\'' + q.k + '\',\'' + o[0] + '\')';
+        return '<div class="pb-opt' + (on ? ' on' : '') + '" onclick="' + call + '">' +
           '<div class="pb-optt">' + pbEsc(o[1]) + '</div>' + (o[2] ? '<div class="pb-optd">' + pbEsc(o[2]) + '</div>' : '') + '</div>';
       }).join('') + '</div></div>';
   }).join('');
@@ -10069,11 +10165,11 @@ function pbR1(){
     co.innerHTML = msg ? '<div class="pb-nb warn"><div class="pb-nbt">▲ Le due risposte non coincidono</div>' + msg + '</div>' : '';
   }
 
-  var ok = cap > 0 && PB_Q.every(function(q){ return !!PB.p[q.k]; });
+  var ok = cap > 0 && PB_Q.every(pbQOk);
   var m = document.getElementById('pbMsg1'), b = document.getElementById('pbBtn1');
   if (m) {
     if (ok) { m.className = 'pb-fmsg ok'; m.textContent = 'Profilo completo.'; }
-    else { m.className = 'pb-fmsg'; m.textContent = 'Mancano ' + (PB_Q.filter(function(q){ return !PB.p[q.k]; }).length + (cap > 0 ? 0 : 1)) + ' risposte.'; }
+    else { m.className = 'pb-fmsg'; m.textContent = 'Mancano ' + (PB_Q.filter(function(q){ return !pbQOk(q); }).length + (cap > 0 ? 0 : 1)) + ' risposte.'; }
   }
   if (b) b.disabled = !ok;
 }
@@ -10180,10 +10276,41 @@ function pbR3(){
       '<dt>ESG</dt><dd>' + esg + '</dd>' +
       '<dt>Fisco ' + pbTip(c.fisc === 'sim' ? 'Plusvalenze e minusvalenze sono entrambe redditi diversi, quindi si compensano fra loro.' : 'Le plusvalenze sono redditi di capitale e non si compensano con le minusvalenze, che invece sono redditi diversi.') + '</dt><dd>' + (c.fisc === 'sim' ? '<b>Simmetrico</b>' : 'Asimmetrico') + '</dd>' +
       '<dt>Deve avere</dt><dd><ul>' + c.ok.map(function(x){ return '<li>' + x + '</li>'; }).join('') + '</ul></dd>' +
-      '<dt>Scarta se</dt><dd><ul>' + c.no.map(function(x){ return '<li>' + x + '</li>'; }).join('') + '</ul></dd>' +
+      '<dt>Scarta se</dt><dd><ul>' + c.no.concat(pbNoPlus(s.cat)).map(function(x){ return '<li>' + x + '</li>'; }).join('') + '</ul></dd>' +
       '</dl><div class="pb-filt"><div class="pb-filt-t">Filtri da impostare su justETF</div><ul>' +
       c.jet.map(function(x){ return '<li>' + x + '</li>'; }).join('') + '</ul></div></div></div>';
   }).join('');
+}
+
+/* righe di profilo e vincoli generate dalle risposte aggiunte */
+function pbBriefVinc(){
+  var p = PB.p, t = '';
+  if (p.finalita) t += 'Finalita\' principale: ' + ({ crescita:'crescita del capitale', reddito:'reddito periodico',
+    reale:'protezione dall\'inflazione', data:'obiettivo a data certa' })[p.finalita] + '\n';
+  if (p.quota) t += 'Quota del patrimonio investibile impegnata: ' + ({ '<25':'meno di un quarto',
+    '25-50':'un quarto/meta\'', '50-75':'meta\'/tre quarti', '>75':'quasi tutto' })[p.quota] + '\n';
+  if (p.riserva) t += 'Riserva di liquidita\' separata: ' + ({ si:'oltre 6 mesi di spese', parz:'3-6 mesi', no:'assente' })[p.riserva] + '\n';
+  if (p.flussi) t += 'Prelievi previsti entro 5 anni: ' + ({ no:'nessuno', occ:'occasionali sotto il 10%',
+    prog:'programmati sopra il 10%' })[p.flussi] + '\n';
+  if (p.anni) t += 'Esperienza: ' + ({ '<1':'meno di 1 anno', '1-3':'1-3 anni', '3-10':'3-10 anni', '>10':'oltre 10 anni' })[p.anni] + '\n';
+  function lst(k, x){ return pbSel(k, x).map(function(v){ return (PB_LAB[k] || {})[v] || v; }); }
+  var st = lst('strumenti','nessuno');
+  if (st.length) t += 'Strumenti gia\' trattati: ' + st.join(', ') + '\n';
+  var ar = lst('aree','neutro');
+  if (ar.length) t += 'Sovrappeso geografico richiesto: ' + ar.join(', ') + '\n';
+  var se = lst('settori','nessuno');
+  if (se.length) t += 'Sovrappeso settoriale richiesto: ' + se.join(', ') + '\n';
+  var fa = lst('fattori','nessuno');
+  if (fa.length) t += 'Stile azionario richiesto: ' + fa.join(', ') + '\n';
+  t += '\n=== VINCOLI ASSOLUTI, NON NEGOZIABILI ===\n';
+  t += '- Solo ETF o ETC UCITS quotati su un mercato europeo\n';
+  if (!pbHas('complessi','sint')) t += '- Replica sintetica NON ammessa: solo replica fisica, totale o a campionamento\n';
+  if (!pbHas('complessi','leva')) t += '- Nessun prodotto a leva\n';
+  if (!pbHas('complessi','short')) t += '- Nessun prodotto inverso o short\n';
+  if (p.leva && p.leva !== 'no') t += '- Leva di portafoglio ammessa fino a ' + ({ '125':'1,25x', '150':'1,5x' })[p.leva] +
+    ', da realizzare a margine e non con prodotti a leva giornaliera\n';
+  pbSel('escludi','niente').forEach(function(x){ if (PB_ESCL[x]) t += '- Escludi: ' + PB_ESCL[x].replace(/<[^>]+>/g,'') + '\n'; });
+  return t;
 }
 
 function pbBrief(tipo){
@@ -10200,7 +10327,8 @@ function pbBrief(tipo){
       'Proventi: ' + ({ acc:'accumulazione', dist:'distribuzione' })[p.proventi] + '\n' +
       'ESG: ' + ({ no:'nessun vincolo', pref:'preferenza a parita\' di costo', si:'obbligatori (SRI / Paris-Aligned)' })[p.esg] + '\n' +
       'Regime fiscale: ' + ({ amm:'amministrato', dich:'dichiarativo' })[p.regime] + ' — residente fiscale italiano\n' +
-      'Mercati preferiti: Borsa Italiana (ETFplus) e Xetra\n\n' +
+      'Mercati preferiti: Borsa Italiana (ETFplus) e Xetra\n' +
+      pbBriefVinc() + '\n' +
       '=== POSIZIONI DA RIEMPIRE ===\n' +
       'Per ciascuna trovami il candidato migliore REALE attualmente quotato. Se un criterio non e\' soddisfacibile dimmelo invece di forzare.\n\n' +
       PB.slots.map(function(s, i){
@@ -10931,7 +11059,7 @@ function pbToggle(k){
   }
 }
 function pbNext(k){
-  if (k === 1) { if (!(pbN(PB.cap) > 0 && PB_Q.every(function(q){ return !!PB.p[q.k]; }))) return; PB.slots = pbSlots(); }
+  if (k === 1) { if (!(pbN(PB.cap) > 0 && PB_Q.every(pbQOk))) return; PB.slots = pbSlots(); }
   if (k === 2) { PB.slots = pbSlots(); }
   if (k === 4) { if (PB.slots.some(function(s){ var f = PB.fill[s.id] || {}; return !(f.nome && f.isin); })) return; }
   if (k === 5) { pbR5(); var b = document.getElementById('pbBtn5'); if (b && b.disabled) return; }
