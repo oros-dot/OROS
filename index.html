@@ -5930,11 +5930,75 @@ function storiaOpenModal(id) {
   var isCsp = entry.tipo === 'csp';
   var isBot = entry.tipo === 'bot';
 
-  // ── Outlook (Outlook): riusa il modale dettaglio del calendario
+  // ── Allocazione: scheda riassuntiva dentro Storico
   if (entry.tipo === 'pf') {
-    if (typeof pbTab === 'function') { goPage('costruz'); pbTab('B'); }
+    var pd = entry.data || {}, pr = entry.results || {};
+    var pfp = pd.profilo || {};
+    var PFPROFN = { cons:'Difensivo', bil:'Bilanciato', din:'Dinamico', aggr:'Aggressivo' };
+    var PFPROVN = { acc:'Accumulazione', dist:'Distribuzione' };
+    var pfEur = function(v){ return (v == null || isNaN(v)) ? '\u2014' : '\u20AC ' + Math.round(v).toLocaleString('it-IT'); };
+    var pfPct = function(v, dc){ return (v == null || isNaN(v)) ? '\u2014' : Number(v).toFixed(dc == null ? 1 : dc).replace('.', ',') + '%'; };
+
+    document.getElementById('storiaModalTitle').textContent = 'Allocazione \u2014 ' + (pd.nome || entry.label || 'Portafoglio');
+    document.getElementById('storiaModalMeta').textContent  = 'Salvata il ' + fmtDate(entry.savedAt);
+
+    var pfChips = [
+      PFPROFN[pfp.rischio] || null,
+      pfp.orizzonte ? 'Orizzonte ' + pfp.orizzonte : null,
+      (pd.scenario && pd.scenario !== '\u2014') ? pd.scenario : null,
+      PFPROVN[pfp.proventi] || null
+    ].filter(Boolean).map(function(c){
+      return '<span style="display:inline-block;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:20px;padding:4px 11px;font-family:\'Inter\',sans-serif;font-size:11px;font-weight:600;color:var(--tv-muted);">' + escapeHtml(String(c)) + '</span>';
+    }).join('');
+
+    var pfKpi = [
+      ['Capitale',          pfEur(pr.capitale != null ? pr.capitale : pd.capitale), '#26a69a'],
+      ['Posizioni',         String(pr.nPosizioni != null ? pr.nPosizioni : (pd.posizioni || []).length), 'var(--tv-text)'],
+      ['Volatilit\u00E0 attesa', pfPct(pr.volatilita), 'var(--tv-gold)'],
+      ['Perdita attesa',    pr.perdita != null ? '\u2212' + pfPct(pr.perdita, 0) : '\u2014', 'var(--tv-red)']
+    ].map(function(k){
+      return '<div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:7px;padding:10px;">' +
+        '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:3px;">' + escapeHtml(k[0]) + '</div>' +
+        '<div style="font-family:\'Inter\',sans-serif;font-size:15px;font-weight:700;color:' + k[2] + ';">' + escapeHtml(k[1]) + '</div>' +
+      '</div>';
+    }).join('');
+
+    var pfPos = pd.posizioni || [];
+    var pfRows = pfPos.map(function(p, i){
+      var bb = (i < pfPos.length - 1) ? 'border-bottom:1px solid var(--tv-bord);' : '';
+      return '<tr>' +
+        '<td style="padding:8px 10px;' + bb + '">' +
+          '<div style="color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:600;">' + escapeHtml(p.nome || '\u2014') + '</div>' +
+          (p.isin ? '<div style="color:var(--tv-muted);font-size:10px;margin-top:2px;">' + escapeHtml(p.isin) + '</div>' : '') +
+        '</td>' +
+        '<td style="padding:8px 10px;' + bb + 'text-align:right;white-space:nowrap;color:#a78bfa;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + pfPct(p.peso) + '</td>' +
+        '<td style="padding:8px 10px;' + bb + 'text-align:right;white-space:nowrap;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;">' + pfEur(p.importo) + '</td>' +
+      '</tr>';
+    }).join('');
+
+    document.getElementById('storiaModalBody').innerHTML =
+      (pfChips ? '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">' + pfChips + '</div>' : '') +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:10px;margin-bottom:16px;">' + pfKpi + '</div>' +
+      '<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:8px;">Composizione</div>' +
+      '<div style="max-height:280px;overflow-y:auto;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;">' +
+        '<table style="width:100%;border-collapse:collapse;">' +
+          (pfRows || '<tr><td style="padding:12px;color:var(--tv-muted);font-size:12px;">Nessuna posizione</td></tr>') +
+        '</table>' +
+      '</div>';
+
+    loadBtn.textContent = '\u21A9 Ricarica allocazione';
+    loadBtn.style.background = 'var(--tv-blue)';
+    loadBtn.style.color = '#fff';
+    loadBtn.onclick = function() {
+      document.getElementById('storiaModal').style.display = 'none';
+      if (typeof pbTab === 'function') { goPage('costruz'); pbTab('B'); }
+    };
+    document.getElementById('storiaModalDelete').style.display = ''; var _pfdb = document.getElementById('pfModalDeleteBtn'); if (_pfdb) _pfdb.remove(); var _pfeb = document.getElementById('pfModalEditBtn'); if (_pfeb) _pfeb.remove();
+    document.getElementById('storiaModal').style.display = 'block';
     return;
   }
+
+  // ── Outlook: riusa il modale dettaglio del calendario
   if (entry.tipo === 'meteo') {
     if (entry.date) meteoHistOpen(entry.date);
     return;
