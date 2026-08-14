@@ -165,7 +165,7 @@ function debounce(fn, wait) {
 // goPage defined first — always available
 function goPage(p) {
   window.__orosCurPage = p;
-  ['Home','Screener','CSP','CC','BOT','Portafoglio','Storia','Centro','Meteo','Costruz'].forEach(function(n) {
+  ['Home','Screener','CSP','CC','BOT','Portafoglio','Storia','Centro','Meteo','Costruz','Raccolta'].forEach(function(n) {
     var pg = document.getElementById('page' + n);
     var nb = document.getElementById('nav'  + n);
     var mb = document.getElementById('mobNav' + n);
@@ -204,11 +204,14 @@ function goPage(p) {
   if (p === 'costruz') {
     if (typeof pbOpenPage === 'function') pbOpenPage();
   }
+  if (p === 'raccolta') {
+    if (typeof raccOpenPage === 'function') raccOpenPage();
+  }
 }
 
 function goHome() {
   if (!sessionValid()) return;
-  ['pageHome','pageScreener','pageCSP','pageCC','pageBOT','pagePortafoglio','pageStoria','pageCentro','pageMeteo','pageCostruz'].forEach(function(id) {
+  ['pageHome','pageScreener','pageCSP','pageCC','pageBOT','pagePortafoglio','pageStoria','pageCentro','pageMeteo','pageCostruz','pageRaccolta'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -2730,6 +2733,73 @@ input[type="date"]::-webkit-date-and-time-value {
   min-height: 24px;
 }
 
+/* ══════════════════════════════════════════════
+   RACCOLTA DA TELEFONO — coda multi-titolo
+   ══════════════════════════════════════════════ */
+.hdr-btns { display:flex; align-items:center; gap:8px; }
+.gear-btn.racc-on { opacity:1; border-color:#7aa3ff; color:#7aa3ff; background:rgba(122,163,255,.10); }
+
+#raccRxBanner { margin-bottom:16px; }
+.racc-bnr {
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  background:rgba(122,163,255,.08); border:1px solid rgba(122,163,255,.28);
+  border-radius:8px; padding:11px 14px; font-family:'Inter',sans-serif;
+}
+.racc-bnr .t { font-size:12px; font-weight:600; color:#7aa3ff; }
+.racc-bnr .s { font-size:11px; color:var(--tv-muted); margin-top:2px; }
+.racc-bnr button {
+  background:rgba(239,83,80,.10); border:1px solid rgba(239,83,80,.28); color:var(--tv-red);
+  border-radius:6px; padding:6px 12px; font-size:11px; font-weight:600; cursor:pointer; flex-shrink:0;
+}
+
+.racc-stato { display:flex; align-items:center; gap:7px; font-size:11px; color:var(--tv-muted); margin-bottom:16px; font-family:'Inter',sans-serif; }
+.racc-dot { width:8px; height:8px; border-radius:50%; background:var(--tv-muted); flex-shrink:0; }
+.racc-dot.ok   { background:var(--tv-green); }
+.racc-dot.wait { background:var(--tv-gold); }
+.racc-dot.err  { background:var(--tv-red); }
+
+.racc-seg { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:18px 0 14px; }
+.racc-seg button {
+  padding:13px 10px; background:var(--tv-surf); border:1px solid var(--tv-bord); border-radius:8px;
+  color:var(--tv-muted); font-family:'Inter',sans-serif; font-size:13px; font-weight:600;
+  cursor:pointer; transition:all .2s;
+}
+.racc-seg button.on { border-color:#7aa3ff; color:#7aa3ff; background:rgba(122,163,255,.10); }
+
+.racc-row { background:var(--tv-surf); border:1px solid var(--tv-bord); border-radius:8px; padding:14px; margin-bottom:10px; }
+.racc-rowhead { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:11px; }
+.racc-num { font-size:10px; font-weight:700; letter-spacing:1.5px; color:var(--tv-muted); }
+.racc-del { background:rgba(239,83,80,.10); border:1px solid rgba(239,83,80,.28); color:var(--tv-red); border-radius:6px; padding:5px 10px; font-size:11px; font-weight:600; cursor:pointer; }
+.racc-tk { font-size:15px; font-weight:800; color:var(--tv-text); font-family:'Inter',sans-serif; }
+.racc-lot { font-size:10px; font-weight:700; padding:3px 8px; border-radius:5px; white-space:nowrap; }
+.racc-lot.ok { background:rgba(38,166,154,.12); color:var(--tv-green); border:1px solid rgba(38,166,154,.28); }
+.racc-lot.no { background:rgba(240,180,41,.12); color:var(--tv-gold); border:1px solid rgba(240,180,41,.28); }
+
+.racc-f { display:grid; gap:10px; }
+.racc-f.due { grid-template-columns:1fr 1fr; }
+.racc-f label { display:block; font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--tv-muted); margin-bottom:5px; }
+.racc-f input {
+  width:100%; box-sizing:border-box; background:var(--tv-bg); border:1px solid var(--tv-bord);
+  border-radius:8px; padding:12px 13px; color:var(--tv-text);
+  font-family:'Inter',sans-serif; font-size:16px; outline:none; transition:border-color .2s;
+}
+.racc-f input:focus { border-color:#7aa3ff; }
+
+.racc-ver { margin-top:12px; padding-top:11px; border-top:1px solid var(--tv-bord); display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.racc-ver > div { text-align:center; }
+.racc-vl { font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--tv-muted); margin-bottom:3px; }
+.racc-vv { font-size:14px; font-weight:800; font-family:'Inter',sans-serif; color:var(--tv-text); }
+
+.racc-add { width:100%; padding:14px; background:transparent; border:1px dashed var(--tv-bord); border-radius:8px; color:var(--tv-muted); font-family:'Inter',sans-serif; font-size:13px; font-weight:600; cursor:pointer; transition:all .2s; }
+.racc-add:hover { border-color:#7aa3ff; color:#7aa3ff; }
+
+.racc-foot { display:flex; gap:9px; margin-top:18px; }
+.racc-foot button { flex:1; padding:15px 12px; border-radius:8px; font-family:'Inter',sans-serif; font-size:14px; font-weight:700; cursor:pointer; border:1px solid var(--tv-bord); background:transparent; color:var(--tv-muted); }
+.racc-foot button.pri { background:var(--tv-blue); border-color:var(--tv-blue); color:#fff; }
+
+.racc-empty { text-align:center; padding:34px 18px; color:var(--tv-muted); font-size:13px; font-family:'Inter',sans-serif; }
+.racc-hint { font-size:11px; color:var(--tv-muted); font-family:'Inter',sans-serif; line-height:1.5; margin-top:-4px; margin-bottom:6px; }
+
 </style>
 </head>
 <body>
@@ -2996,9 +3066,13 @@ input[type="date"]::-webkit-date-and-time-value {
     <div class="logo-area">
       <h1>Cash Secured Put</h1>
     </div>
-    <button class="gear-btn" id="gearBtn" title="Impostazioni">⚙</button>
+    <div class="hdr-btns">
+      <button class="gear-btn" id="raccBtn" title="Raccolta da telefono" onclick="raccModalApri()"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="1" width="8" height="14" rx="1.8" stroke="currentColor" stroke-width="1.3"/><line x1="6.7" y1="12.7" x2="9.3" y2="12.7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>
+      <button class="gear-btn" id="gearBtn" title="Impostazioni">⚙</button>
+    </div>
   </header>
 
+  <div id="raccRxBanner"></div>
   <div id="cspBotAlert"></div>
 
   <div class="tabs-row" id="tabsRow">
@@ -3009,6 +3083,47 @@ input[type="date"]::-webkit-date-and-time-value {
 
   <div id="panelsContainer"></div>
   <div id="compareSection" style="display:none"></div>
+</div>
+</div>
+
+
+<!-- ════ RACCOLTA DA TELEFONO ════ -->
+<div id="pageRaccolta" style="display:none;">
+<div class="container" style="max-width:720px;">
+
+  <header>
+    <div class="logo-area">
+      <h1>Raccolta</h1>
+    </div>
+    <button class="gear-btn" title="Chiudi" onclick="goPage('csp')">✕</button>
+  </header>
+
+  <div class="racc-stato" id="raccStato"><span class="racc-dot"></span><span id="raccStatoTxt">In attesa</span></div>
+
+  <div class="panel">
+    <div class="section-title">Cash disponibile</div>
+    <div class="racc-hint">Vale per tutti i titoli della lista. Il numero di contratti lo calcola il sistema.</div>
+    <div class="racc-f">
+      <div>
+        <input type="text" inputmode="numeric" id="raccCash" placeholder="20.000" oninput="raccOnCash(this)">
+      </div>
+    </div>
+  </div>
+
+  <div class="racc-seg">
+    <button id="raccSegTv" class="on" onclick="raccSetBlocco('tv')">TradingView</button>
+    <button id="raccSegBr" onclick="raccSetBlocco('br')">Broker</button>
+  </div>
+
+  <div id="raccLista"></div>
+
+  <button class="racc-add" onclick="raccAddRow()">＋ Aggiungi titolo</button>
+
+  <div class="racc-foot">
+    <button onclick="raccNuovaSessione()">Nuova sessione</button>
+    <button class="pri" onclick="raccCompleta()">✓ Completa</button>
+  </div>
+
 </div>
 </div>
 
@@ -3997,6 +4112,23 @@ input[type="date"]::-webkit-date-and-time-value {
 
     <div style="font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--tv-gold);margin:22px 0 8px;">Le soglie non sono una verità</div>
     <div style="font-size:13px;line-height:1.75;color:var(--tv-text);margin-bottom:10px;">Le bande preimpostate sono un punto di partenza ragionato, non un valore validato sui tuoi titoli. Annota il rapporto ogni volta che vendi, confrontalo con com’è andata dopo 8-12 cicli, poi correggi le soglie nell’ingranaggio. Solo allora saranno tue.</div>
+  </div>
+</div>
+
+<div id="raccModal" style="display:none;position:fixed;inset:0;background:rgba(9,11,17,.92);z-index:9999;backdrop-filter:blur(8px);">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(430px,93vw);background:var(--tv-surf);border:1px solid var(--tv-bord);border-radius:12px;padding:26px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+      <div>
+        <div style="font-size:17px;font-weight:700;color:var(--tv-text);">📱 Raccolta da telefono</div>
+        <div style="font-size:11px;color:var(--tv-muted);margin-top:3px;" id="raccModalStato">—</div>
+      </div>
+      <button onclick="raccModalChiudi()" style="background:rgba(239,83,80,.12);border:1px solid rgba(239,83,80,.3);color:var(--tv-red);border-radius:6px;padding:6px 13px;font-size:13px;font-weight:600;cursor:pointer;">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--tv-muted);line-height:1.6;margin-bottom:18px;">
+      Inserisci i dati dal telefono raggruppati per schermata: prima tutti quelli di TradingView, poi tutti quelli del broker. Le schede si compilano da sole sul dispositivo in ricezione.
+    </div>
+    <button onclick="raccModalInserisci()" style="width:100%;padding:14px;margin-bottom:10px;background:var(--tv-blue);border:none;border-radius:8px;color:#fff;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">📲 Inserisci da questo dispositivo</button>
+    <button id="raccModalRxBtn" onclick="raccModalRicevi()" style="width:100%;padding:14px;background:transparent;border:1px solid var(--tv-bord);border-radius:8px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">🖥 Ricevi su questo dispositivo</button>
   </div>
 </div>
 
@@ -8618,6 +8750,9 @@ function meteoOpenPage() {
   window.fsMeteoCloudSave = function() {};
   window.fsMeteoInCloudSave = function() {};
   window.fsSyncOnLogin = function() {};
+  window.fsInboxSave   = function() { return Promise.reject(new Error('Firestore non disponibile')); };
+  window.fsInboxAttach = function() { return false; };
+  window.fsInboxDetach = function() {};
 
   if (typeof firebase === 'undefined') {
     return; // offline mode, stubs handle all calls silently
@@ -8662,6 +8797,7 @@ function meteoOpenPage() {
   // raddoppiando letture fatturate e render a ogni scrittura.
   var _unsub = {};
   function _detachAll() {
+    if (typeof window.fsInboxDetach === 'function') window.fsInboxDetach();
     Object.keys(_unsub).forEach(function(k) {
       try { _unsub[k](); } catch (e) { console.warn('Distacco listener fallito (' + k + '):', e); }
       delete _unsub[k];
@@ -8690,6 +8826,44 @@ function meteoOpenPage() {
         }
       }, function(e){ console.warn('Firestore listener error (' + docName + '):', e); });
   }
+
+  // ── Canale "inbox": raccolta dati dal telefono ──
+  // Documento effimero, semantica diversa da storia/portafoglio: niente mirror
+  // su localStorage e niente confronto di timestamp. Per questo NON passa da
+  // _attachListener, che è tarato sulle liste persistenti.
+  var _inboxUnsub = null;
+  window.fsInboxSave = function(payload) {
+    if (!window._orosUserId) return Promise.reject(new Error('Non connesso'));
+    return _db.collection('users').doc(window._orosUserId)
+      .collection('data').doc('inbox')
+      .set({
+        rows:      Array.isArray(payload.rows) ? payload.rows : [],
+        cash:      String(payload.cash || ''),
+        sessionId: String(payload.sessionId || ''),
+        focusRow:  String(payload.focusRow || ''),
+        doneId:    String(payload.doneId || ''),
+        updatedAt: new Date().toISOString()
+      });
+  };
+  window.fsInboxAttach = function(cb) {
+    if (!window._orosUserId) return false;
+    if (_inboxUnsub) return true;
+    _inboxUnsub = _db.collection('users').doc(window._orosUserId)
+      .collection('data').doc('inbox')
+      .onSnapshot(function(snap) {
+        if (!snap.exists) return;
+        // Scritture generate da questo stesso device: già applicate in locale.
+        if (snap.metadata && snap.metadata.hasPendingWrites) return;
+        try { cb(snap.data() || {}); }
+        catch (e) { console.warn('Inbox apply error:', e); }
+      }, function(e) { console.warn('Inbox listener error:', e); });
+    return true;
+  };
+  window.fsInboxDetach = function() {
+    if (!_inboxUnsub) return;
+    try { _inboxUnsub(); } catch (e) {}
+    _inboxUnsub = null;
+  };
 
   window.fsSyncOnLogin = function(userId) {
     // L'id finisce dentro un path Firestore: si ammettono solo caratteri
@@ -8744,6 +8918,464 @@ function meteoOpenPage() {
     });
   };
 })();
+</script>
+
+<!-- ════ RACCOLTA DA TELEFONO — motore ════ -->
+<script>
+// ══════════════════════════════════════════════════════════════
+//  RACCOLTA DA TELEFONO
+//  Telefono = tastiera. Desktop/iPad = schermo.
+//  Le righe viaggiano su users/{uid}/data/inbox e diventano schede CSP.
+// ══════════════════════════════════════════════════════════════
+
+var RACC_LS = 'oros_raccolta_v1';
+var RACC_CAMPI = ['ticker', 'spot', 'hv', 'strike', 'premio', 'lotto'];
+
+// Stato lato telefono (invio)
+var RACC = { rows: [], cash: '', sessionId: '', focusRow: '', doneId: '', blocco: 'tv', seq: 0 };
+
+// Stato lato ricevente (desktop / iPad)
+var RACC_RX = { on: false, map: {}, sid: '', lastDone: '', nRighe: 0 };
+
+function raccStr(v) { return (v == null) ? '' : String(v); }
+
+function raccNuovoId() {
+  RACC.seq++;
+  return 'r' + Date.now().toString(36) + RACC.seq.toString(36);
+}
+
+// ── Persistenza locale (la coda sopravvive a un reload del telefono) ──
+function raccCarica() {
+  var raw;
+  try { raw = JSON.parse(localStorage.getItem(RACC_LS) || 'null'); } catch (e) { raw = null; }
+  if (!raw || typeof raw !== 'object') raw = {};
+  RACC.rows = Array.isArray(raw.rows) ? raw.rows.filter(function(r) {
+    return r && typeof r === 'object' && OROS_ID_OK.test(raccStr(r.id));
+  }) : [];
+  RACC.cash = raccStr(raw.cash);
+  RACC.sessionId = OROS_ID_OK.test(raccStr(raw.sessionId)) ? raccStr(raw.sessionId) : raccNuovoId();
+}
+
+function raccSalvaLocale() {
+  orosLsSet(RACC_LS, JSON.stringify({ rows: RACC.rows, cash: RACC.cash, sessionId: RACC.sessionId }));
+}
+
+// ── Invio verso il dispositivo in ricezione ──
+function raccInvia() {
+  raccSalvaLocale();
+  raccStatoSet('wait', 'Invio\u2026');
+  window.fsInboxSave({
+    rows: RACC.rows.map(function(r) {
+      var o = { id: r.id };
+      RACC_CAMPI.forEach(function(k) { o[k] = raccStr(r[k]).slice(0, 40); });
+      return o;
+    }),
+    cash: RACC.cash,
+    sessionId: RACC.sessionId,
+    focusRow: RACC.focusRow,
+    doneId: RACC.doneId
+  }).then(function() {
+    raccStatoSet('ok', 'Sincronizzato');
+  }).catch(function(e) {
+    raccStatoSet('err', 'Non sincronizzato \u2014 ' + (e && e.message ? e.message : 'errore'));
+  });
+}
+var raccInviaDeb = debounce(raccInvia, 500);
+
+function raccStatoSet(cls, txt) {
+  var d = document.querySelector('#raccStato .racc-dot');
+  var t = document.getElementById('raccStatoTxt');
+  if (d) d.className = 'racc-dot' + (cls ? ' ' + cls : '');
+  if (t) t.textContent = txt;
+}
+
+// ── Righe ──
+function raccRow(rid) {
+  for (var i = 0; i < RACC.rows.length; i++) if (RACC.rows[i].id === rid) return RACC.rows[i];
+  return null;
+}
+
+function raccLot(r) {
+  var man = parseInt(raccStr(r.lotto), 10);
+  if (man > 0) return man;
+  var auto = orosLookupLot(raccStr(r.ticker));
+  return (typeof auto === 'number' && auto > 0) ? auto : 0;
+}
+
+// Calcolo identico alla scheda CSP: stesso compute(), stesse impostazioni.
+function raccCalc(r) {
+  var d = {
+    strike: parseNum(raccStr(r.strike)),
+    premio: parseNum(raccStr(r.premio)),
+    quantitaOpz: raccLot(r),
+    cash: parseNum(RACC.cash),
+    spot: parseNum(raccStr(r.spot)),
+    hv: parseNum(raccStr(r.hv))
+  };
+  if (!(d.strike > 0) || isNaN(d.premio) || d.premio < 0) return null;
+  if (!(d.quantitaOpz > 0) || !(d.cash > 0)) return null;
+  return compute(d);
+}
+
+function raccAddRow() {
+  var r = { id: raccNuovoId(), ticker: '', spot: '', hv: '', strike: '', premio: '', lotto: '' };
+  RACC.rows.push(r);
+  RACC.focusRow = r.id;
+  RACC.doneId = '';
+  raccRender();
+  var el = document.querySelector('#raccLista .racc-row:last-child input');
+  if (el) el.focus();
+  raccInvia();
+}
+
+function raccDelRow(rid) {
+  orosConfirm('Eliminare questo titolo dalla lista?', function() {
+    RACC.rows = RACC.rows.filter(function(r) { return r.id !== rid; });
+    if (RACC.focusRow === rid) RACC.focusRow = '';
+    RACC.doneId = '';
+    raccRender();
+    raccInvia();
+  }, { okLabel: '\u2716 Elimina', danger: true });
+}
+
+function raccSetBlocco(b) {
+  RACC.blocco = (b === 'br') ? 'br' : 'tv';
+  var a = document.getElementById('raccSegTv');
+  var c = document.getElementById('raccSegBr');
+  if (a) a.className = (RACC.blocco === 'tv') ? 'on' : '';
+  if (c) c.className = (RACC.blocco === 'br') ? 'on' : '';
+  raccRender();
+}
+
+// ── Input: si tocca solo il nodo interessato, mai l'intera lista ──
+function raccOnInput(rid, campo, el) {
+  var r = raccRow(rid);
+  if (!r) return;
+  if (RACC_CAMPI.indexOf(campo) === -1) return;
+  r[campo] = el.value;
+  RACC.focusRow = rid;
+  RACC.doneId = '';
+  if (campo === 'ticker') raccUpdLotto(rid);
+  raccUpdVerdetto(rid);
+  raccInviaDeb();
+}
+
+function raccOnCash(el) {
+  var raw = el.value.replace(/\./g, '').replace(/\D/g, '');
+  if (raw !== '') {
+    var f = parseInt(raw, 10).toLocaleString('it-IT');
+    el.value = f;
+    RACC.cash = f;
+    try { el.setSelectionRange(f.length, f.length); } catch (e) {}
+  } else {
+    el.value = '';
+    RACC.cash = '';
+  }
+  RACC.doneId = '';
+  RACC.rows.forEach(function(r) { raccUpdVerdetto(r.id); });
+  raccInviaDeb();
+}
+
+function raccUpdLotto(rid) {
+  var r = raccRow(rid);
+  var el = document.querySelector('[data-racc-lot="' + rid + '"]');
+  if (!r || !el) return;
+  el.outerHTML = raccLottoHtml(r);
+}
+
+function raccLottoHtml(r) {
+  var lot = raccLot(r);
+  var id = escapeAttr(r.id);
+  if (lot > 0) return '<span class="racc-lot ok" data-racc-lot="' + id + '">LOTTO ' + lot + '</span>';
+  if (!raccStr(r.ticker).trim()) return '<span class="racc-lot" data-racc-lot="' + id + '"></span>';
+  return '<span class="racc-lot no" data-racc-lot="' + id + '">LOTTO ?</span>';
+}
+
+function raccUpdVerdetto(rid) {
+  var r = raccRow(rid);
+  var el = document.querySelector('[data-racc-out="' + rid + '"]');
+  if (!r || !el) return;
+  el.innerHTML = raccVerdettoHtml(r);
+}
+
+function raccVerdettoHtml(r) {
+  var res = raccCalc(r);
+  var ran = '\u2014', col = 'var(--tv-text)', ctr = '\u2014', ivhv = '\u2014';
+  if (res) {
+    ran = fmtPct(res.rendAnnuoNetto);
+    col = orosRfColor(res.rendAnnuoNetto) || 'var(--tv-green)';
+    ctr = String(res.quantita);
+    if (res.vrp && isFinite(res.vrp.ratio)) ivhv = fmtDec(res.vrp.ratio, 2);
+  }
+  return '<div><div class="racc-vl">Rend. Annuo Netto</div><div class="racc-vv" style="color:' + col + ';">' + ran + '</div></div>' +
+         '<div><div class="racc-vl">Contratti</div><div class="racc-vv">' + ctr + '</div></div>' +
+         '<div><div class="racc-vl">IV / HV</div><div class="racc-vv">' + ivhv + '</div></div>';
+}
+
+function raccRender() {
+  var c = document.getElementById('raccLista');
+  if (!c) return;
+  if (!RACC.rows.length) {
+    c.innerHTML = '<div class="racc-empty">Nessun titolo in lista.<br>Premi \uff0b Aggiungi titolo per iniziare.</div>';
+    return;
+  }
+  var tv = (RACC.blocco === 'tv');
+  c.innerHTML = RACC.rows.map(function(r, i) {
+    var id = escapeAttr(r.id);
+    var campi;
+    if (tv) {
+      campi =
+        '<div class="racc-f"><div><label>Ticker</label>' +
+          '<input type="text" maxlength="40" placeholder="es. ENEL" value="' + escapeAttr(r.ticker) + '" oninput="raccOnInput(\'' + id + '\',\'ticker\',this)"></div></div>' +
+        '<div class="racc-f due" style="margin-top:10px;">' +
+          '<div><label>Prezzo</label><input type="text" inputmode="decimal" placeholder="9,52" value="' + escapeAttr(r.spot) + '" oninput="raccOnInput(\'' + id + '\',\'spot\',this)"></div>' +
+          '<div><label>HV %</label><input type="text" inputmode="decimal" placeholder="24,5" value="' + escapeAttr(r.hv) + '" oninput="raccOnInput(\'' + id + '\',\'hv\',this)"></div>' +
+        '</div>' +
+        (raccLot(r) > 0 ? '' :
+          '<div class="racc-f" style="margin-top:10px;"><div><label>Lotto (non trovato in automatico)</label>' +
+          '<input type="text" inputmode="numeric" placeholder="es. 500" value="' + escapeAttr(r.lotto) + '" oninput="raccOnInput(\'' + id + '\',\'lotto\',this)"></div></div>');
+    } else {
+      campi =
+        '<div class="racc-f due">' +
+          '<div><label>Strike</label><input type="text" inputmode="decimal" placeholder="9,00" value="' + escapeAttr(r.strike) + '" oninput="raccOnInput(\'' + id + '\',\'strike\',this)"></div>' +
+          '<div><label>Premio (bid)</label><input type="text" inputmode="decimal" placeholder="0,036" value="' + escapeAttr(r.premio) + '" oninput="raccOnInput(\'' + id + '\',\'premio\',this)"></div>' +
+        '</div>';
+    }
+    var nome = raccStr(r.ticker).trim() ? escapeHtml(raccStr(r.ticker).toUpperCase()) : ('TITOLO ' + (i + 1));
+    return '<div class="racc-row">' +
+      '<div class="racc-rowhead">' +
+        '<span class="racc-tk">' + nome + '</span>' +
+        '<span style="display:flex;align-items:center;gap:8px;">' + raccLottoHtml(r) +
+          '<button class="racc-del" onclick="raccDelRow(\'' + id + '\')">\u2716</button>' +
+        '</span>' +
+      '</div>' + campi +
+      '<div class="racc-ver" data-racc-out="' + id + '">' + raccVerdettoHtml(r) + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function raccOpenPage() {
+  if (!RACC.sessionId) raccCarica();
+  var ci = document.getElementById('raccCash');
+  if (ci) ci.value = RACC.cash;
+  raccSetBlocco(RACC.blocco);
+  raccStatoSet('', RACC.rows.length ? (RACC.rows.length + ' titoli in lista') : 'In attesa');
+}
+
+function raccCompleta() {
+  if (!RACC.rows.length) { orosAlert('Aggiungi almeno un titolo prima di completare.'); return; }
+  RACC.doneId = raccNuovoId();
+  RACC.focusRow = '';
+  raccInvia();
+  raccStatoSet('ok', RACC.rows.length + ' schede inviate');
+}
+
+function raccNuovaSessione() {
+  orosConfirm('Svuotare la lista e iniziare una nuova sessione?<br><br>Le schede gi\u00e0 create restano dove sono.', function() {
+    RACC.rows = [];
+    RACC.focusRow = '';
+    RACC.doneId = '';
+    RACC.sessionId = raccNuovoId();
+    raccRender();
+    raccInvia();
+    raccStatoSet('', 'In attesa');
+  }, { okLabel: '\u2713 Nuova sessione', danger: false });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  LATO RICEVENTE
+// ══════════════════════════════════════════════════════════════
+
+function raccTabVuota(t) {
+  if (!t) return false;
+  var d = t.data || {};
+  return !raccStr(d.ticker).trim() && !raccStr(d.strike).trim() && !raccStr(d.premio).trim() &&
+         !raccStr(d.cash).trim() && !raccStr(d.spot).trim() && !raccStr(d.hv).trim();
+}
+
+function raccRxTab(rid) {
+  var tid = RACC_RX.map[rid];
+  if (tid) {
+    for (var i = 0; i < tabs.length; i++) if (tabs[i].id === tid) return tabs[i];
+    delete RACC_RX.map[rid];
+  }
+  // La scheda vuota iniziale viene riusata invece di lasciarla in mezzo.
+  var libera = null;
+  if (tabs.length === 1 && raccTabVuota(tabs[0])) {
+    var gia = false;
+    for (var k in RACC_RX.map) if (RACC_RX.map[k] === tabs[0].id) gia = true;
+    if (!gia) libera = tabs[0];
+  }
+  if (!libera) {
+    var nid = createTab();
+    for (var j = 0; j < tabs.length; j++) if (tabs[j].id === nid) libera = tabs[j];
+  }
+  if (!libera) return null;
+  RACC_RX.map[rid] = libera.id;
+  return libera;
+}
+
+// Allinea il select "Quantità per Opzione" solo quando è davvero disallineato:
+// un re-render a ogni snapshot ricostruirebbe gli input 2 volte al secondo.
+function raccRxSyncLotto(tab, c) {
+  var sel = c.querySelector('[data-field="quantitaOpz_sel"]');
+  if (!sel) return false;
+  var lot = parseInt(tab.data.quantitaOpz, 10);
+  if (!(lot > 0)) return false;
+  var atteso = (lot === 100 || lot === 500 || lot === 1000) ? String(lot) : 'custom';
+  var inp = sel.parentElement ? sel.parentElement.querySelector('input[data-field="quantitaOpz"]') : null;
+  var ok = (sel.value === atteso) && (atteso !== 'custom' || (inp && String(inp.value) === String(lot)));
+  if (ok) return false;
+  renderPanels();
+  return true;
+}
+
+function raccRxSyncInputs() {
+  var c = document.getElementById('panelsContainer');
+  if (!c) return;
+  var tab = null;
+  for (var i = 0; i < tabs.length; i++) if (tabs[i].id === activeTab) tab = tabs[i];
+  if (!tab) return;
+  raccRxSyncLotto(tab, c);
+  ['ticker', 'strike', 'premio', 'spot', 'hv', 'cash'].forEach(function(f) {
+    var el = c.querySelector('input[data-field="' + f + '"]');
+    if (!el) return;
+    // Se il campo è sotto il cursore su questo device, non lo si tocca.
+    if (el === document.activeElement) return;
+    var v = raccStr(tab.data[f]);
+    if (el.value !== v) el.value = v;
+  });
+}
+
+function raccRxApply(p) {
+  if (!RACC_RX.on) return;
+  var rows = Array.isArray(p.rows) ? p.rows : [];
+  var cash = raccStr(p.cash);
+  var sid = raccStr(p.sessionId);
+
+  // Nuova sessione sul telefono: le schede gi\u00e0 create vengono sganciate,
+  // non cancellate. Cos\u00ec "Nuova sessione" non distrugge il lavoro sul Mac.
+  if (sid !== RACC_RX.sid) { RACC_RX.sid = sid; RACC_RX.map = {}; }
+
+  var visti = {};
+  rows.forEach(function(r) {
+    if (!r || typeof r !== 'object') return;
+    var rid = raccStr(r.id);
+    if (!OROS_ID_OK.test(rid)) return;
+    visti[rid] = 1;
+    var tab = raccRxTab(rid);
+    if (!tab) return;
+    tab.data.ticker = raccStr(r.ticker).slice(0, 40);
+    tab.data.spot   = raccStr(r.spot);
+    tab.data.hv     = raccStr(r.hv);
+    tab.data.strike = raccStr(r.strike);
+    tab.data.premio = raccStr(r.premio);
+    tab.data.cash   = cash;
+    var man = parseInt(raccStr(r.lotto), 10);
+    var lot = (man > 0) ? man : orosLookupLot(tab.data.ticker);
+    if (typeof lot === 'number' && lot > 0) {
+      tab.data.quantitaOpz = lot;
+      tab.data._qtaCustom = !(lot === 100 || lot === 500 || lot === 1000);
+    }
+  });
+
+  // Riga eliminata sul telefono nella stessa sessione: si chiude la scheda.
+  Object.keys(RACC_RX.map).forEach(function(rid) {
+    if (visti[rid]) return;
+    var tid = RACC_RX.map[rid];
+    delete RACC_RX.map[rid];
+    for (var i = 0; i < tabs.length; i++) {
+      if (tabs[i].id === tid) { removeTab(tid); break; }
+    }
+  });
+
+  RACC_RX.nRighe = rows.length;
+
+  // La scheda mostrata segue la riga che si sta compilando sul telefono.
+  var fid = raccStr(p.focusRow);
+  var ftid = RACC_RX.map[fid];
+  var esiste = false;
+  if (ftid) for (var i2 = 0; i2 < tabs.length; i2++) if (tabs[i2].id === ftid) esiste = true;
+
+  if (esiste && ftid !== activeTab) {
+    setActive(ftid);
+  } else {
+    renderTabs();
+    raccRxSyncInputs();
+    for (var i3 = 0; i3 < tabs.length; i3++) if (tabs[i3].id === activeTab) updateOutputs(tabs[i3]);
+  }
+  raccRxBanner();
+
+  var did = raccStr(p.doneId);
+  if (did && did !== RACC_RX.lastDone) {
+    RACC_RX.lastDone = did;
+    if (window.__orosCurPage !== 'csp') goPage('csp');
+    renderAll();
+    raccRxBanner(true);
+  }
+}
+
+function raccRxBanner(completato) {
+  var b = document.getElementById('raccRxBanner');
+  if (!b) return;
+  if (!RACC_RX.on) { b.innerHTML = ''; return; }
+  var n = RACC_RX.nRighe;
+  var t = completato ? '\u2713 Raccolta completata' : '\U0001F4F1 In ricezione dal telefono';
+  var s = n ? (n + (n === 1 ? ' titolo' : ' titoli') + ' in lista') : 'In attesa dei dati\u2026';
+  b.innerHTML = '<div class="racc-bnr"><div><div class="t">' + t + '</div><div class="s">' + s + '</div></div>' +
+                '<button onclick="raccRxStop()">Interrompi</button></div>';
+}
+
+function raccRxStart() {
+  if (RACC_RX.on) return true;
+  if (!window.fsInboxAttach(raccRxApply)) {
+    orosAlert('Sincronizzazione non disponibile: controlla la connessione e riprova.');
+    return false;
+  }
+  RACC_RX.on = true;
+  RACC_RX.nRighe = 0;
+  var btn = document.getElementById('raccBtn');
+  if (btn) btn.className = 'gear-btn racc-on';
+  raccRxBanner();
+  return true;
+}
+
+function raccRxStop() {
+  if (!RACC_RX.on) return;
+  RACC_RX.on = false;
+  window.fsInboxDetach();
+  var btn = document.getElementById('raccBtn');
+  if (btn) btn.className = 'gear-btn';
+  raccRxBanner();
+}
+
+// ── Modale di scelta ruolo ──
+function raccModalApri() {
+  var st = document.getElementById('raccModalStato');
+  if (st) st.textContent = RACC_RX.on ? 'Questo dispositivo \u00e8 in ricezione' : 'Nessuna ricezione attiva';
+  var rb = document.getElementById('raccModalRxBtn');
+  if (rb) rb.textContent = RACC_RX.on ? '\u23f9 Interrompi la ricezione' : '\U0001F5A5 Ricevi su questo dispositivo';
+  var m = document.getElementById('raccModal');
+  if (m) m.style.display = 'block';
+}
+function raccModalChiudi() {
+  var m = document.getElementById('raccModal');
+  if (m) m.style.display = 'none';
+}
+function raccModalInserisci() {
+  raccModalChiudi();
+  goPage('raccolta');
+}
+function raccModalRicevi() {
+  if (RACC_RX.on) { raccRxStop(); raccModalChiudi(); return; }
+  if (raccRxStart()) raccModalChiudi();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  raccCarica();
+  var m = document.getElementById('raccModal');
+  if (m) m.addEventListener('click', function(e) { if (e.target === m) raccModalChiudi(); });
+});
 </script>
 
 <!-- ════ SIDEBAR TOOLTIP ════ -->
