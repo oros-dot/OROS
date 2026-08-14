@@ -182,6 +182,9 @@ function goPage(p) {
   } else {
     document.body.classList.add('has-sidebar');
   }
+  if (p === 'csp' || p === 'cc') {
+    if (typeof orosBotAlertRender === 'function') orosBotAlertRender();
+  }
   if (p === 'screener') {
     var t = document.documentElement.getAttribute('data-theme') || 'dark';
     buildScreener(t);
@@ -2139,6 +2142,85 @@ body.has-sidebar #pageMeteo {
   background: rgba(38,166,154,.04);
 }
 #pageCSP .out-value { color: var(--tv-green); }
+.warn-i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  margin-left: 5px;
+  border-radius: 4px;
+  background: rgba(240,180,41,.16);
+  color: var(--tv-gold);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: middle;
+  animation: warnPulse 2.4s ease-in-out infinite;
+}
+.warn-i:hover { background: rgba(240,180,41,.3); }
+@keyframes warnPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(240,180,41,.35); }
+  50%      { box-shadow: 0 0 0 4px rgba(240,180,41,0); }
+}
+
+.bot-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin: 0 0 18px;
+  padding: 18px 20px;
+  border: 1px solid rgba(240,180,41,.45);
+  border-left: 4px solid var(--tv-gold);
+  border-radius: 8px;
+  background: rgba(240,180,41,.07);
+}
+.bot-alert-ico {
+  flex-shrink: 0;
+  font-size: 26px;
+  line-height: 1.1;
+  color: var(--tv-gold);
+}
+.bot-alert-t {
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--tv-gold);
+  margin-bottom: 5px;
+}
+.bot-alert-s {
+  font-family: 'Inter', sans-serif;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--tv-text);
+}
+.bot-alert-s b { color: var(--tv-gold); }
+.bot-alert-btns { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 13px; }
+.bot-alert-btns button {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.bot-alert-b1 { border: 1px solid var(--tv-gold); background: rgba(240,180,41,.18); color: var(--tv-gold); }
+.bot-alert-b2 { border: 1px solid var(--tv-bord); background: var(--tv-surf2); color: var(--tv-muted); }
+@media (max-width: 640px) {
+  .bot-alert { padding: 15px; gap: 12px; }
+  .bot-alert-ico { font-size: 21px; }
+  .bot-alert-btns button { flex: 1; }
+}
+
+#pageCSP .rf-chip {
+  font-family: 'Inter', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  margin-top: 5px;
+  white-space: nowrap;
+  color: var(--tv-muted);
+}
 #pageCSP .out-label,
 #pageCSP .out-sub   { color: var(--tv-muted); font-family: 'Inter', sans-serif; }
 #pageCSP .perf-bar  { background: var(--tv-bord); }
@@ -2917,6 +2999,8 @@ input[type="date"]::-webkit-date-and-time-value {
     <button class="gear-btn" id="gearBtn" title="Impostazioni">⚙</button>
   </header>
 
+  <div id="cspBotAlert"></div>
+
   <div class="tabs-row" id="tabsRow">
     <button class="compare-btn" id="compareBtn">⊞ Confronta</button>
     <!-- tabs injected here -->
@@ -2936,6 +3020,8 @@ input[type="date"]::-webkit-date-and-time-value {
     </div>
     <button class="gear-btn" id="ccGearBtn" title="Impostazioni">⚙</button>
   </header>
+  <div id="ccBotAlert"></div>
+
   <div class="tabs-row" id="ccTabsRow">
     <button class="compare-btn" id="ccCompareBtn">⊞ Confronta</button>
     <button class="add-tab-btn" id="ccAddTabBtn" title="Aggiungi titolo">+</button>
@@ -2984,7 +3070,7 @@ input[type="date"]::-webkit-date-and-time-value {
       <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--tv-bord);">💰 Rimborso</div>
       <label style="font-size:11px;color:var(--tv-muted);display:block;margin-bottom:5px;">Valore di rimborso a scadenza</label>
       <input id="bot_s_rimborso" type="text" value="1" style="width:100%;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:9px 13px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;box-sizing:border-box;">
-      <div style="font-size:11px;color:var(--tv-muted);margin-top:4px;">Default: 1 (= 100% — rimborso standard BOT)</div>
+      <div style="font-size:11px;color:var(--tv-muted);margin-top:4px;">Default: 1. Vale anche scriverlo 100: come per il prezzo, il formato viene riconosciuto da solo.</div>
     </div>
 
     <!-- Commissioni -->
@@ -4058,7 +4144,12 @@ document.getElementById('saveSettings').addEventListener('click', () => {
   const p2 = parseFloat((document.getElementById('s_vrpCspMax').value  || '').replace(',', '.'));
   const c1 = parseFloat((document.getElementById('s_vrpCcMin').value   || '').replace(',', '.'));
   const c2 = parseFloat((document.getElementById('s_vrpCcMax').value   || '').replace(',', '.'));
-  if (!isNaN(vt) && vt >= 0 && vt <= 50) { VRP_TASSO = vt; VRP_BOT_PREZZO = bp; VRP_BOT_GIORNI = bg; }
+  if (!isNaN(vt) && vt >= 0 && vt <= 50) {
+    // La data si timbra solo se il dato e' davvero cambiato: confermare
+    // l'ingranaggio per tutt'altro motivo non deve azzerare il promemoria.
+    if (bp !== VRP_BOT_PREZZO || bg !== VRP_BOT_GIORNI) orosBotSegnaAggiornato();
+    VRP_TASSO = vt; VRP_BOT_PREZZO = bp; VRP_BOT_GIORNI = bg;
+  }
   if (!isNaN(p1) && p1 > 0 && !isNaN(p2) && p2 > p1) { VRP_CSP_MIN = p1; VRP_CSP_MAX = p2; }
   if (!isNaN(c1) && c1 > 0 && !isNaN(c2) && c2 > c1) { VRP_CC_MIN  = c1; VRP_CC_MAX  = c2; }
   // Update formula display
@@ -4068,6 +4159,7 @@ document.getElementById('saveSettings').addEventListener('click', () => {
     `= €${fmtDec(COMMISSIONI_UNIT, 2)}/contratto × N° contratti`;
   orosCfgSave();
   document.getElementById('settingsOverlay').style.display = 'none';
+  orosBotAlertRender();
   renderAll();
   if (compareVisible) renderCompare();
   if (typeof ccRenderAll === 'function' && ccTabs.length) ccRenderAll();
@@ -4139,6 +4231,8 @@ function orosCfgSave() {
       vrpTasso:     VRP_TASSO,
       vrpBotPrezzo: VRP_BOT_PREZZO,
       vrpBotGiorni: VRP_BOT_GIORNI,
+      vrpBotAgg:    VRP_BOT_AGG,
+      vrpBotSnooze: VRP_BOT_SNOOZE,
       vrpCspMin:    VRP_CSP_MIN,
       vrpCspMax:    VRP_CSP_MAX,
       vrpCcMin:     VRP_CC_MIN,
@@ -4168,6 +4262,9 @@ function orosCfgLoad() {
   if (ok(c.vrpTasso, 0, 50))        VRP_TASSO        = c.vrpTasso;
   if (ok(c.vrpBotPrezzo, 0, 100))   VRP_BOT_PREZZO   = c.vrpBotPrezzo;
   if (ok(c.vrpBotGiorni, 1, 3650))  VRP_BOT_GIORNI   = c.vrpBotGiorni;
+  var isoOk = function (v) { return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v); };
+  if (isoOk(c.vrpBotAgg))    VRP_BOT_AGG    = c.vrpBotAgg;
+  if (isoOk(c.vrpBotSnooze)) VRP_BOT_SNOOZE = c.vrpBotSnooze;
   if (ok(c.vrpCspMin, 0, 10) && ok(c.vrpCspMax, 0, 10) && c.vrpCspMax > c.vrpCspMin) {
     VRP_CSP_MIN = c.vrpCspMin; VRP_CSP_MAX = c.vrpCspMax;
   }
@@ -4474,9 +4571,234 @@ function vrpCalc(type, spot, strike, premio, hvPct, nAzioni) {
 // Porta il valore equo sulla stessa base netta del premio mostrato nella card.
 function vrpApplyNet(vrp, commissioniTot, premioNetto) {
   if (!vrp) return;
-  var fn = vrp.fairLordo - commissioniTot;
-  vrp.fairNetto  = Math.max(0, fn - fn * CAPITAL_GAIN);
+  // Le commissioni sono un costo di transazione, non una componente del valore
+  // teorico dell'opzione. Attribuirle al valore equo lo schiacciava a zero ogni
+  // volta che il fair lordo era piu' piccolo delle commissioni - cioe' quasi
+  // sempre sugli strike lontani - facendo comparire "Valore equo 0,00" anche su
+  // premi con un fair reale di 1-2 euro. Restano a carico dell'extra premio, che
+  // e' la parte che incassi davvero. fairNetto + extraNetto resta il premio netto.
+  var fl = Math.max(0, vrp.fairLordo);
+  vrp.fairNetto  = fl - fl * CAPITAL_GAIN;
   vrp.extraNetto = premioNetto - vrp.fairNetto;
+}
+
+// ══════════════════════════════════════
+// CONFRONTO COL TASSO SENZA RISCHIO
+// Il cash di una CSP resta immobilizzato fino a scadenza: l'alternativa e' il
+// BOT. Il tasso ricavato dal BOT e' lordo, il rendimento della CSP e' gia' al
+// netto: per confrontarli tolgo dal BOT l'aliquota agevolata del 12,5%, la
+// stessa usata dalla pagina Rendimento BOT.
+// Solo sulla CSP: sulla CC il capitale e' gia' dentro le azioni, l'alternativa
+// a non vendere e' tenerle a reddito zero, non comprare un BOT.
+// ══════════════════════════════════════
+var BOT_ALIQUOTA = 0.125;
+
+function orosRfNetto() {
+  var t = VRP_TASSO / 100;
+  if (!isFinite(t) || t <= 0) return NaN;
+  return t * (1 - BOT_ALIQUOTA);
+}
+
+// Rosso quando il rendimento annuo netto non batte il BOT netto, altrimenti
+// lascia il verde della pagina.
+function orosRfColor(rendAnnuoNetto) {
+  var rf = orosRfNetto();
+  if (!isFinite(rf) || !isFinite(rendAnnuoNetto)) return '';
+  return (rendAnnuoNetto < rf) ? 'var(--tv-red)' : '';
+}
+
+function orosRfChipHtml() {
+  var t = VRP_TASSO / 100;
+  if (!isFinite(t) || t <= 0) return '';
+  return '<div class="rf-chip">BOT ' + fmtPct(t) + '</div>';
+}
+
+
+// ══════════════════════════════════════
+// DIAGNOSTICA DEGLI INPUT
+// Non blocca e non corregge niente: sui mercati estremi capitano numeri
+// estremi, e la decisione resta sempre di chi guarda. Segnala soltanto, con un
+// triangolo accanto al campo, i valori che quasi sempre nascono da un errore di
+// inserimento. Il caso tipico e' una HV che il prezzo dell'opzione smentisce.
+// Le soglie sono volutamente larghe: meglio un avviso in meno che uno di troppo,
+// altrimenti diventa rumore e si smette di leggerlo.
+// ══════════════════════════════════════
+var DIAG_HV_MIN   = 3;     // % annua: sotto, per un'azione quotata, non esiste
+var DIAG_HV_MAX   = 200;   // % annua: sopra, solo titoli in dissesto
+var DIAG_SIGMA    = 4;     // deviazioni standard oltre cui lo strike e' irraggiungibile
+var DIAG_RATIO    = 2;     // IV/HV oltre cui il mercato smentisce la HV inserita
+var DIAG_IV_MAX   = 3;     // IV 300%: premio quasi certamente sbagliato
+var DIAG_FATTORE  = 5;     // strike e prezzo distanti oltre 5x: virgola sbagliata
+
+function orosDiag(tipo, spot, strike, premio, hv, vrp) {
+  var w = {};
+  var ok = function (x) { return isFinite(x) && x > 0; };
+
+  // Strike e prezzo che differiscono di ordini di grandezza: quasi sempre
+  // e' un decimale finito nel posto sbagliato.
+  if (ok(spot) && ok(strike)) {
+    var f = (spot > strike) ? (spot / strike) : (strike / spot);
+    if (f > DIAG_FATTORE) {
+      w.strike = 'Strike e prezzo differiscono di ' + fmtDec(f, 1) + ' volte. Di solito e\' una virgola nel posto sbagliato: controlla i decimali di entrambi i campi.';
+    }
+  }
+
+  // Lato sbagliato rispetto al prezzo. Non e' un errore in se', ma se non era
+  // voluto e' meglio accorgersene prima di vendere.
+  if (ok(spot) && ok(strike) && !w.strike) {
+    if (tipo === 'put' && strike > spot) {
+      w.strike = 'Lo strike e\' sopra il prezzo attuale: la Put nasce gia\' in the money e l\'assegnazione e\' il caso normale, non l\'eccezione. Se e\' voluto ignora l\'avviso.';
+    }
+    if (tipo === 'call' && strike < spot) {
+      w.strike = 'Lo strike e\' sotto il prezzo attuale: la Call nasce gia\' in the money e la cessione delle azioni e\' il caso normale. Se e\' voluto ignora l\'avviso.';
+    }
+  }
+
+  // HV fuori dall'intervallo fisico di un'azione quotata.
+  if (ok(hv) && (hv < DIAG_HV_MIN || hv > DIAG_HV_MAX)) {
+    w.hv = 'HV del ' + fmtDec(hv, 2) + '%: fuori dall\'intervallo tipico di un\'azione, che sta grosso modo fra il 10% e l\'80% annuo. Su TradingView usa l\'indicatore Historical Volatility con lunghezza 30 sul grafico giornaliero; il campo Volatility dello screener misura un\'altra cosa.';
+  }
+
+  // Il controllo che conta: la HV inserita smentita dal prezzo dell'opzione.
+  // Se con quella HV lo strike risulta irraggiungibile ma il mercato quota
+  // comunque un premio che implica una volatilita' molto piu' alta, il numero
+  // sbagliato e' quasi sempre la HV, non il premio.
+  if (ok(hv) && ok(spot) && ok(strike) && vrp && isFinite(vrp.ratio)) {
+    var gg = orosGiorniScadenza();
+    if (gg > 0) {
+      var sig = (hv / 100) * Math.sqrt(gg / 365);
+      var z = sig > 0 ? Math.abs(Math.log(strike / spot) / sig) : NaN;
+      if (isFinite(z) && z > DIAG_SIGMA && vrp.ratio > DIAG_RATIO) {
+        w.hv = 'Con una HV del ' + fmtDec(hv, 2) + '% lo strike sta a ' + fmtDec(z, 1) +
+               ' deviazioni standard dal prezzo: una distanza che il modello considera irraggiungibile. Eppure il mercato quota l\'opzione a un premio che implica il ' +
+               fmtDec(vrp.iv * 100, 1) + '% di volatilita\'. Quasi sempre significa che la HV inserita non e\' quella giusta: ricontrollala prima di fidarti del rapporto IV/HV.';
+      }
+    }
+  }
+
+  // Premio che implica una volatilita' fuori scala.
+  if (vrp && isFinite(vrp.iv) && vrp.iv > DIAG_IV_MAX) {
+    w.premio = 'Il premio inserito implica una volatilita\' implicita del ' + fmtDec(vrp.iv * 100, 0) +
+               '%: un valore che si vede solo su titoli in dissesto. Controlla di aver inserito il premio per azione e non il totale del contratto.';
+  }
+
+  // Premio che il modello non riesce a spiegare in nessun modo.
+  if (!w.premio && ok(premio) && ok(spot) && ok(strike) && ok(hv) && vrp && !isFinite(vrp.iv)) {
+    w.premio = 'Con questi dati il premio esce dai limiti calcolabili: o sta sotto il valore intrinseco, o e\' troppo alto perche\' il modello lo possa spiegare. Controlla premio, strike e prezzo.';
+  }
+
+  return w;
+}
+
+function orosWarnHtml(msg) {
+  if (!msg) return '';
+  return '<span class="warn-i" data-msg="' + escapeAttr(msg) +
+         '" onclick="orosWarnShow(this)" title="Valore da verificare">\u26A0</span>';
+}
+
+function orosWarnShow(el) {
+  if (el) orosAlert(el.getAttribute('data-msg') || '');
+}
+
+// Scrive i triangoli nei soli span dedicati: gli input non vengono mai toccati,
+// quindi il cursore resta dov'e'.
+function orosWarnApply(container, warn) {
+  if (!container) return;
+  ['strike', 'premio', 'spot', 'hv'].forEach(function (k) {
+    var el = container.querySelector('[data-warn="' + k + '"]');
+    if (el) el.innerHTML = orosWarnHtml(warn ? warn[k] : null);
+  });
+}
+
+
+// ══════════════════════════════════════
+// PROMEMORIA DEL RENDIMENTO BOT
+// Il tasso senza rischio entra nel valore equo e nel confronto sui rendimenti,
+// ma e' un dato che si inserisce a mano e che quindi invecchia in silenzio.
+// Dopo un trimestre la pagina lo dice, con un banner che si puo' rinviare ma
+// non si puo' non vedere. Nessun blocco: il calcolo continua a funzionare.
+// ══════════════════════════════════════
+var BOT_PROMEMORIA_GG = 90;   // un trimestre: le aste BOT e le mosse BCE stanno dentro questa finestra
+var BOT_SNOOZE_GG     = 7;
+var VRP_BOT_AGG    = '';      // AAAA-MM-GG dell'ultimo aggiornamento del tasso
+var VRP_BOT_SNOOZE = '';      // AAAA-MM-GG fino a cui il promemoria resta nascosto
+
+function orosGiorniDa(iso) {
+  var p = String(iso || '').split('-');
+  if (p.length !== 3) return NaN;
+  var a = +p[0], m = +p[1], g = +p[2];
+  if (!isFinite(a) || !isFinite(m) || !isFinite(g)) return NaN;
+  var o = new Date();
+  return Math.round((Date.UTC(o.getFullYear(), o.getMonth(), o.getDate()) - Date.UTC(a, m - 1, g)) / 86400000);
+}
+
+function orosIsoLabel(iso) {
+  var p = String(iso || '').split('-');
+  if (p.length !== 3) return '\u2014';
+  var d = new Date(+p[0], +p[1] - 1, +p[2]);
+  if (isNaN(d.getTime())) return '\u2014';
+  try {
+    return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
+  } catch (e) {
+    return p[2] + '/' + p[1] + '/' + p[0];
+  }
+}
+
+function orosBotDaAggiornare() {
+  var sn = orosGiorniDa(VRP_BOT_SNOOZE);
+  if (isFinite(sn) && sn < 0) return false;        // rinviato, non ancora scaduto
+  var gg = orosGiorniDa(VRP_BOT_AGG);
+  if (!isFinite(gg)) return true;                  // mai aggiornato: e' ancora il valore di partenza
+  return gg >= BOT_PROMEMORIA_GG;
+}
+
+function orosBotSegnaAggiornato() {
+  VRP_BOT_AGG = orosData2Iso(new Date());
+  VRP_BOT_SNOOZE = '';
+}
+
+function orosBotRinvia() {
+  var d = new Date();
+  d.setDate(d.getDate() + BOT_SNOOZE_GG);
+  VRP_BOT_SNOOZE = orosData2Iso(d);
+  if (typeof orosCfgSave === 'function') orosCfgSave();
+  orosBotAlertRender();
+}
+
+function orosBotApriImpostazioni() {
+  var b = document.getElementById(window.__orosCurPage === 'cc' ? 'ccGearBtn' : 'gearBtn');
+  if (b) b.click();
+}
+
+function orosBotAlertHtml() {
+  if (!orosBotDaAggiornare()) return '';
+  var gg = orosGiorniDa(VRP_BOT_AGG);
+  var quando = isFinite(gg)
+    ? 'L\'ultimo aggiornamento risale a <b>' + gg + ' giorni fa</b> (' + orosIsoLabel(VRP_BOT_AGG) + ').'
+    : 'Non risulta nessun aggiornamento: il tasso in uso e\' ancora quello di partenza.';
+  return '' +
+  '<div class="bot-alert">' +
+    '<div class="bot-alert-ico">\u26A0</div>' +
+    '<div class="bot-alert-body">' +
+      '<div class="bot-alert-t">Rendimento BOT da aggiornare</div>' +
+      '<div class="bot-alert-s">' + quando +
+        ' Il tasso in uso e\' <b>' + fmtDec(VRP_TASSO, 2) + '%</b> lordo, ricavato da un BOT a ' +
+        fmtDec(VRP_BOT_PREZZO, 2) + ' su ' + VRP_BOT_GIORNI + ' giorni. Entra nel valore equo e nel confronto con il rendimento della strategia.' +
+      '</div>' +
+      '<div class="bot-alert-btns">' +
+        '<button class="bot-alert-b1" onclick="orosBotApriImpostazioni()">Aggiorna adesso</button>' +
+        '<button class="bot-alert-b2" onclick="orosBotRinvia()">Ricordamelo fra 7 giorni</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function orosBotAlertRender() {
+  var h = orosBotAlertHtml();
+  ['cspBotAlert', 'ccBotAlert'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.innerHTML = h;
+  });
 }
 
 // Barra: [valore equo | extra premio]. Se i dati non ci sono, torna la barra originale.
@@ -4580,7 +4902,8 @@ document.addEventListener('click', function (e) {
   orosSelCloseAll();
 });
 
-function vrpBestIdx(results) {
+function vrpBestIdx(results, rfGate) {
+  var rf = rfGate ? orosRfNetto() : NaN;
   var best = -1, bestVal = -Infinity;
   for (var i = 0; i < results.length; i++) {
     var r = results[i];
@@ -4590,6 +4913,9 @@ function vrpBestIdx(results) {
     if (v.stato !== 'extra') continue;
     if (!(v.extraNetto > 0)) continue;
     if (!(r.res.premioNetto > 0)) continue;
+    // Quinto guardrail, solo CSP: un candidato che rende meno di un BOT non e'
+    // il migliore di niente, per quanto buono sia il suo rapporto IV/HV.
+    if (isFinite(rf) && !(r.res.rendAnnuoNetto >= rf)) continue;
     if (v.ratio > bestVal) { bestVal = v.ratio; best = i; }
   }
   return best;
@@ -4763,6 +5089,12 @@ function updateOutputs(tab) {
   set('premioNettoSub', res ? 'Dopo commissioni (' + COMMISSIONI_UNIT + '/contratto) e capital gain ' + Math.round(CAPITAL_GAIN * 100) + '%' : '');
   set('rendScadNetto', res ? fmtPct(res.rendScadNetto) : '—');
   set('rendAnnuoNetto', res ? fmtPct(res.rendAnnuoNetto) : '—');
+  const ranEl = c.querySelector('[data-out="rendAnnuoNetto"]');
+  if (ranEl) ranEl.style.color = res ? (orosRfColor(res.rendAnnuoNetto) || 'var(--tv-green)') : '';
+  const rfEl = c.querySelector('[data-rfchip="csp"]');
+  if (rfEl) rfEl.innerHTML = res ? orosRfChipHtml() : '';
+  orosWarnApply(c, (res && tab) ? orosDiag('put', parseNum(tab.data.spot), parseNum(tab.data.strike),
+                                            parseNum(tab.data.premio), parseNum(tab.data.hv), res.vrp) : null);
   set('rendScadLordo', res ? fmtPct(res.rendScadLordo) : '—');
   set('rendAnnuoLordo', res ? fmtPct(res.rendAnnuoLordo) : '—');
   const vb = c.querySelector('[data-vrpbar="csp"]');
@@ -4881,7 +5213,7 @@ function renderPanels() {
               <input type="text" placeholder="es. SPMI" value="${escapeAttr(d.ticker)}" data-field="ticker" maxlength="40">
             </div>
             <div class="field">
-              <label>Strike Price<span class="tip"><span class="tip-i">i</span><span class="tip-box">Prezzo di esercizio della Put: ti impegni ad acquistare il titolo a questo prezzo se assegnato.</span></span></label>
+              <label>Strike Price<span data-warn="strike"></span><span class="tip"><span class="tip-i">i</span><span class="tip-box">Prezzo di esercizio della Put: ti impegni ad acquistare il titolo a questo prezzo se assegnato.</span></span></label>
               <input type="text" inputmode="decimal" placeholder="3.00" value="${escapeAttr(d.strike)}" data-field="strike">
             </div>
             <div class="field">
@@ -4891,15 +5223,15 @@ function renderPanels() {
             <div class="field full">
               <div class="trio-row" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:12px;">
                 <div class="field">
-                  <label>Premio<span class="tip"><span class="tip-i">i</span><span class="tip-box">Premio unitario dell'opzione. È il guadagno per azione che incassi vendendo la Put. Usa il prezzo BID: è quello che incassi davvero.</span></span></label>
+                  <label>Premio<span data-warn="premio"></span><span class="tip"><span class="tip-i">i</span><span class="tip-box">Premio unitario dell'opzione. È il guadagno per azione che incassi vendendo la Put. Usa il prezzo BID: è quello che incassi davvero.</span></span></label>
                   <input type="text" inputmode="decimal" placeholder="0.036" value="${escapeAttr(d.premio)}" data-field="premio">
                 </div>
                 <div class="field">
-                  <label>Prezzo<span class="tip"><span class="tip-i">i</span><span class="tip-box">Prezzo di mercato del titolo adesso, live. Serve solo per il calcolo dell'extra premio: se lo lasci vuoto la pagina funziona come prima.</span></span></label>
+                  <label>Prezzo<span data-warn="spot"></span><span class="tip"><span class="tip-i">i</span><span class="tip-box">Prezzo di mercato del titolo adesso, live. Serve solo per il calcolo dell'extra premio: se lo lasci vuoto la pagina funziona come prima.</span></span></label>
                   <input type="text" inputmode="decimal" placeholder="opz." value="${escapeAttr(d.spot)}" data-field="spot">
                 </div>
                 <div class="field">
-                  <label>HV %<span class="tip"><span class="tip-i">i</span><span class="tip-box">Volatilità storica annualizzata a 30 giorni. Su TradingView: indicatore Historical Volatility, lunghezza 30, grafico giornaliero. Non usare il campo Volatility dello screener: misura un'altra cosa.</span></span></label>
+                  <label>HV %<span data-warn="hv"></span><span class="tip"><span class="tip-i">i</span><span class="tip-box">Volatilità storica annualizzata a 30 giorni. Su TradingView: indicatore Historical Volatility, lunghezza 30, grafico giornaliero. Non usare il campo Volatility dello screener: misura un'altra cosa.</span></span></label>
                   <input type="text" inputmode="decimal" placeholder="opz." value="${escapeAttr(d.hv)}" data-field="hv">
                 </div>
               </div>
@@ -4957,7 +5289,7 @@ function renderPanels() {
             </div>
             <div class="output-mini">
               <div class="out-label">Rend. Annuo Netto</div>
-              <div class="out-value" data-out="rendAnnuoNetto">${res ? fmtPct(res.rendAnnuoNetto) : '—'}</div>
+              <div class="out-value" data-out="rendAnnuoNetto" style="${res ? ('color:' + (orosRfColor(res.rendAnnuoNetto) || 'var(--tv-green)')) : ''}">${res ? fmtPct(res.rendAnnuoNetto) : '—'}</div>
             </div>
             <div class="output-mini">
               <div class="out-label">Rend. Scadenza Lordo</div>
@@ -4966,6 +5298,7 @@ function renderPanels() {
             <div class="output-mini">
               <div class="out-label">Rend. Annuo Lordo</div>
               <div class="out-value" data-out="rendAnnuoLordo">${res ? fmtPct(res.rendAnnuoLordo) : '—'}</div>
+              <div data-rfchip="csp">${res ? orosRfChipHtml() : ''}</div>
             </div>
           </div>
 
@@ -5038,7 +5371,7 @@ function renderCompare() {
   });
 
   // find best rendimento annuo netto
-  const bestIdx = vrpBestIdx(results);
+  const bestIdx = vrpBestIdx(results, true);
 
   section.innerHTML = `
     <div class="compare-section">
@@ -5071,7 +5404,7 @@ function renderCompare() {
                 <td class="green-val">${r.res ? fmt(r.res.premioLordo) : '—'}</td>
                 <td class="green-val">${r.res ? fmt(r.res.premioNetto) : '—'}</td>
                 <td class="green-val">${r.res ? fmtPct(r.res.rendScadNetto) : '—'}</td>
-                <td class="green-val">${r.res ? fmtPct(r.res.rendAnnuoNetto) : '—'}</td>
+                <td class="green-val" style="${r.res ? ('color:' + (orosRfColor(r.res.rendAnnuoNetto) || 'var(--tv-green)')) : ''}">${r.res ? fmtPct(r.res.rendAnnuoNetto) : '—'}</td>
                 ${vrpCompareCell(r.res)}
               </tr>
             `).join('')}
@@ -5368,6 +5701,8 @@ function ccUpdateOutputs(tab) {
   if (vb) vb.innerHTML = vrpBarHtml(res, 'ccBN', ann);
   const vs = c.querySelector('[data-vrpscad="cc"]');
   if (vs) vs.innerHTML = orosScadenzaHtml();
+  orosWarnApply(c, (res && tab) ? orosDiag('call', ccParseNum(tab.data.spot), ccParseNum(tab.data.strike),
+                                            ccParseNum(tab.data.premio), ccParseNum(tab.data.hv), res.vrp) : null);
   setW('ccBN', ann + '%');
   orosSelSync(c);
   if (ccCompareVisible) ccRenderCompare();
@@ -5393,7 +5728,7 @@ function ccRenderPanel() {
               <input type="text" placeholder="es. SPMI" value="${escapeAttr(d.ticker)}" data-field="ticker" maxlength="40">
             </div>
             <div class="field">
-              <label>Strike Price<span class="tip"><span class="tip-i">i</span><span class="tip-box">Prezzo a cui ti impegni a cedere le azioni se il titolo sale oltre questo livello a scadenza.</span></span></label>
+              <label>Strike Price<span data-warn="strike"></span><span class="tip"><span class="tip-i">i</span><span class="tip-box">Prezzo a cui ti impegni a cedere le azioni se il titolo sale oltre questo livello a scadenza.</span></span></label>
               <input type="text" inputmode="decimal" placeholder="3.00" value="${escapeAttr(d.strike)}" data-field="strike">
             </div>
             <div class="field">
@@ -5403,15 +5738,15 @@ function ccRenderPanel() {
             <div class="field full">
               <div class="trio-row" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:12px;">
                 <div class="field">
-                  <label>Premio<span class="tip"><span class="tip-i">i</span><span class="tip-box">Premio unitario della Call. È quanto incassi per azione vendendo il diritto d'acquisto. Usa il prezzo BID.</span></span></label>
+                  <label>Premio<span data-warn="premio"></span><span class="tip"><span class="tip-i">i</span><span class="tip-box">Premio unitario della Call. È quanto incassi per azione vendendo il diritto d'acquisto. Usa il prezzo BID.</span></span></label>
                   <input type="text" inputmode="decimal" placeholder="0.01" value="${escapeAttr(d.premio)}" data-field="premio">
                 </div>
                 <div class="field">
-                  <label>Prezzo<span class="tip"><span class="tip-i">i</span><span class="tip-box">Prezzo di mercato del titolo adesso, live. Serve solo per il calcolo dell'extra premio: se lo lasci vuoto la pagina funziona come prima.</span></span></label>
+                  <label>Prezzo<span data-warn="spot"></span><span class="tip"><span class="tip-i">i</span><span class="tip-box">Prezzo di mercato del titolo adesso, live. Serve solo per il calcolo dell'extra premio: se lo lasci vuoto la pagina funziona come prima.</span></span></label>
                   <input type="text" inputmode="decimal" placeholder="opz." value="${escapeAttr(d.spot)}" data-field="spot">
                 </div>
                 <div class="field">
-                  <label>HV %<span class="tip"><span class="tip-i">i</span><span class="tip-box">Volatilità storica annualizzata a 30 giorni. Su TradingView: indicatore Historical Volatility, lunghezza 30, grafico giornaliero. Non usare il campo Volatility dello screener: misura un'altra cosa.</span></span></label>
+                  <label>HV %<span data-warn="hv"></span><span class="tip"><span class="tip-i">i</span><span class="tip-box">Volatilità storica annualizzata a 30 giorni. Su TradingView: indicatore Historical Volatility, lunghezza 30, grafico giornaliero. Non usare il campo Volatility dello screener: misura un'altra cosa.</span></span></label>
                   <input type="text" inputmode="decimal" placeholder="opz." value="${escapeAttr(d.hv)}" data-field="hv">
                 </div>
               </div>
@@ -6396,11 +6731,26 @@ function botFmtPct(n) {
   return (n * 100).toFixed(2).replace('.', ',') + '%';
 }
 
+// Il prezzo di un BOT si scrive in due modi: come lo mostra il book (97,298)
+// o in frazione di nominale (0,97298). Li accetta entrambi e li porta sulla
+// stessa scala, senza chiedere niente e senza migrare i dati gia' salvati.
+// La soglia a 2 separa i due formati senza ambiguita' possibili: nessun BOT
+// quota sotto il 2% del nominale (sarebbe un default conclamato) e nessun
+// prezzo in frazione supera il 2 (vorrebbe dire pagarlo il doppio del
+// rimborso). Anche i BOT a rendimento negativo, che quotano appena sopra 100,
+// cadono dalla parte giusta: 100,4 diventa 1,004, mentre 1,004 resta 1,004.
+function botNormPrezzo(v) {
+  if (!isFinite(v) || v <= 0) return NaN;
+  return (v > 2) ? (v / 100) : v;
+}
+
 function botGetResults(tab) {
-  var price = botParseNum(tab.data.price);
+  var price = botNormPrezzo(botParseNum(tab.data.price));
   var qty   = botParseNum(tab.data.qty);
   if (isNaN(price) || isNaN(qty)) return null;
-  var delta        = BOT_RIMBORSO - price;
+  var rimborso     = botNormPrezzo(BOT_RIMBORSO);
+  if (isNaN(rimborso)) return null;
+  var delta        = rimborso - price;
   var investimento = price * qty;
   var gain         = delta * qty;
   var capGain      = gain * 0.125;
@@ -6470,8 +6820,8 @@ function botRenderPanel() {
               '<input type="text" id="bot_ticker" class="" placeholder="es. BOT 14MZ26" value="' + escapeAttr(d.ticker||'') + '" style="text-transform:uppercase;" oninput="botUpdateField(\'' + tab.id + '\',\'ticker\',this.value.toUpperCase());this.value=this.value.toUpperCase();">' +
             '</div>' +
             '<div class="field">' +
-              '<label>Prezzo acquisto<span class="tip"><span class="tip-i">i</span><span class="tip-box">Prezzo in decimali (0.9638 = 96,38%). Usa la virgola per i decimali.</span></span></label>' +
-              '<input type="text" inputmode="decimal" id="bot_price" class="" placeholder="0.9638" value="' + escapeAttr(d.price||'') + '" oninput="botUpdateField(\'' + tab.id + '\',\'price\',this.value)">' +
+              '<label>Prezzo acquisto<span class="tip"><span class="tip-i">i</span><span class="tip-box">Scrivilo come lo leggi sul book (97,298) oppure in frazione di nominale (0,97298): il formato viene riconosciuto da solo. Usa la virgola per i decimali.</span></span></label>' +
+              '<input type="text" inputmode="decimal" id="bot_price" class="" placeholder="97,298" value="' + escapeAttr(d.price||'') + '" oninput="botUpdateField(\'' + tab.id + '\',\'price\',this.value)">' +
             '</div>' +
             '<div class="field">' +
               '<label>N° titoli<span class="tip"><span class="tip-i">i</span><span class="tip-box">Quantità di titoli. Multiplo di 1.000. Usa il punto come separatore delle migliaia (es. 40.000).</span></span></label>' +
