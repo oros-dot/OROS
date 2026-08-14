@@ -2784,11 +2784,42 @@ input[type="date"]::-webkit-date-and-time-value {
 .racc-empty { text-align:center; padding:34px 18px; color:var(--tv-muted); font-size:13px; font-family:'Inter',sans-serif; }
 .racc-sep { height:1px; background:var(--tv-bord); margin:13px 0; opacity:.6; }
 
-/* Il tooltip standard e' centrato sull'icona: su schermo stretto uscirebbe
-   dal bordo sinistro, quindi qui viene ancorato a sinistra. */
+/* .panel ha l'angolo in alto a sinistra vivo perche' sulla CSP ci si appoggia
+   la riga delle tab. Qui non ci sono tab: va arrotondato come gli altri, con
+   lo stesso raggio delle schede della lista. */
+#pageRaccolta .panel { border-radius:8px; }
+
+/* Tendina e campi devono avere la stessa altezza. .oros-sel-btn e' un <button>:
+   non rientra nella regola iOS che porta gli input a 16px e restava piu' basso
+   di tutti gli altri box. Qui si allineano padding, font e altezza minima. */
+#pageRaccolta .racc-f input,
+#pageRaccolta .oros-sel-btn {
+  box-sizing:border-box; min-height:46px;
+  padding:12px 13px; font-size:16px; line-height:20px;
+}
+/* Il campo "Valore libero" nasce con stili inline dentro orosSelHtml:
+   per allinearlo serve vincere sulla specificita' dell'attributo style. */
+#pageRaccolta .oros-sel-wrap input[data-field="quantitaOpz"] {
+  box-sizing:border-box; min-height:46px;
+  padding:12px 13px !important; font-size:16px !important; margin-top:8px !important;
+}
+/* L'etichetta che contiene la "i" e' piu' alta di quella che non ce l'ha:
+   senza altezza fissa i due campi affiancati partono a quote diverse. */
+#pageRaccolta .racc-f label { display:flex; align-items:center; min-height:16px; }
+
+/* Tooltip: il box standard e' centrato sull'icona e su schermo stretto esce
+   dallo schermo. Qui l'ancoraggio passa dall'icona al campo, che e' largo
+   abbastanza da contenerlo, e la larghezza e' comunque limitata al viewport. */
 #pageRaccolta .tip-i { text-transform:none; }
-#pageRaccolta .tip-box { left:0; transform:none; width:min(250px,74vw); }
-#pageRaccolta .tip-box::after { left:14px; transform:none; }
+#pageRaccolta .tip { position:static; }
+#pageRaccolta .section-title,
+#pageRaccolta .racc-f > div { position:relative; }
+#pageRaccolta .tip-box {
+  left:0; right:auto; transform:none;
+  bottom:calc(100% + 8px);
+  width:250px; max-width:calc(100vw - 46px);
+}
+#pageRaccolta .tip-box::after { left:18px; transform:none; }
 
 </style>
 </head>
@@ -8936,12 +8967,14 @@ function raccCarica() {
   RACC.rows = Array.isArray(raw.rows) ? raw.rows.filter(function(r) {
     return r && typeof r === 'object' && OROS_ID_OK.test(raccStr(r.id));
   }) : [];
-  RACC.cash = raccStr(raw.cash);
+  // Il cash non viene ripescato: cambia troppo spesso perche' un valore vecchio
+  // possa restare buono in silenzio. Si riparte sempre dal campo vuoto.
+  RACC.cash = '';
   RACC.sessionId = OROS_ID_OK.test(raccStr(raw.sessionId)) ? raccStr(raw.sessionId) : raccNuovoId();
 }
 
 function raccSalvaLocale() {
-  orosLsSet(RACC_LS, JSON.stringify({ rows: RACC.rows, cash: RACC.cash, sessionId: RACC.sessionId }));
+  orosLsSet(RACC_LS, JSON.stringify({ rows: RACC.rows, sessionId: RACC.sessionId }));
 }
 
 // ── Invio verso il dispositivo in ricezione ──
@@ -9203,7 +9236,10 @@ function raccNuovaSessione() {
     RACC.rows = [];
     RACC.focusRow = '';
     RACC.doneId = '';
+    RACC.cash = '';
     RACC.sessionId = raccNuovoId();
+    var ci = document.getElementById('raccCash');
+    if (ci) ci.value = '';
     raccRender();
     raccInvia();
     raccStatoSet('', 'In attesa');
