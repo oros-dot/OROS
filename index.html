@@ -2758,14 +2758,6 @@ input[type="date"]::-webkit-date-and-time-value {
 .racc-dot.wait { background:var(--tv-gold); }
 .racc-dot.err  { background:var(--tv-red); }
 
-.racc-seg { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:18px 0 14px; }
-.racc-seg button {
-  padding:13px 10px; background:var(--tv-surf); border:1px solid var(--tv-bord); border-radius:8px;
-  color:var(--tv-muted); font-family:'Inter',sans-serif; font-size:13px; font-weight:600;
-  cursor:pointer; transition:all .2s;
-}
-.racc-seg button.on { border-color:#7aa3ff; color:#7aa3ff; background:rgba(122,163,255,.10); }
-
 .racc-row { background:var(--tv-surf); border:1px solid var(--tv-bord); border-radius:8px; padding:14px; margin-bottom:10px; }
 .racc-rowhead { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:11px; }
 .racc-num { font-size:10px; font-weight:700; letter-spacing:1.5px; color:var(--tv-muted); }
@@ -2790,7 +2782,13 @@ input[type="date"]::-webkit-date-and-time-value {
 .racc-foot button.pri { background:var(--tv-blue); border-color:var(--tv-blue); color:#fff; }
 
 .racc-empty { text-align:center; padding:34px 18px; color:var(--tv-muted); font-size:13px; font-family:'Inter',sans-serif; }
-.racc-hint { font-size:11px; color:var(--tv-muted); font-family:'Inter',sans-serif; line-height:1.5; margin-top:-4px; margin-bottom:6px; }
+.racc-sep { height:1px; background:var(--tv-bord); margin:13px 0; opacity:.6; }
+
+/* Il tooltip standard e' centrato sull'icona: su schermo stretto uscirebbe
+   dal bordo sinistro, quindi qui viene ancorato a sinistra. */
+#pageRaccolta .tip-i { text-transform:none; }
+#pageRaccolta .tip-box { left:0; transform:none; width:min(250px,74vw); }
+#pageRaccolta .tip-box::after { left:14px; transform:none; }
 
 </style>
 </head>
@@ -3093,8 +3091,7 @@ input[type="date"]::-webkit-date-and-time-value {
   <div class="racc-stato" id="raccStato"><span class="racc-dot"></span><span id="raccStatoTxt">In attesa</span></div>
 
   <div class="panel">
-    <div class="section-title">Cash disponibile</div>
-    <div class="racc-hint">Valore di partenza per tutti i titoli. Sul singolo titolo si cambia nel blocco Broker.</div>
+    <div class="section-title">Cash disponibile<span class="tip"><span class="tip-i">i</span><span class="tip-box">Valore di partenza per tutti i titoli della lista. Su ogni singolo titolo puoi scriverne uno diverso: quello che lasci vuoto usa questo.</span></span></div>
     <div class="racc-f">
       <div>
         <input type="text" inputmode="numeric" id="raccCash" placeholder="20.000" oninput="raccOnCash(this)">
@@ -3102,12 +3099,7 @@ input[type="date"]::-webkit-date-and-time-value {
     </div>
   </div>
 
-  <div class="racc-seg">
-    <button id="raccSegTv" class="on" onclick="raccSetBlocco('tv')">TradingView</button>
-    <button id="raccSegBr" onclick="raccSetBlocco('br')">Broker</button>
-  </div>
-
-  <div id="raccLista"></div>
+  <div id="raccLista" style="margin-top:18px;"></div>
 
   <button class="racc-add" onclick="raccAddRow()">＋ Aggiungi titolo</button>
 
@@ -8924,7 +8916,7 @@ var RACC_LS = 'oros_raccolta_v1';
 var RACC_CAMPI = ['ticker', 'spot', 'hv', 'strike', 'premio', 'qta', 'cash'];
 
 // Stato lato telefono (invio)
-var RACC = { rows: [], cash: '', sessionId: '', focusRow: '', doneId: '', blocco: 'tv', seq: 0 };
+var RACC = { rows: [], cash: '', sessionId: '', focusRow: '', doneId: '', seq: 0 };
 
 // Stato lato ricevente (desktop / iPad)
 var RACC_RX = { on: false, map: {}, sid: '', lastDone: '', nRighe: 0 };
@@ -9030,20 +9022,24 @@ function raccDelRow(rid) {
   }, { okLabel: '\u2716 Elimina', danger: true });
 }
 
-function raccSetBlocco(b) {
-  RACC.blocco = (b === 'br') ? 'br' : 'tv';
-  var a = document.getElementById('raccSegTv');
-  var c = document.getElementById('raccSegBr');
-  if (a) a.className = (RACC.blocco === 'tv') ? 'on' : '';
-  if (c) c.className = (RACC.blocco === 'br') ? 'on' : '';
-  raccRender();
-}
-
 // ── Input: si tocca solo il nodo interessato, mai l'intera lista ──
 function raccOnInput(rid, campo, el) {
   var r = raccRow(rid);
   if (!r) return;
   if (RACC_CAMPI.indexOf(campo) === -1) return;
+  if (campo === 'ticker') {
+    // Maiuscolo a video mentre si digita, senza spostare il cursore:
+    // toUpperCase non cambia la lunghezza sull'alfabeto latino.
+    var up = el.value.toUpperCase();
+    if (up !== el.value) {
+      var pos = null;
+      try { pos = el.selectionStart; } catch (e) {}
+      el.value = up;
+      if (pos !== null) {
+        try { el.setSelectionRange(Math.min(pos, up.length), Math.min(pos, up.length)); } catch (e) {}
+      }
+    }
+  }
   r[campo] = el.value;
   RACC.focusRow = rid;
   RACC.doneId = '';
@@ -9147,37 +9143,40 @@ function raccRender() {
     c.innerHTML = '<div class="racc-empty">Nessun titolo in lista.<br>Premi \uff0b Aggiungi titolo per iniziare.</div>';
     return;
   }
-  var tv = (RACC.blocco === 'tv');
   var ph = RACC.cash || '20.000';
+  // Una sola scheda per titolo: si compila quello che si ha davanti e si
+  // torna sopra piu' tardi per il resto. Nessun blocco da selezionare.
   c.innerHTML = RACC.rows.map(function(r, i) {
     var id = escapeAttr(r.id);
-    var campi;
-    if (tv) {
-      campi =
-        '<div class="racc-f"><div><label>Ticker / Simbolo</label>' +
-          '<input type="text" maxlength="40" placeholder="es. ENEL" value="' + escapeAttr(r.ticker) + '" oninput="raccOnInput(\'' + id + '\',\'ticker\',this)"></div></div>' +
-        '<div class="racc-f due" style="margin-top:10px;">' +
-          '<div><label>Prezzo</label><input type="text" inputmode="decimal" placeholder="9,52" value="' + escapeAttr(r.spot) + '" oninput="raccOnInput(\'' + id + '\',\'spot\',this)"></div>' +
-          '<div><label>HV %</label><input type="text" inputmode="decimal" placeholder="24,5" value="' + escapeAttr(r.hv) + '" oninput="raccOnInput(\'' + id + '\',\'hv\',this)"></div>' +
-        '</div>' +
-        '<div class="racc-f" style="margin-top:10px;"><div><label>Quantit\u00e0 per Opzione</label>' +
-          '<div data-racc-qta="' + id + '">' + orosSelHtml(r.qta, r.qtaCustom, r.qta) + '</div></div></div>';
-    } else {
-      campi =
-        '<div class="racc-f due">' +
-          '<div><label>Strike Price</label><input type="text" inputmode="decimal" placeholder="9,00" value="' + escapeAttr(r.strike) + '" oninput="raccOnInput(\'' + id + '\',\'strike\',this)"></div>' +
-          '<div><label>Premio (bid)</label><input type="text" inputmode="decimal" placeholder="0,036" value="' + escapeAttr(r.premio) + '" oninput="raccOnInput(\'' + id + '\',\'premio\',this)"></div>' +
-        '</div>' +
-        '<div class="racc-f" style="margin-top:10px;"><div><label>Cash Disponibile</label>' +
-          '<input type="text" inputmode="numeric" data-racc-cash="' + id + '" placeholder="' + escapeAttr(ph) + '" value="' + escapeAttr(r.cash) + '" oninput="raccOnCashRiga(\'' + id + '\',this)"></div></div>';
-    }
     var vuoto = 'TITOLO ' + (i + 1);
     var nome = raccStr(r.ticker).trim() ? escapeHtml(raccStr(r.ticker).toUpperCase()) : vuoto;
     return '<div class="racc-row" data-racc-id="' + id + '">' +
       '<div class="racc-rowhead">' +
         '<span class="racc-tk" data-racc-nome="' + id + '" data-vuoto="' + escapeAttr(vuoto) + '">' + nome + '</span>' +
         '<button class="racc-del" onclick="raccDelRow(\'' + id + '\')">\u2716</button>' +
-      '</div>' + campi +
+      '</div>' +
+
+      '<div class="racc-f"><div><label>Ticker / Simbolo</label>' +
+        '<input type="text" maxlength="40" placeholder="es. ENEL" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" value="' + escapeAttr(r.ticker) + '" oninput="raccOnInput(\'' + id + '\',\'ticker\',this)"></div></div>' +
+
+      '<div class="racc-f due" style="margin-top:10px;">' +
+        '<div><label>Prezzo</label><input type="text" inputmode="decimal" placeholder="9,52" value="' + escapeAttr(r.spot) + '" oninput="raccOnInput(\'' + id + '\',\'spot\',this)"></div>' +
+        '<div><label>HV %</label><input type="text" inputmode="decimal" placeholder="24,5" value="' + escapeAttr(r.hv) + '" oninput="raccOnInput(\'' + id + '\',\'hv\',this)"></div>' +
+      '</div>' +
+
+      '<div class="racc-sep"></div>' +
+
+      '<div class="racc-f due">' +
+        '<div><label>Strike Price</label><input type="text" inputmode="decimal" placeholder="9,00" value="' + escapeAttr(r.strike) + '" oninput="raccOnInput(\'' + id + '\',\'strike\',this)"></div>' +
+        '<div><label>Premio (bid)</label><input type="text" inputmode="decimal" placeholder="0,036" value="' + escapeAttr(r.premio) + '" oninput="raccOnInput(\'' + id + '\',\'premio\',this)"></div>' +
+      '</div>' +
+
+      '<div class="racc-f due" style="margin-top:10px;">' +
+        '<div><label>Cash Disponibile<span class="tip"><span class="tip-i">i</span><span class="tip-box">Solo per questo titolo. Vuoto = usa il cash generale in cima alla pagina.</span></span></label>' +
+          '<input type="text" inputmode="numeric" data-racc-cash="' + id + '" placeholder="' + escapeAttr(ph) + '" value="' + escapeAttr(r.cash) + '" oninput="raccOnCashRiga(\'' + id + '\',this)"></div>' +
+        '<div><label>Quantit\u00e0 per Opzione</label>' +
+          '<div data-racc-qta="' + id + '">' + orosSelHtml(r.qta, r.qtaCustom, r.qta) + '</div></div>' +
+      '</div>' +
     '</div>';
   }).join('');
   orosSelSync(c);
@@ -9187,7 +9186,7 @@ function raccOpenPage() {
   if (!RACC.sessionId) raccCarica();
   var ci = document.getElementById('raccCash');
   if (ci) ci.value = RACC.cash;
-  raccSetBlocco(RACC.blocco);
+  raccRender();
   raccStatoSet('', RACC.rows.length ? (RACC.rows.length + ' titoli in lista') : 'In attesa');
 }
 
