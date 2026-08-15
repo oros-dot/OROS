@@ -8966,7 +8966,7 @@ function meteoOpenPage() {
 var RACC = { tipo: 'csp', rows: [], cash: '', sessionId: '', focusRow: '', doneId: '', seq: 0 };
 
 // Stato lato ricezione (il dispositivo che si tiene davanti)
-var RACC_RX = { tipo: null, on: false, map: {}, sid: '', lastDone: '', nRighe: 0, nome: '' };
+var RACC_RX = { tipo: null, on: false, map: {}, sid: '', lastDone: '', nRighe: 0, pos: 0 };
 
 // Tipo scelto nella modale, in attesa della risposta dell'utente
 var RACC_MODAL_TIPO = 'csp';
@@ -8987,6 +8987,7 @@ var RACC_TIPI = {
     cash: true,
     maiuscolo: true,
     nomeCampo: 'ticker',
+    etichetta: 'TITOLO',
     aggiungi: '\uff0b Aggiungi titolo',
     unita: ['titolo', 'titoli'],
     campi: ['ticker', 'spot', 'hv', 'strike', 'premio', 'qta', 'cash'],
@@ -9006,11 +9007,13 @@ var RACC_TIPI = {
     btn: 'cenRaccBtn',
     cash: false,
     maiuscolo: false,
-    nomeCampo: 'nome',
+    // Nessun campo nome: le rilevazioni si distinguono per posizione.
+    nomeCampo: null,
+    etichetta: 'RILEVAZIONE',
     aggiungi: '\uff0b Aggiungi rilevazione',
     unita: ['rilevazione', 'rilevazioni'],
-    campi: ['nome', 'call', 'put', 'strike'],
-    nuova: function () { return { nome: '', call: '', put: '', strike: '' }; },
+    campi: ['call', 'put', 'strike'],
+    nuova: function () { return { call: '', put: '', strike: '' }; },
     scheda: raccSchedaCentro,
     applica: raccApplicaCentro,
     completato: function () { if (typeof centroCalc === 'function') centroCalc(); }
@@ -9140,7 +9143,7 @@ function raccOnInput(rid, campo, el) {
   if (!r) return;
   if (cfg.campi.indexOf(campo) === -1) return;
 
-  if (campo === cfg.nomeCampo && cfg.maiuscolo) {
+  if (cfg.nomeCampo && campo === cfg.nomeCampo && cfg.maiuscolo) {
     // Maiuscolo a video mentre si digita, senza spostare il cursore:
     // toUpperCase non cambia la lunghezza sull'alfabeto latino.
     var up = el.value.toUpperCase();
@@ -9161,7 +9164,7 @@ function raccOnInput(rid, campo, el) {
   r[campo] = el.value;
   RACC.focusRow = rid;
   RACC.doneId = '';
-  if (campo === cfg.nomeCampo) {
+  if (cfg.nomeCampo && campo === cfg.nomeCampo) {
     raccUpdNome(rid);
     if (RACC.tipo === 'csp' && raccAutoQta(r)) raccUpdQta(rid);
   }
@@ -9199,10 +9202,12 @@ function raccOnCashRiga(rid, el) {
 }
 
 function raccUpdNome(rid) {
+  var cfg = raccCfg();
+  if (!cfg.nomeCampo) return;
   var r = raccRow(rid);
   var el = document.querySelector('[data-racc-nome="' + rid + '"]');
   if (!r || !el) return;
-  var v = raccStr(r[raccCfg().nomeCampo]).trim();
+  var v = raccStr(r[cfg.nomeCampo]).trim();
   el.textContent = v ? v.toUpperCase() : el.getAttribute('data-vuoto');
 }
 
@@ -9293,15 +9298,11 @@ function raccSchedaCentro(r, id) {
   var c = function (nome, et, seg, extra) {
     return raccCampo(id, { nome: nome, val: r[nome] }, et, seg, extra);
   };
-  return '<div class="racc-f">' +
-      c('nome', 'Etichetta', 'es. FTSE MIB dic', 'maxlength="40" autocomplete="off"') +
-    '</div>' +
-    '<div class="racc-f due" style="margin-top:10px;">' +
+  return '<div class="racc-f due">' +
       c('call', 'Call ATM', '20.25', 'inputmode="decimal"') +
       c('put', 'Put ATM', '19.70', 'inputmode="decimal"') +
     '</div>' +
-    '<div class="racc-sep"></div>' +
-    '<div class="racc-f">' +
+    '<div class="racc-f" style="margin-top:10px;">' +
       c('strike', 'Strike', '6960', 'inputmode="decimal"') +
     '</div>';
 }
@@ -9320,8 +9321,8 @@ function raccRender() {
   // torna sopra piu' tardi per il resto. Nessun blocco da selezionare.
   c.innerHTML = RACC.rows.map(function (r, i) {
     var id = escapeAttr(r.id);
-    var vuoto = (cfg.unita[0] === 'titolo' ? 'TITOLO ' : 'VOCE ') + (i + 1);
-    var grezzo = raccStr(r[cfg.nomeCampo]).trim();
+    var vuoto = cfg.etichetta + ' ' + (i + 1);
+    var grezzo = cfg.nomeCampo ? raccStr(r[cfg.nomeCampo]).trim() : '';
     var nome = grezzo ? escapeHtml(grezzo.toUpperCase()) : vuoto;
     return '<div class="racc-row" data-racc-id="' + id + '">' +
       '<div class="racc-rowhead">' +
@@ -9513,10 +9514,10 @@ function raccApplicaCsp(p, rows, cash) {
 // ── Sup-Res MM: la pagina ha un solo form, si mostra la voce in lavorazione ──
 function raccApplicaCentro(p, rows) {
   var fid = raccStr(p.focusRow);
-  var r = null;
-  for (var i = 0; i < rows.length; i++) if (raccStr(rows[i].id) === fid) r = rows[i];
-  if (!r && rows.length) r = rows[rows.length - 1];
-  RACC_RX.nome = r ? raccStr(r.nome) : '';
+  var r = null, pos = 0;
+  for (var i = 0; i < rows.length; i++) if (raccStr(rows[i].id) === fid) { r = rows[i]; pos = i + 1; }
+  if (!r && rows.length) { r = rows[rows.length - 1]; pos = rows.length; }
+  RACC_RX.pos = r ? pos : 0;
   if (!r) return;
   raccSetInput('fut_callSettle', r.call);
   raccSetInput('fut_putSettle', r.put);
@@ -9564,8 +9565,8 @@ function raccRxBanner(completato) {
       s = 'In attesa dei dati\u2026';
     } else {
       s = n + ' ' + (n === 1 ? cfg.unita[0] : cfg.unita[1]) + ' in lista';
-      if (RACC_RX.tipo === 'centro' && RACC_RX.nome) {
-        s += ' \u00b7 in vista: ' + escapeHtml(RACC_RX.nome.toUpperCase());
+      if (RACC_RX.tipo === 'centro' && RACC_RX.pos > 0) {
+        s += ' \u00b7 in vista: ' + cfg.unita[0] + ' ' + RACC_RX.pos;
       }
     }
     el.innerHTML = '<div class="racc-bnr"><div><div class="t">' + t + '</div><div class="s">' + s + '</div></div>' +
@@ -9599,7 +9600,7 @@ function raccRxStart(tipo) {
   RACC_RX.sid = '';
   RACC_RX.lastDone = '';
   RACC_RX.nRighe = 0;
-  RACC_RX.nome = '';
+  RACC_RX.pos = 0;
   raccRxBtn(true);
   raccRxBanner();
   return true;
@@ -9613,7 +9614,7 @@ function raccRxStop() {
   raccRxBtn(false);
   raccRxBanner();
   RACC_RX.tipo = null;
-  RACC_RX.nome = '';
+  RACC_RX.pos = 0;
 }
 
 // ── Modale di scelta ruolo ────────────────────────────────────
