@@ -4374,28 +4374,40 @@ function vrpBotPreview() {
 // ══════════════════════════════════════
 var OROS_CFG_KEY = 'oros_impostazioni_v1';
 
+function orosCfgOggetto() {
+  return {
+    capitalGain:  CAPITAL_GAIN,
+    commissioni:  COMMISSIONI_UNIT,
+    vrpScadenza:  VRP_SCADENZA,
+    vrpTasso:     VRP_TASSO,
+    vrpBotPrezzo: VRP_BOT_PREZZO,
+    vrpBotGiorni: VRP_BOT_GIORNI,
+    vrpBotAgg:    VRP_BOT_AGG,
+    vrpBotSnooze: VRP_BOT_SNOOZE,
+    vrpCspMin:    VRP_CSP_MIN,
+    vrpCspMax:    VRP_CSP_MAX,
+    vrpCcMin:     VRP_CC_MIN,
+    vrpCcMax:     VRP_CC_MAX,
+    botRimborso:  (typeof BOT_RIMBORSO !== 'undefined' ? BOT_RIMBORSO : null),
+    botComm:      (typeof BOT_COMM !== 'undefined' ? BOT_COMM : null)
+  };
+}
+
 function orosCfgSave() {
+  var cfg = orosCfgOggetto();
   try {
-    orosLsSet(OROS_CFG_KEY, JSON.stringify({
-      capitalGain:  CAPITAL_GAIN,
-      commissioni:  COMMISSIONI_UNIT,
-      vrpScadenza:  VRP_SCADENZA,
-      vrpTasso:     VRP_TASSO,
-      vrpBotPrezzo: VRP_BOT_PREZZO,
-      vrpBotGiorni: VRP_BOT_GIORNI,
-      vrpBotAgg:    VRP_BOT_AGG,
-      vrpBotSnooze: VRP_BOT_SNOOZE,
-      vrpCspMin:    VRP_CSP_MIN,
-      vrpCspMax:    VRP_CSP_MAX,
-      vrpCcMin:     VRP_CC_MIN,
-      vrpCcMax:     VRP_CC_MAX,
-      botRimborso:  (typeof BOT_RIMBORSO !== 'undefined' ? BOT_RIMBORSO : null),
-      botComm:      (typeof BOT_COMM !== 'undefined' ? BOT_COMM : null)
-    }));
+    orosLsSet(OROS_CFG_KEY, JSON.stringify(cfg));
   } catch (e) {
     // spazio esaurito o navigazione privata: si prosegue coi valori in memoria
     console.warn('Impostazioni non salvate:', e);
   }
+  // Le impostazioni valgono su tutti i dispositivi, non solo su questo.
+  // Senza questa riga aggiornare il BOT sul Mac lasciava l'iPhone a
+  // chiederlo di nuovo, con un tasso diverso nei calcoli delle due macchine.
+  // Nessuna chiamata avviene in fase di avvio: orosCfgSave() parte solo da
+  // un'azione esplicita, quindi i valori di partenza non possono finire
+  // in cloud e sovrascrivere quelli veri.
+  if (typeof window.fsCfgCloudSave === 'function') window.fsCfgCloudSave(cfg);
 }
 
 function orosCfgLoad() {
@@ -4432,6 +4444,50 @@ function orosCfgLoad() {
     VRP_SCADENZA = c.vrpScadenza;
     if (!(orosGiorniScadenza() >= 0)) VRP_SCADENZA = orosProssimaScadenza();
   }
+}
+
+// Impostazioni arrivate da un altro dispositivo: si rileggono nelle
+// variabili e si ridisegna tutto cio' che ne dipende, promemoria BOT
+// compreso. Senza questo passaggio il banner resterebbe acceso finche'
+// non si ricarica la pagina.
+function orosCfgFromCloud() {
+  try { orosCfgLoad(); } catch (e) { console.warn('Rilettura impostazioni cloud fallita:', e); return; }
+  try { orosCfgModaleSync(); } catch (e) {}
+  try { if (typeof orosBotAlertRender === 'function') orosBotAlertRender(); } catch (e) {}
+  try { if (typeof renderAll === 'function') renderAll(); } catch (e) {}
+  try { if (compareVisible && typeof renderCompare === 'function') renderCompare(); } catch (e) {}
+  try { if (typeof ccRenderAll === 'function' && ccTabs.length) ccRenderAll(); } catch (e) {}
+  try { if (typeof botRenderAll === 'function') botRenderAll(); } catch (e) {}
+}
+
+// Allinea i campi delle due modali, ma solo se sono chiuse: riscriverli
+// mentre l'utente sta digitando gli cancellerebbe quello che ha appena messo.
+function orosCfgModaleSync() {
+  var ov = document.getElementById('settingsOverlay');
+  if (ov && ov.style.display !== 'block') {
+    var v = function (id, val) { var e = document.getElementById(id); if (e) e.value = val; };
+    v('s_capitalGain', (CAPITAL_GAIN * 100).toString());
+    v('s_commissioni', COMMISSIONI_UNIT.toString());
+    v('s_vrpBotPrezzo', String(VRP_BOT_PREZZO).replace('.', ','));
+    v('s_vrpBotGiorni', String(VRP_BOT_GIORNI));
+    v('s_vrpCspMin', String(VRP_CSP_MIN));
+    v('s_vrpCspMax', String(VRP_CSP_MAX));
+    v('s_vrpCcMin', String(VRP_CC_MIN));
+    v('s_vrpCcMax', String(VRP_CC_MAX));
+    var sc = document.getElementById('s_vrpScadenza');
+    if (sc && typeof orosScadenzaLabel === 'function') sc.textContent = orosScadenzaLabel();
+  }
+  var bo = document.getElementById('botGearOverlay');
+  if (bo && bo.style.display !== 'block') {
+    var br = document.getElementById('bot_s_rimborso');
+    var bc = document.getElementById('bot_s_comm');
+    if (br && typeof BOT_RIMBORSO !== 'undefined') br.value = String(BOT_RIMBORSO);
+    if (bc && typeof BOT_COMM !== 'undefined') bc.value = String(BOT_COMM);
+  }
+  var fp = document.getElementById('f_premioNetto');
+  if (fp) fp.textContent = '= (Premio Lordo \u2212 Commissioni) \u00d7 (1 \u2212 ' + (CAPITAL_GAIN * 100).toFixed(0) + '%)';
+  var fc = document.getElementById('f_commissioni');
+  if (fc && typeof fmtDec === 'function') fc.textContent = '= \u20ac' + fmtDec(COMMISSIONI_UNIT, 2) + '/contratto \u00d7 N\u00b0 contratti';
 }
 
 // ══════════════════════════════════════
@@ -8769,6 +8825,7 @@ function meteoOpenPage() {
   window.fsPfCloudSave = function() {};
   window.fsMeteoCloudSave = function() {};
   window.fsMeteoInCloudSave = function() {};
+  window.fsCfgCloudSave = function() {};
   window.fsSyncOnLogin = function() {};
   window.fsInboxSave   = function() { return Promise.reject(new Error('Firestore non disponibile')); };
   window.fsInboxAttach = function() { return false; };
@@ -8810,13 +8867,42 @@ function meteoOpenPage() {
   window.fsMeteoCloudSave = function(list) { _cloudSave('meteo', list); };
   window.fsMeteoInCloudSave = function(list) { _cloudSave('meteo_inputs', list); };
 
+  // ── Impostazioni ──────────────────────────────────────────────────
+  // Documento a oggetto singolo, non una lista: non passa da _cloudSave,
+  // che incapsula sempre in { list: [...] }.
+  var OROS_CFG_DOC = 'impostazioni';
+  function _cfgLsKey() { return (typeof OROS_CFG_KEY === 'string' && OROS_CFG_KEY) || 'oros_impostazioni_v1'; }
+  window.fsCfgCloudSave = function(cfg) {
+    if (!window._orosUserId) return;
+    if (!cfg || typeof cfg !== 'object') return;
+    var ts = new Date().toISOString();
+    orosLsSet(_tsKey(OROS_CFG_DOC), ts);
+    _db.collection('users').doc(window._orosUserId)
+      .collection('data').doc(OROS_CFG_DOC)
+      .set({ cfg: cfg, updatedAt: ts })
+      .catch(function(e){ console.warn('Firestore save error (impostazioni):', e); });
+  };
+  function _cfgAdotta(cfg, ts) {
+    orosLsSet(_cfgLsKey(), JSON.stringify(cfg));
+    orosLsSet(_tsKey(OROS_CFG_DOC), ts);
+    // orosCfgLoad rivalida ogni singolo campo: un documento manomesso o di
+    // una versione precedente non puo' entrare nei calcoli.
+    if (typeof orosCfgFromCloud === 'function') orosCfgFromCloud();
+  }
+
   // ── Listener real-time: propaga modifiche/cancellazioni da altri device ──
   // Registro degli onSnapshot attivi. Serve perché _attachListener viene
   // invocata sia nel ramo .then() sia nel ramo .catch(): senza guardia un
   // errore dopo l'aggancio ne creerebbe un secondo sullo stesso documento,
   // raddoppiando letture fatturate e render a ogni scrittura.
   var _unsub = {};
+  // Utente per cui l'allineamento iniziale e' gia' partito. Non basta
+  // guardare _unsub: i listener si agganciano dentro il .then(), quindi due
+  // chiamate ravvicinate lo troverebbero ancora vuoto e partirebbero
+  // entrambe, spingendo i dati locali sul cloud due volte.
+  var _syncAvviato = '';
   function _detachAll() {
+    _syncAvviato = '';
     if (typeof window.fsInboxDetach === 'function') window.fsInboxDetach();
     Object.keys(_unsub).forEach(function(k) {
       try { _unsub[k](); } catch (e) { console.warn('Distacco listener fallito (' + k + '):', e); }
@@ -8845,6 +8931,22 @@ function meteoOpenPage() {
           if (typeof renderFn === 'function') renderFn();
         }
       }, function(e){ console.warn('Firestore listener error (' + docName + '):', e); });
+  }
+
+  function _attachCfgListener() {
+    if (_unsub[OROS_CFG_DOC]) return;
+    _unsub[OROS_CFG_DOC] = _db.collection('users').doc(window._orosUserId)
+      .collection('data').doc(OROS_CFG_DOC)
+      .onSnapshot(function(snap) {
+        if (!snap.exists) return;
+        if (snap.metadata && snap.metadata.hasPendingWrites) return;
+        var data = snap.data() || {};
+        var cloudTs = data.updatedAt || '';
+        var localTs = localStorage.getItem(_tsKey(OROS_CFG_DOC)) || '';
+        if (!cloudTs || cloudTs <= localTs) return;
+        if (!data.cfg || typeof data.cfg !== 'object') return;
+        _cfgAdotta(data.cfg, cloudTs);
+      }, function(e){ console.warn('Firestore listener error (impostazioni):', e); });
   }
 
   // ── Canale "inbox": raccolta dati da un secondo dispositivo ──
@@ -8901,11 +9003,12 @@ function meteoOpenPage() {
     // sicuri, così nessun valore anomalo può alterare la collezione puntata.
     var uid = String(userId || '').toLowerCase().replace(/[^a-z0-9_.-]+/g, '_').slice(0, 64);
     if (!uid || uid === '.' || uid === '..') return;
-    // Stesso utente e listener già attivi: non c'è nulla da rifare.
-    if (window._orosUserId === uid && Object.keys(_unsub).length) return;
+    // Allineamento gia' avviato per questo utente: non c'e' nulla da rifare.
+    if (_syncAvviato === uid) return;
     // Utente diverso: si staccano i listener del precedente prima di riagganciare.
     if (window._orosUserId && window._orosUserId !== uid) _detachAll();
     window._orosUserId = uid;
+    _syncAvviato = uid;
 
     var docs = [
       // sanId: true solo dove le voci hanno un id che finisce nel markup.
@@ -8947,6 +9050,50 @@ function meteoOpenPage() {
           _attachListener(cfg.name, cfg.ls, cfg.render, cfg.sanId);
         });
     });
+
+    // ── Primo allineamento delle impostazioni ──
+    _db.collection('users').doc(window._orosUserId)
+      .collection('data').doc(OROS_CFG_DOC).get()
+      .then(function(snap) {
+        var localTs = localStorage.getItem(_tsKey(OROS_CFG_DOC)) || '';
+        var locale = null;
+        try { locale = JSON.parse(localStorage.getItem(_cfgLsKey()) || 'null'); } catch (e) { locale = null; }
+        if (locale && typeof locale !== 'object') locale = null;
+
+        if (!snap.exists) {
+          if (locale) window.fsCfgCloudSave(locale);
+        } else {
+          var d = snap.data() || {};
+          var cloudTs = d.updatedAt || '';
+          var remoto  = (d.cfg && typeof d.cfg === 'object') ? d.cfg : null;
+
+          if (localTs && cloudTs && localTs > cloudTs) {
+            // Modifiche locali offline piu' recenti: vincono.
+            if (locale) window.fsCfgCloudSave(locale);
+          } else if (!localTs && locale && remoto) {
+            // Primo avvio dopo l'aggiornamento dell'app: nessun timestamp
+            // locale da confrontare, quindi il confronto sui tempi darebbe
+            // un esito casuale. Arbitra la data di aggiornamento del BOT:
+            // vince chi ce l'ha piu' recente, cosi' un dispositivo rimasto
+            // indietro non puo' sovrascrivere il tasso appena inserito.
+            var dl = String(locale.vrpBotAgg || '');
+            var dr = String(remoto.vrpBotAgg || '');
+            if (dl > dr) window.fsCfgCloudSave(locale);
+            else _cfgAdotta(remoto, cloudTs || new Date().toISOString());
+          } else if (!cloudTs && locale) {
+            // Documento senza timestamp: il listener lo ignorerebbe per
+            // sempre, si riallinea dal locale.
+            window.fsCfgCloudSave(locale);
+          } else if (remoto && cloudTs > localTs) {
+            _cfgAdotta(remoto, cloudTs);
+          }
+        }
+        _attachCfgListener();
+      })
+      .catch(function(e) {
+        console.warn('Firestore sync error (impostazioni):', e);
+        _attachCfgListener();
+      });
   };
 })();
 </script>
