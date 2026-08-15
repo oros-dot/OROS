@@ -4,7 +4,7 @@
 // dispositivo continua a servire la copia salvata in precedenza.
 // ─────────────────────────────────────────────────────────────────────
 var CACHE_PREFIX  = 'oros-';
-var CACHE_VERSION = CACHE_PREFIX + 'v9';
+var CACHE_VERSION = CACHE_PREFIX + 'v10';
 
 var CORE_ASSETS = [
   './',
@@ -82,10 +82,20 @@ self.addEventListener('fetch', function (e) {
   // Solo same-origin: CDN, Firebase e TradingView passano sempre dalla rete
   if (url.origin !== self.location.origin) return;
 
-  // Network-first per la pagina: online sempre fresca, offline la copia salvata
+  // Network-first per la pagina: online sempre fresca, offline la copia salvata.
+  // cache:'reload' salta la cache HTTP del browser. Senza, dopo un deploy il
+  // dispositivo poteva servire per minuti la pagina precedente presa dalla
+  // propria cache: e' il motivo per cui serviva svuotarla a mano. Su iPhone,
+  // dove non si puo' fare comodamente, il file nuovo non arrivava affatto.
   if (req.mode === 'navigate' || url.pathname.endsWith('index.html') || url.pathname.endsWith('/')) {
+    var fresca;
+    try {
+      fresca = new Request(req.url, { cache: 'reload', credentials: 'same-origin' });
+    } catch (err) {
+      fresca = req;   // browser che non accetta l'opzione: si prosegue come prima
+    }
     e.respondWith(
-      fetch(req).then(function (res) {
+      fetch(fresca).then(function (res) {
         cachePut(e, req, res);
         return res;
       }).catch(function () {

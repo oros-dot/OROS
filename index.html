@@ -4243,6 +4243,14 @@ input[type="date"]::-webkit-date-and-time-value {
       </div>
     </div>
     <button id="saveSettings" style="width:100%;padding:12px;background:var(--tv-blue);border:none;border-radius:6px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;">✓ Salva e Applica</button>
+
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--tv-bord);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <div style="font-size:11px;color:var(--tv-muted);line-height:1.6;min-width:180px;flex:1;">
+        <div id="orosSyncStato">—</div>
+        <div style="opacity:.65;margin-top:2px;">Versione <b id="orosBuild">—</b></div>
+      </div>
+      <button id="orosSyncOra" style="background:transparent;border:1px solid var(--tv-bord);color:var(--tv-text);border-radius:6px;padding:8px 13px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">Sincronizza adesso</button>
+    </div>
   </div>
 </div>
 
@@ -4268,6 +4276,7 @@ document.getElementById('gearBtn').addEventListener('click', () => {
   document.getElementById('s_vrpCspMax').value = String(VRP_CSP_MAX);
   document.getElementById('s_vrpCcMin').value  = String(VRP_CC_MIN);
   document.getElementById('s_vrpCcMax').value  = String(VRP_CC_MAX);
+  orosSyncStatoRender();
   document.getElementById('settingsOverlay').style.display = 'block';
 });
 document.getElementById('vrpInfoOverlay').addEventListener('click', (e) => {
@@ -4278,6 +4287,15 @@ document.addEventListener('keydown', (e) => {
 });
 document.getElementById('closeSettings').addEventListener('click', () => {
   document.getElementById('settingsOverlay').style.display = 'none';
+});
+document.getElementById('orosSyncOra').addEventListener('click', function () {
+  var b = this;
+  var testo = b.textContent;
+  b.disabled = true; b.textContent = 'Invio\u2026';
+  Promise.resolve(window.fsCfgCloudSave(orosCfgOggetto())).then(function () {
+    b.disabled = false; b.textContent = testo;
+    orosSyncStatoRender();
+  });
 });
 document.getElementById('settingsOverlay').addEventListener('click', (e) => {
   if (e.target === document.getElementById('settingsOverlay'))
@@ -4407,7 +4425,11 @@ function orosCfgSave() {
   // Nessuna chiamata avviene in fase di avvio: orosCfgSave() parte solo da
   // un'azione esplicita, quindi i valori di partenza non possono finire
   // in cloud e sovrascrivere quelli veri.
-  if (typeof window.fsCfgCloudSave === 'function') window.fsCfgCloudSave(cfg);
+  if (typeof window.fsCfgCloudSave === 'function') {
+    Promise.resolve(window.fsCfgCloudSave(cfg)).then(function () {
+      if (typeof orosSyncStatoRender === 'function') orosSyncStatoRender();
+    });
+  }
 }
 
 function orosCfgLoad() {
@@ -4488,6 +4510,43 @@ function orosCfgModaleSync() {
   if (fp) fp.textContent = '= (Premio Lordo \u2212 Commissioni) \u00d7 (1 \u2212 ' + (CAPITAL_GAIN * 100).toFixed(0) + '%)';
   var fc = document.getElementById('f_commissioni');
   if (fc && typeof fmtDec === 'function') fc.textContent = '= \u20ac' + fmtDec(COMMISSIONI_UNIT, 2) + '/contratto \u00d7 N\u00b0 contratti';
+}
+
+// Numero di versione del file. Serve a un solo scopo: aprire l'ingranaggio
+// su due dispositivi e vedere subito se stanno usando lo stesso index.html.
+// Se i numeri differiscono, il problema e' la propagazione, non i dati.
+var OROS_BUILD = '10';
+
+function orosTsLabel(iso) {
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return String(iso || '');
+  var due = function (n) { return (n < 10 ? '0' : '') + n; };
+  return due(d.getDate()) + '/' + due(d.getMonth() + 1) + ' ' + due(d.getHours()) + ':' + due(d.getMinutes());
+}
+
+// Un errore di scrittura su Firestore finiva solo in console: da fuori il
+// difetto era indistinguibile da "il dato non e' cambiato". Qui diventa visibile.
+function orosSyncStatoRender() {
+  var bl = document.getElementById('orosBuild');
+  if (bl) bl.textContent = OROS_BUILD;
+  var el = document.getElementById('orosSyncStato');
+  if (!el) return;
+  var esc = (typeof escapeHtml === 'function') ? escapeHtml : function (s) { return String(s); };
+  var pallino = function (c, t) { return '<span style="color:' + c + ';">\u25cf</span> ' + t; };
+  if (!window._orosUserId) {
+    el.innerHTML = pallino('var(--tv-gold)', 'Non connesso: le impostazioni restano solo su questo dispositivo');
+    return;
+  }
+  var s = window.__orosCfgSync;
+  if (s && s.ok === false) {
+    el.innerHTML = pallino('var(--tv-red)', 'Sincronizzazione non riuscita: ' + esc(s.err));
+    return;
+  }
+  var ts = '';
+  try { ts = localStorage.getItem('oros_impostazioni_updatedAt') || ''; } catch (e) {}
+  el.innerHTML = ts
+    ? pallino('var(--tv-green)', 'Impostazioni sincronizzate \u00b7 ultimo invio ' + esc(orosTsLabel(ts)))
+    : pallino('var(--tv-gold)', 'Impostazioni mai inviate: premi \u201cSincronizza adesso\u201d');
 }
 
 // ══════════════════════════════════════
@@ -6132,6 +6191,7 @@ document.getElementById('ccGearBtn').addEventListener('click', () => {
   document.getElementById('s_vrpCspMax').value = String(VRP_CSP_MAX);
   document.getElementById('s_vrpCcMin').value  = String(VRP_CC_MIN);
   document.getElementById('s_vrpCcMax').value  = String(VRP_CC_MAX);
+  orosSyncStatoRender();
   document.getElementById('settingsOverlay').style.display = 'block';
 });
 document.getElementById('ccAddTabBtn').addEventListener('click', () => {
@@ -8825,7 +8885,7 @@ function meteoOpenPage() {
   window.fsPfCloudSave = function() {};
   window.fsMeteoCloudSave = function() {};
   window.fsMeteoInCloudSave = function() {};
-  window.fsCfgCloudSave = function() {};
+  window.fsCfgCloudSave = function() { return Promise.resolve({ ok: false, err: 'Firestore non disponibile' }); };
   window.fsSyncOnLogin = function() {};
   window.fsInboxSave   = function() { return Promise.reject(new Error('Firestore non disponibile')); };
   window.fsInboxAttach = function() { return false; };
@@ -8872,15 +8932,34 @@ function meteoOpenPage() {
   // che incapsula sempre in { list: [...] }.
   var OROS_CFG_DOC = 'impostazioni';
   function _cfgLsKey() { return (typeof OROS_CFG_KEY === 'string' && OROS_CFG_KEY) || 'oros_impostazioni_v1'; }
+  // Non rifiuta mai: restituisce l'esito, cosi' l'interfaccia puo' mostrarlo.
+  // Il timestamp locale si scrive comunque: se la scrittura fallisce, al
+  // prossimo accesso il locale risultera' piu' recente del cloud e verra'
+  // ritentato invece di restare indietro in silenzio.
   window.fsCfgCloudSave = function(cfg) {
-    if (!window._orosUserId) return;
-    if (!cfg || typeof cfg !== 'object') return;
+    if (!window._orosUserId) {
+      window.__orosCfgSync = { ok: false, err: 'Non connesso' };
+      return Promise.resolve(window.__orosCfgSync);
+    }
+    if (!cfg || typeof cfg !== 'object') {
+      window.__orosCfgSync = { ok: false, err: 'Dati non validi' };
+      return Promise.resolve(window.__orosCfgSync);
+    }
     var ts = new Date().toISOString();
     orosLsSet(_tsKey(OROS_CFG_DOC), ts);
-    _db.collection('users').doc(window._orosUserId)
+    return _db.collection('users').doc(window._orosUserId)
       .collection('data').doc(OROS_CFG_DOC)
       .set({ cfg: cfg, updatedAt: ts })
-      .catch(function(e){ console.warn('Firestore save error (impostazioni):', e); });
+      .then(function() {
+        window.__orosCfgSync = { ok: true, ts: ts };
+        return window.__orosCfgSync;
+      })
+      .catch(function(e) {
+        var m = (e && e.message) ? e.message : String(e);
+        console.warn('Firestore save error (impostazioni):', e);
+        window.__orosCfgSync = { ok: false, err: m };
+        return window.__orosCfgSync;
+      });
   };
   function _cfgAdotta(cfg, ts) {
     orosLsSet(_cfgLsKey(), JSON.stringify(cfg));
@@ -8946,7 +9025,11 @@ function meteoOpenPage() {
         if (!cloudTs || cloudTs <= localTs) return;
         if (!data.cfg || typeof data.cfg !== 'object') return;
         _cfgAdotta(data.cfg, cloudTs);
-      }, function(e){ console.warn('Firestore listener error (impostazioni):', e); });
+      }, function(e) {
+        console.warn('Firestore listener error (impostazioni):', e);
+        window.__orosCfgSync = { ok: false, err: 'lettura negata o non riuscita' };
+        if (typeof orosSyncStatoRender === 'function') orosSyncStatoRender();
+      });
   }
 
   // ── Canale "inbox": raccolta dati da un secondo dispositivo ──
