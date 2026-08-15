@@ -3045,6 +3045,13 @@ input[type="date"]::-webkit-date-and-time-value {
     </div>
   </div>
 
+  <!-- Versione e sincronizzazione: stessa discrezione del logout -->
+  <button id="homeSyncBtn" onclick="orosSyncApri()"
+    style="position:fixed;top:16px;right:16px;background:none;border:none;cursor:pointer;font-size:18px;color:rgba(255,255,255,0.25);transition:color 0.2s;z-index:10;padding:6px;"
+    onmouseover="this.style.color='rgba(255,255,255,0.7)'"
+    onmouseout="this.style.color=(window.__orosSyncKo?'rgba(239,83,80,0.75)':'rgba(255,255,255,0.25)')"
+    title="Versione e sincronizzazione">⚙</button>
+
   <!-- Logout nascosto in basso -->
   <button onclick="orosConfirm('Vuoi uscire dalla sessione?', function(){sessionClear();location.reload();}, {okLabel:'\u238B Esci', danger:false})"
     style="position:fixed;bottom:16px;right:16px;background:none;border:none;cursor:pointer;font-size:18px;color:rgba(239,83,80,0.25);transition:color 0.2s;z-index:10;padding:6px;"
@@ -4152,6 +4159,28 @@ input[type="date"]::-webkit-date-and-time-value {
   </div>
 </div>
 
+<div id="orosSyncOverlay" style="display:none;position:fixed;inset:0;background:rgba(9,11,17,.92);z-index:10000;backdrop-filter:blur(8px);">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(420px,93vw);max-height:90vh;overflow-y:auto;background:var(--tv-surf);border:1px solid var(--tv-bord);border-radius:12px;padding:26px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div style="font-size:17px;font-weight:700;color:var(--tv-text);">Versione e sincronizzazione</div>
+      <button onclick="orosSyncChiudi()" style="background:rgba(239,83,80,.12);border:1px solid rgba(239,83,80,.3);color:var(--tv-red);border-radius:6px;padding:6px 13px;font-size:13px;font-weight:600;cursor:pointer;">✕</button>
+    </div>
+
+    <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;padding:14px 16px;margin-bottom:12px;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:6px;">Versione del file</div>
+      <div style="font-size:22px;font-weight:800;color:var(--tv-text);font-family:'Inter',sans-serif;" id="orosBuild">—</div>
+      <div style="font-size:11px;color:var(--tv-muted);line-height:1.6;margin-top:8px;">Se questo numero è diverso da quello di un altro dispositivo, quel dispositivo sta ancora usando una versione precedente: il problema è la propagazione del file, non i dati.</div>
+    </div>
+
+    <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;padding:14px 16px;margin-bottom:16px;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:7px;">Impostazioni</div>
+      <div style="font-size:12px;color:var(--tv-text);line-height:1.6;" id="orosSyncStato">—</div>
+    </div>
+
+    <button id="orosSyncOra" style="width:100%;padding:13px;background:var(--tv-blue);border:none;border-radius:8px;color:#fff;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Sincronizza adesso</button>
+  </div>
+</div>
+
 <div id="settingsOverlay" style="display:none;position:fixed;inset:0;background:rgba(9,11,17,.92);z-index:9999;backdrop-filter:blur(8px);">
   <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,95vw);max-height:90vh;overflow-y:auto;background:var(--tv-surf);border:1px solid var(--tv-bord);border-radius:12px;padding:32px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
@@ -4243,14 +4272,6 @@ input[type="date"]::-webkit-date-and-time-value {
       </div>
     </div>
     <button id="saveSettings" style="width:100%;padding:12px;background:var(--tv-blue);border:none;border-radius:6px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;">✓ Salva e Applica</button>
-
-    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--tv-bord);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-      <div style="font-size:11px;color:var(--tv-muted);line-height:1.6;min-width:180px;flex:1;">
-        <div id="orosSyncStato">—</div>
-        <div style="opacity:.65;margin-top:2px;">Versione <b id="orosBuild">—</b></div>
-      </div>
-      <button id="orosSyncOra" style="background:transparent;border:1px solid var(--tv-bord);color:var(--tv-text);border-radius:6px;padding:8px 13px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">Sincronizza adesso</button>
-    </div>
   </div>
 </div>
 
@@ -4276,7 +4297,6 @@ document.getElementById('gearBtn').addEventListener('click', () => {
   document.getElementById('s_vrpCspMax').value = String(VRP_CSP_MAX);
   document.getElementById('s_vrpCcMin').value  = String(VRP_CC_MIN);
   document.getElementById('s_vrpCcMax').value  = String(VRP_CC_MAX);
-  orosSyncStatoRender();
   document.getElementById('settingsOverlay').style.display = 'block';
 });
 document.getElementById('vrpInfoOverlay').addEventListener('click', (e) => {
@@ -4287,6 +4307,9 @@ document.addEventListener('keydown', (e) => {
 });
 document.getElementById('closeSettings').addEventListener('click', () => {
   document.getElementById('settingsOverlay').style.display = 'none';
+});
+document.getElementById('orosSyncOverlay').addEventListener('click', function (e) {
+  if (e.target === this) orosSyncChiudi();
 });
 document.getElementById('orosSyncOra').addEventListener('click', function () {
   var b = this;
@@ -4515,7 +4538,7 @@ function orosCfgModaleSync() {
 // Numero di versione del file. Serve a un solo scopo: aprire l'ingranaggio
 // su due dispositivi e vedere subito se stanno usando lo stesso index.html.
 // Se i numeri differiscono, il problema e' la propagazione, non i dati.
-var OROS_BUILD = '10';
+var OROS_BUILD = '11';
 
 function orosTsLabel(iso) {
   var d = new Date(iso);
@@ -4526,9 +4549,26 @@ function orosTsLabel(iso) {
 
 // Un errore di scrittura su Firestore finiva solo in console: da fuori il
 // difetto era indistinguibile da "il dato non e' cambiato". Qui diventa visibile.
+function orosSyncApri() {
+  orosSyncStatoRender();
+  var m = document.getElementById('orosSyncOverlay');
+  if (m) m.style.display = 'block';
+}
+
+function orosSyncChiudi() {
+  var m = document.getElementById('orosSyncOverlay');
+  if (m) m.style.display = 'none';
+}
+
 function orosSyncStatoRender() {
   var bl = document.getElementById('orosBuild');
   if (bl) bl.textContent = OROS_BUILD;
+  // Il bottone sulla Home vira al rosso se qualcosa non ha funzionato,
+  // cosi' il difetto si nota senza dover aprire il pannello.
+  var s0 = window.__orosCfgSync;
+  window.__orosSyncKo = !!(s0 && s0.ok === false);
+  var hb = document.getElementById('homeSyncBtn');
+  if (hb) hb.style.color = window.__orosSyncKo ? 'rgba(239,83,80,0.75)' : 'rgba(255,255,255,0.25)';
   var el = document.getElementById('orosSyncStato');
   if (!el) return;
   var esc = (typeof escapeHtml === 'function') ? escapeHtml : function (s) { return String(s); };
@@ -6191,7 +6231,6 @@ document.getElementById('ccGearBtn').addEventListener('click', () => {
   document.getElementById('s_vrpCspMax').value = String(VRP_CSP_MAX);
   document.getElementById('s_vrpCcMin').value  = String(VRP_CC_MIN);
   document.getElementById('s_vrpCcMax').value  = String(VRP_CC_MAX);
-  orosSyncStatoRender();
   document.getElementById('settingsOverlay').style.display = 'block';
 });
 document.getElementById('ccAddTabBtn').addEventListener('click', () => {
