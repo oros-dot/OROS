@@ -872,6 +872,70 @@ document.addEventListener('focusin', function(e) {
     color: var(--accent);
   }
 
+  /* COMPARE — griglia di card */
+  .compare-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
+  }
+
+  @media (max-width: 700px) {
+    .compare-cards { grid-template-columns: 1fr; }
+  }
+
+  .cmp-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .cmp-view-group {
+    display: inline-flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  /* Comando di sola lettura: pesa il meno possibile.
+     Sfondo trasparente, bordo appena accennato, icona spenta.
+     L'area di tocco resta 30x28 anche se il simbolo e' di 13px. */
+  .cmp-view-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 28px;
+    padding: 0;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--tv-muted);
+    opacity: .55;
+    cursor: pointer;
+    transition: color .2s, border-color .2s, opacity .2s, background .2s;
+  }
+
+  .cmp-view-btn:hover {
+    opacity: .9;
+    color: var(--tv-text);
+    border-color: var(--tv-bord);
+  }
+
+  /* Attivo: cambia solo il colore del simbolo e il bordo si fa vedere.
+     Nessun riempimento, nessun testo bianco. */
+  .cmp-view-btn.active {
+    opacity: 1;
+    color: var(--tv-blue);
+    border-color: var(--tv-bord);
+    background: transparent;
+  }
+
+  .cmp-view-btn:focus-visible {
+    outline: none;
+    border-color: rgba(122,163,255,.5);
+  }
+
   /* COMPARE TABLE */
   .compare-section {
     margin-top: 32px;
@@ -4262,7 +4326,7 @@ input[type="date"]::-webkit-date-and-time-value {
         <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">PREMIO LORDO</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-blue);">= Premio × Contratti × Quantità</div></div>
         <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">COMMISSIONI</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-blue);" id="f_commissioni">= €/contratto × N° contratti</div></div>
         <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">PREMIO NETTO</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-green);" id="f_premioNetto">= (Lordo − Comm.) × (1 − Cap.Gain%)</div></div>
-        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">RENDIMENTO ANNUO</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-green);">= (Netto ÷ Cash) × 12</div></div>
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">RENDIMENTO ANNUO</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-green);">= (1 + Netto ÷ Cash) ^ (365 ÷ Giorni a scadenza) − 1</div></div>
         <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">CONTROVALORE TOTALE</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-blue);">= N° contratti × Quantità × Strike</div></div>
         <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">TASSO RISK-FREE</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-blue);">= (100 ÷ Prezzo BOT) ^ (365 ÷ Giorni residui) − 1</div></div>
         <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">VOLATILITÀ IMPLICITA (IV)</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-gold);">= la σ per cui Black-Scholes(Prezzo, Strike, Giorni, Tasso, σ) = Premio</div></div>
@@ -4906,6 +4970,39 @@ function orosRfNetto() {
   return t * (1 - BOT_ALIQUOTA);
 }
 
+// ══════════════════════
+// ANNUALIZZAZIONE
+// Il moltiplicatore fisso 12 vale solo per un ciclo di 30,4 giorni: su ogni
+// altra scadenza falsa il numero e, soprattutto, lo rende incomparabile col
+// tasso BOT, che e' gia' annualizzato composto sui giorni residui reali.
+// Qui si usa la stessa convenzione su entrambi i lati del confronto, con i
+// giorni di calendario effettivi presi dalla scadenza selezionata - gli
+// stessi che alimentano il calcolo della IV.
+// Ritorna NaN se la scadenza non e' valida o e' gia' passata: fmtPct mostra
+// un trattino, orosRfColor non colora e vrpBestIdx esclude il candidato.
+// ══════════════════════
+function orosAnnualizza(rendPeriodo) {
+  var gg = orosGiorniScadenza();
+  if (!isFinite(rendPeriodo) || !(gg > 0)) return NaN;
+  if (rendPeriodo <= -1) return NaN;
+  return Math.pow(1 + rendPeriodo, 365 / gg) - 1;
+}
+
+// Distanza percentuale fra prezzo di mercato e strike.
+// Positiva quando lo strike e' fuori dai soldi: sotto il prezzo per una Put,
+// sopra il prezzo per una Call. E' il margine di sicurezza dell'operazione.
+function orosDistStrike(tipo, spot, strike) {
+  if (!(spot > 0) || !(strike > 0)) return null;
+  return (tipo === 'put') ? (spot - strike) / spot : (strike - spot) / spot;
+}
+
+function orosDistLabel(tipo, spot, strike) {
+  var d = orosDistStrike(tipo, spot, strike);
+  if (d === null) return '';
+  var stato = (d > 0.00005) ? 'OTM' : (d < -0.00005 ? 'ITM' : 'ATM');
+  return 'Distanza strike: ' + fmtDec(Math.abs(d) * 100, 2) + '% ' + stato;
+}
+
 // Rosso quando il rendimento annuo netto non batte il BOT netto, altrimenti
 // lascia il verde della pagina.
 function orosRfColor(rendAnnuoNetto) {
@@ -5112,6 +5209,75 @@ function orosBotAlertRender() {
 
 // Cella IV/HV per le tabelle di confronto.
 // Oro = dentro la banda, rosso = sopra la banda (verifica), grigio = nessun extra.
+// ══════════════════════
+// CONFRONTO — vista tabella o vista card
+// La tabella serve a leggere i numeri, la griglia a leggere le barre: sono
+// due domande diverse sugli stessi dati, quindi due viste e non una sola
+// riempita di roba. La scelta non viene salvata: e' una preferenza di
+// lettura del momento, non un'impostazione.
+// ══════════════════════
+var CMP_MODE = { csp: 'tabella', cc: 'tabella' };
+
+var CMP_ICON_TAB = '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;">' +
+  '<rect x="1" y="1.5" width="12" height="11" rx="1.6" stroke="currentColor" stroke-width="1.2"/>' +
+  '<path d="M1 5.2h12M1 8.9h12M5.4 1.5v11" stroke="currentColor" stroke-width="1.1"/></svg>';
+
+var CMP_ICON_CARD = '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;">' +
+  '<rect x="1" y="1.5" width="5" height="5" rx="1.2" stroke="currentColor" stroke-width="1.2"/>' +
+  '<rect x="8" y="1.5" width="5" height="5" rx="1.2" stroke="currentColor" stroke-width="1.2"/>' +
+  '<rect x="1" y="7.5" width="5" height="5" rx="1.2" stroke="currentColor" stroke-width="1.2"/>' +
+  '<rect x="8" y="7.5" width="5" height="5" rx="1.2" stroke="currentColor" stroke-width="1.2"/></svg>';
+
+function cmpToggleHtml(pagina) {
+  var m = CMP_MODE[pagina];
+  // Solo il simbolo: l'etichetta resta come tooltip e come nome
+  // accessibile, cosi' non si perde il significato del comando.
+  var btn = function (val, icona, testo) {
+    var et = 'Vista ' + testo.toLowerCase();
+    return '<button type="button" class="cmp-view-btn' + (m === val ? ' active' : '') + '" ' +
+           'onclick="cmpSetMode(\'' + pagina + '\',\'' + val + '\')" ' +
+           'aria-pressed="' + (m === val ? 'true' : 'false') + '" ' +
+           'aria-label="' + et + '" title="' + et + '">' + icona + '</button>';
+  };
+  return '<div class="cmp-view-group">' +
+    btn('tabella', CMP_ICON_TAB,  'Tabella') +
+    btn('card',    CMP_ICON_CARD, 'Card') +
+  '</div>';
+}
+
+function cmpSetMode(pagina, val) {
+  if (CMP_MODE[pagina] === val) return;
+  CMP_MODE[pagina] = val;
+  if (pagina === 'csp') renderCompare();
+  else ccRenderCompare();
+}
+
+// Griglia di card: solo ticker e premio netto con la sua barra.
+// Niente strike, niente cash, niente rendimenti: quelli stanno in tabella.
+// Qui si guarda la proporzione fra valore equo ed extra premio.
+function cmpCardsHtml(results, bestIdx, pagina) {
+  var vuoto = '<div class="panel" style="padding:20px;color:var(--tv-muted);font-size:12px;">' +
+              'Nessun titolo da confrontare.</div>';
+  if (!results || !results.length) return vuoto;
+
+  return '<div class="compare-cards">' + results.map(function (r, i) {
+    var res = r.res;
+    var isBest = (i === bestIdx);
+    var bordo = isBest ? 'border-color:rgba(38,166,154,.55);box-shadow:0 0 0 1px rgba(38,166,154,.18);' : '';
+    return '<div class="output-card primary" style="padding:16px;' + bordo + '">' +
+      '<div class="cmp-card-head">' +
+        '<span class="ticker-badge">' + escapeHtml(String(r.ticker).toUpperCase()) + '</span>' +
+        (isBest ? '<span class="best-badge" style="margin-left:0;">BEST</span>' : '') +
+      '</div>' +
+      '<div class="out-label">Premio Netto</div>' +
+      '<div class="out-value" style="font-size:22px;">' + (res ? fmt(res.premioNetto) : '—') + '</div>' +
+      (res ? vrpBarHtml(res, 'cmp_' + pagina + '_' + i, 0)
+           : '<div style="margin-top:12px;font-size:10px;color:var(--tv-muted);line-height:1.45;">' +
+             'Dati incompleti: compila strike, premio e cash.</div>') +
+    '</div>';
+  }).join('') + '</div>';
+}
+
 function vrpCompareCell(res) {
   var v = res ? res.vrp : null;
   if (!v || !isFinite(v.ratio)) return '<td style="color:var(--text-dim);">\u2014</td>';
@@ -5294,9 +5460,9 @@ function compute(d) {
   const premioNettoComm = premioLordo - commissioni;
   const premioNetto = premioNettoComm - (premioNettoComm * CAPITAL_GAIN);
   const rendScadLordo = d.cash > 0 ? premioLordo / d.cash : 0;
-  const rendAnnuoLordo = rendScadLordo * 12;
+  const rendAnnuoLordo = orosAnnualizza(rendScadLordo);
   const rendScadNetto = d.cash > 0 ? premioNetto / d.cash : 0;
-  const rendAnnuoNetto = rendScadNetto * 12;
+  const rendAnnuoNetto = orosAnnualizza(rendScadNetto);
   const controvaloreTot = quantita * controvalore;
   const vrp = vrpCalc('put', d.spot, d.strike, d.premio, d.hv, quantita * d.quantitaOpz);
   vrpApplyNet(vrp, commissioni, premioNetto);
@@ -5372,6 +5538,16 @@ function parseNum(v) {
   return parseFloat(s);
 }
 
+// Sottotesto della card Premio Lordo. La distanza dallo strike si aggiunge
+// solo se il Prezzo e' stato inserito: e' il margine di sicurezza
+// dell'operazione e sta dove non aggiunge peso alla pagina.
+function cspSubLordo(res, d) {
+  var t = 'Quantit\u00e0 contratti: ' + res.quantita +
+          '  \u00b7  Controvalore totale: ' + fmt(res.controvaloreTot);
+  var dist = orosDistLabel('put', parseNum(d.spot), parseNum(d.strike));
+  return dist ? (t + '  \u00b7  ' + dist) : t;
+}
+
 function getResults(tab) {
   const d = tab.data;
   const strike = parseNum(d.strike);
@@ -5386,12 +5562,12 @@ function getResults(tab) {
 
 function updateOutputs(tab) {
   const res = getResults(tab);
-  const annuoNettoBar = res ? Math.min(res.rendAnnuoNetto * 100 / 0.8, 100) : 0;
+  const annuoNettoBar = (res && isFinite(res.rendAnnuoNetto)) ? Math.min(res.rendAnnuoNetto * 100 / 0.8, 100) : 0;
   const c = document.getElementById('panelsContainer');
   const set = (sel, val) => { const el = c.querySelector('[data-out="'+sel+'"]'); if (el) el.textContent = val; };
   const setW = (sel, w) => { const el = c.querySelector('[data-bar="'+sel+'"]'); if (el) el.style.width = w; };
   set('premioLordo', res ? fmt(res.premioLordo) : '—');
-  set('premioLordoSub', res ? 'Quantità contratti: ' + res.quantita + '  ·  Controvalore totale: ' + fmt(res.controvaloreTot) : 'Inserisci i dati per calcolare');
+  set('premioLordoSub', res ? cspSubLordo(res, tab.data) : 'Inserisci i dati per calcolare');
   set('premioNetto', res ? fmt(res.premioNetto) : '—');
   set('premioNettoSub', res ? 'Dopo commissioni (' + COMMISSIONI_UNIT + '/contratto) e capital gain ' + Math.round(CAPITAL_GAIN * 100) + '%' : '');
   set('rendScadNetto', res ? fmtPct(res.rendScadNetto) : '—');
@@ -5504,7 +5680,7 @@ function renderPanels() {
   const d = tab.data;
   const res = getResults(tab);
 
-  const annuoNettoBar = res ? Math.min(res.rendAnnuoNetto * 100 / 0.8, 100) : 0;
+  const annuoNettoBar = (res && isFinite(res.rendAnnuoNetto)) ? Math.min(res.rendAnnuoNetto * 100 / 0.8, 100) : 0;
 
   container.innerHTML = `
     <div class="panel">
@@ -5577,7 +5753,7 @@ function renderPanels() {
             <div class="out-label">Premio Lordo</div>
             <div class="out-value" data-out="premioLordo">${res ? fmt(res.premioLordo) : '—'}</div>
             <div class="out-sub" data-out="premioLordoSub">
-              ${res ? `Quantità contratti: ${res.quantita}  ·  Controvalore totale: ${fmt(res.controvaloreTot)}` : 'Inserisci i dati per calcolare'}
+              ${res ? cspSubLordo(res, d) : 'Inserisci i dati per calcolare'}
             </div>
           </div>
 
@@ -5680,11 +5856,7 @@ function renderCompare() {
   // find best rendimento annuo netto
   const bestIdx = vrpBestIdx(results, true);
 
-  section.innerHTML = `
-    <div class="compare-section">
-      <div class="compare-header">
-        <div class="compare-title">⊞ Confronto Titoli</div>
-      </div>
+  const tabellaHtml = `
       <div class="panel" style="padding:0;overflow-x:auto;overflow-y:hidden">
         <table class="compare-table">
           <thead>
@@ -5717,7 +5889,15 @@ function renderCompare() {
             `).join('')}
           </tbody>
         </table>
+      </div>`;
+
+  section.innerHTML = `
+    <div class="compare-section">
+      <div class="compare-header">
+        <div class="compare-title">⊞ Confronto Titoli</div>
+        ${cmpToggleHtml('csp')}
       </div>
+      ${CMP_MODE.csp === 'card' ? cmpCardsHtml(results, bestIdx, 'csp') : tabellaHtml}
     </div>
   `;
 }
@@ -5729,26 +5909,41 @@ function goToCC() {
   const res = getResults(tab);
   const contratti = res ? res.quantita : '';
   const d = tab.data;
-  // Pre-popola il tab CC attivo con i dati CSP
+
+  // Dati portati dalla CSP: ticker, n. contratti, quantita' per opzione e
+  // strike. Lo strike della CSP diventa lo strike minimo della CC: e' il
+  // prezzo a cui eri disposto a comprare, quindi dopo l'assegnazione e'
+  // circa il tuo PMC.
+  // Premio, prezzo attuale e HV restano vuoti: vanno letti live dal grafico
+  // al momento in cui si vende la Call, non ereditati dalla CSP.
+  const nuovi = {
+    ticker:      d.ticker || '',
+    strike:      d.strike || '',
+    premio:      '',
+    quantitaOpz: d.quantitaOpz || '',
+    contratti:   contratti !== '' ? String(contratti) : '',
+    spot:        '',
+    hv:          '',
+    _qc:         !!d._qtaCustom
+  };
+
+  // Ogni passaggio dalla CSP apre una scheda CC in piu': analizzare due CSP
+  // di seguito significa volerle confrontare come CC, non sostituire la
+  // prima con la seconda. Si riusa la scheda attiva solo se e' vuota, per
+  // non lasciare schede a vuoto in coda.
   const ccTab = ccTabs.find(t => t.id === ccActiveTab);
-  if (ccTab) {
-    // Si riportano: ticker, n. contratti, quantita' per opzione e strike.
-    // Lo strike della CSP diventa lo strike minimo della CC: e' il prezzo a cui
-    // eri disposto a comprare, quindi dopo l'assegnazione e' circa il tuo PMC.
-    ccTab.data.ticker      = d.ticker      || ccTab.data.ticker;
-    ccTab.data.contratti   = contratti !== '' ? String(contratti) : ccTab.data.contratti;
-    ccTab.data.quantitaOpz = d.quantitaOpz  || ccTab.data.quantitaOpz;
-    ccTab.data.strike      = d.strike      || ccTab.data.strike;
-    // Premio, prezzo attuale e HV si azzerano: vanno letti live dal grafico
-    // al momento in cui si vende la Call, non ereditati dalla CSP.
-    ccTab.data.premio      = '';
-    ccTab.data.spot        = '';
-    ccTab.data.hv          = '';
-    if (d.quantitaOpz && !d._qtaCustom) ccTab.data._qc = false;
-    else if (d._qtaCustom) ccTab.data._qc = true;
+  if (ccTab && orosSchedaVuota(ccTab.data, 'cc')) {
+    Object.assign(ccTab.data, nuovi);
+    goPage('cc');
+    ccRenderAll();
+  } else if (ccTabs.length >= 15) {
+    goPage('cc');
+    ccRenderAll();
+    orosAlert('Massimo 15 titoli contemporaneamente: chiudi una scheda CC prima di analizzarne un\'altra.');
+  } else {
+    goPage('cc');
+    ccCreateTab(nuovi);   // ccCreateTab attiva la nuova scheda e ridisegna
   }
-  goPage('cc');
-  ccRenderAll();
 }
 
 // Wire buttons
@@ -5902,7 +6097,7 @@ document.addEventListener('DOMContentLoaded', function() {
 //   Commissioni   = 1.14 × contratti
 //   Premio Netto  = (Lordo - Comm) × (1 - 0.26)
 //   Rend. Scad.   = Premio / Cash
-//   Rend. Annuo   = Rend. Scad. × 12
+//   Rend. Annuo   = (1 + Rend. Scad.) ^ (365 / giorni a scadenza) − 1
 // ══════════════════════════════════════
 
 let ccTabs = [];
@@ -5923,8 +6118,8 @@ function computeCC(d) {
   vrpApplyNet(vrp, commissioni, premioNetto);
   return {
     premioLordo, premioNetto, controvalore, cash, commissioni, vrp,
-    rendScadLordo: rsl, rendAnnuoLordo: rsl * 12,
-    rendScadNetto: rsn, rendAnnuoNetto: rsn * 12
+    rendScadLordo: rsl, rendAnnuoLordo: orosAnnualizza(rsl),
+    rendScadNetto: rsn, rendAnnuoNetto: orosAnnualizza(rsn)
   };
 }
 
@@ -5936,6 +6131,15 @@ function ccParseNum(v) {
     s = s.replace(/\./g, '');
   }
   return parseFloat(s);
+}
+
+// Come cspSubLordo, ma sulla Call lo strike e' fuori dai soldi quando sta
+// SOPRA il prezzo: il segno della distanza si inverte, ci pensa
+// orosDistStrike.
+function ccSubLordo(res, d) {
+  var t = 'Controvalore: ' + fmt(res.controvalore) + '  \u00b7  Cash: ' + fmt(res.cash);
+  var dist = orosDistLabel('call', ccParseNum(d.spot), ccParseNum(d.strike));
+  return dist ? (t + '  \u00b7  ' + dist) : t;
 }
 
 function ccGetResults(tab) {
@@ -5995,9 +6199,9 @@ function ccUpdateOutputs(tab) {
   if (!c) return;
   const set  = (k, v) => { const el = c.querySelector(`[data-out="${k}"]`);  if (el) el.textContent = v; };
   const setW = (k, v) => { const el = c.querySelector(`[data-bar="${k}"]`); if (el) el.style.width = v; };
-  const ann = res ? Math.min(res.rendAnnuoNetto * 100 / 0.8, 100) : 0;
+  const ann = (res && isFinite(res.rendAnnuoNetto)) ? Math.min(res.rendAnnuoNetto * 100 / 0.8, 100) : 0;
   set('ccPL',  res ? fmt(res.premioLordo)  : '—');
-  set('ccPS',  res ? 'Controvalore: ' + fmt(res.controvalore) + '  ·  Cash: ' + fmt(res.cash) : 'Inserisci i dati per calcolare');
+  set('ccPS',  res ? ccSubLordo(res, tab.data) : 'Inserisci i dati per calcolare');
   set('ccPN',  res ? fmt(res.premioNetto)  : '—');
   set('ccPT',  res ? 'Dopo comm. (€' + fmtDec(res.commissioni, 2) + ') e cap. gain ' + Math.round(CAPITAL_GAIN * 100) + '%' : '');
   set('ccRSN', res ? fmtPct(res.rendScadNetto)   : '—');
@@ -6022,7 +6226,7 @@ function ccRenderPanel() {
   if (!tab) { container.innerHTML = ''; return; }
   const d   = tab.data;
   const res = ccGetResults(tab);
-  const ann = res ? Math.min(res.rendAnnuoNetto * 100 / 0.8, 100) : 0;
+  const ann = (res && isFinite(res.rendAnnuoNetto)) ? Math.min(res.rendAnnuoNetto * 100 / 0.8, 100) : 0;
 
   container.innerHTML = `
     <div class="panel">
@@ -6083,7 +6287,7 @@ function ccRenderPanel() {
           <div class="output-card primary">
             <div class="out-label">Premio Lordo</div>
             <div class="out-value" data-out="ccPL">${res ? fmt(res.premioLordo) : '—'}</div>
-            <div class="out-sub" data-out="ccPS">${res ? 'Controvalore: ' + fmt(res.controvalore) + '  ·  Cash: ' + fmt(res.cash) : 'Inserisci i dati per calcolare'}</div>
+            <div class="out-sub" data-out="ccPS">${res ? ccSubLordo(res, d) : 'Inserisci i dati per calcolare'}</div>
           </div>
 
           <div class="output-card primary">
@@ -6197,9 +6401,7 @@ function ccRenderCompare() {
     tab, res: ccGetResults(tab), ticker: tab.data.ticker || ('T' + (i + 1))
   }));
   const bestIdx = vrpBestIdx(results);
-  section.innerHTML = `
-    <div class="compare-section">
-      <div class="compare-header"><div class="compare-title">⊞ Confronto Covered Call</div></div>
+  const ccTabellaHtml = `
       <div class="panel" style="padding:0;overflow-x:auto;overflow-y:hidden">
         <table class="compare-table"><thead><tr>
           <th>Titolo</th><th>Strike</th><th>Contratti</th><th>Premio Lordo</th><th>Premio Netto</th><th>Rend. Scad. Netto</th><th>Rend. Annuo Netto</th><th>IV / HV</th>
@@ -6215,7 +6417,15 @@ function ccRenderCompare() {
           ${vrpCompareCell(r.res)}
         </tr>`).join('')}
         </tbody></table>
+      </div>`;
+
+  section.innerHTML = `
+    <div class="compare-section">
+      <div class="compare-header">
+        <div class="compare-title">⊞ Confronto Covered Call</div>
+        ${cmpToggleHtml('cc')}
       </div>
+      ${CMP_MODE.cc === 'card' ? cmpCardsHtml(results, bestIdx, 'cc') : ccTabellaHtml}
     </div>`;
 }
 
@@ -6530,11 +6740,32 @@ function storiaAdd(tipo, inputData, results, label) {
     label: label || '',
     data: JSON.parse(JSON.stringify(inputData)),
     results: results ? JSON.parse(JSON.stringify(results)) : null,
+    // Scadenza e giorni al momento del salvataggio: senza questi il
+    // rendimento annuo di una voce vecchia non e' piu' ricalcolabile, e
+    // cicli di durata diversa diventano non confrontabili fra loro.
+    scadenza: VRP_SCADENZA || null,
+    giorni: (function(){ var g = orosGiorniScadenza(); return (g > 0) ? g : null; })(),
     savedAt: new Date().toISOString()
   };
   list.unshift(entry);
   storiaSave(list);
   return entry;
+}
+
+// Rendimento annuo di una voce di storico.
+// Se la voce ha i giorni memorizzati lo ricalcola con la convenzione
+// composta, la stessa della pagina di calcolo. Se non li ha - voce salvata
+// prima della correzione - restituisce il valore congelato cosi' com'e'.
+function storiaRendAnnuo(entry, quale) {
+  var r = entry && entry.results;
+  if (!r) return NaN;
+  var campo = (quale === 'lordo') ? 'rendAnnuoLordo' : 'rendAnnuoNetto';
+  var base  = (quale === 'lordo') ? 'rendScadLordo'  : 'rendScadNetto';
+  var gg = entry.giorni;
+  if (gg > 0 && isFinite(r[base]) && r[base] > -1) {
+    return Math.pow(1 + r[base], 365 / gg) - 1;
+  }
+  return isFinite(r[campo]) ? r[campo] : NaN;
 }
 
 function storiaDelete(id) {
@@ -6723,10 +6954,11 @@ function storiaOpenModal(id) {
       ['Premio Lordo',      fmt(r.premioLordo)],
       ['Premio Netto',      fmt(r.premioNetto)],
       ['Rend. Scad. Netto', fmtPct(r.rendScadNetto)],
-      ['Rend. Annuo Netto', fmtPct(r.rendAnnuoNetto)],
+      ['Rend. Annuo Netto', fmtPct(storiaRendAnnuo(entry, 'netto'))],
       ['Rend. Scad. Lordo', fmtPct(r.rendScadLordo)],
-      ['Rend. Annuo Lordo', fmtPct(r.rendAnnuoLordo)],
+      ['Rend. Annuo Lordo', fmtPct(storiaRendAnnuo(entry, 'lordo'))],
     ];
+    if (entry.giorni > 0) rows.push(['Giorni a scadenza', String(entry.giorni)]);
     if (!isCsp && r.cash) rows.unshift(['Controvalore Totale', fmt(r.cash)]);
     resultRows = rows.map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + escapeHtml(row[0]) + '</td><td style="padding:8px 12px;color:' + accentColor + ';font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;">' + escapeHtml(row[1]) + '</td></tr>'; }).join('');
   }
@@ -6867,24 +7099,53 @@ function storiaDeleteFromModal() {
   }, { passive: true });
 })();
 
+// Una scheda si considera vuota quando nessuno dei campi che contano e'
+// stato compilato: solo in quel caso viene riusata, altrimenti la ricarica
+// aprirebbe schede a vuoto a ogni giro.
+function orosSchedaVuota(d, tipo) {
+  if (!d) return true;
+  var campi = (tipo === 'csp')
+    ? ['ticker', 'strike', 'premio', 'cash', 'spot', 'hv']
+    : ['ticker', 'strike', 'premio', 'contratti', 'spot', 'hv'];
+  for (var i = 0; i < campi.length; i++) {
+    var v = d[campi[i]];
+    if (v !== undefined && v !== null && String(v).trim() !== '') return false;
+  }
+  return true;
+}
+
 function storiaRicarica(id) {
   var list = storiaLoad();
   var entry = list.find(function(e){ return e.id === id; });
   if (!entry) return;
   document.getElementById('storiaModal').style.display = 'none';
+
+  // La voce ricaricata si affianca a quelle aperte: il confronto fra una
+  // simulazione archiviata e quelle in corso e' il motivo per cui si
+  // ricarica. Sovrascrivere la scheda attiva buttava via il lavoro fatto.
   if (entry.tipo === 'csp') {
     goPage('csp');
     var tab = tabs.find(function(t){ return t.id === activeTab; });
-    if (tab) {
+    if (tab && orosSchedaVuota(tab.data, 'csp')) {
       Object.assign(tab.data, entry.data);
       renderAll();
+    } else if (tabs.length >= 15) {
+      orosAlert('Massimo 15 titoli contemporaneamente: chiudi una scheda prima di ricaricare.');
+    } else {
+      var base = { ticker: '', strike: '', premio: '', quantitaOpz: '', cash: '', spot: '', hv: '' };
+      createTab(Object.assign(base, JSON.parse(JSON.stringify(entry.data))));
     }
   } else {
     goPage('cc');
     var ccTab = ccTabs.find(function(t){ return t.id === ccActiveTab; });
-    if (ccTab) {
+    if (ccTab && orosSchedaVuota(ccTab.data, 'cc')) {
       Object.assign(ccTab.data, entry.data);
       ccRenderAll();
+    } else if (ccTabs.length >= 15) {
+      orosAlert('Massimo 15 titoli contemporaneamente: chiudi una scheda prima di ricaricare.');
+    } else {
+      var ccBase = { ticker: '', strike: '', premio: '', quantitaOpz: '', contratti: '', spot: '', hv: '', _qc: false };
+      ccCreateTab(Object.assign(ccBase, JSON.parse(JSON.stringify(entry.data))));
     }
   }
 }
@@ -7648,7 +7909,7 @@ function renderStoria() {
       '</div>';
     } else {
       var ticker    = escapeHtml((entry.data && entry.data.ticker) ? entry.data.ticker.toUpperCase() : '—');
-      var rendAnnuo = entry.results ? (entry.results.rendAnnuoNetto * 100).toFixed(2).replace('.',',') + '%' : '—';
+      var rendAnnuo = entry.results ? fmtPct(storiaRendAnnuo(entry, 'netto')) : '—';
       var premioNetto = entry.results ? fmt(entry.results.premioNetto) : '—';
       html += '<div onclick="storiaOpenModal(\'' + entry.id + '\')" style="cursor:pointer;background:var(--tv-surf);border:1px solid ' + accentBord + ';border-radius:10px;padding:18px;transition:transform 0.15s,box-shadow 0.15s;" ' +
         'onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 8px 24px rgba(0,0,0,0.25)\'" ' +
