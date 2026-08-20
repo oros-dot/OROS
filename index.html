@@ -3442,7 +3442,7 @@ input[type="date"]::-webkit-date-and-time-value {
 
     <!-- Apertura -->
     <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--tv-bord);font-family:'Inter',sans-serif;">📈 Apertura</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
+    <div id="pfManOpenGrid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
       <div>
         <label style="display:block;font-size:10px;color:var(--tv-muted);margin-bottom:5px;font-family:'Inter',sans-serif;">Prezzo</label>
         <input type="text" inputmode="decimal" id="pfManOpenPrice" placeholder="es. 3,45" style="width:100%;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:8px 10px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:13px;outline:none;box-sizing:border-box;" oninput="pfManCalc()">
@@ -3459,7 +3459,7 @@ input[type="date"]::-webkit-date-and-time-value {
 
     <!-- Chiusura -->
     <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--tv-bord);font-family:'Inter',sans-serif;">📉 Chiusura <span style="font-size:9px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--tv-muted);opacity:0.6;">(opzionale — lascia vuoto se aperta)</span></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
+    <div id="pfManCloseGrid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
       <div>
         <label style="display:block;font-size:10px;color:var(--tv-muted);margin-bottom:5px;font-family:'Inter',sans-serif;">Prezzo</label>
         <input type="text" inputmode="decimal" id="pfManClosePrice" placeholder="es. 3,78" style="width:100%;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:8px 10px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:13px;outline:none;box-sizing:border-box;" oninput="pfManCalc()">
@@ -3471,6 +3471,19 @@ input[type="date"]::-webkit-date-and-time-value {
       <div>
         <label style="display:block;font-size:10px;color:var(--tv-muted);margin-bottom:5px;font-family:'Inter',sans-serif;">Data</label>
         <input type="date" id="pfManCloseDate" style="width:100%;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:8px 10px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:13px;outline:none;box-sizing:border-box;">
+      </div>
+    </div>
+
+    <!-- P&L realizzato diretto -->
+    <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--tv-bord);font-family:'Inter',sans-serif;">💵 P&amp;L Realizzato <span style="font-size:9px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--tv-muted);opacity:0.6;">(alternativa — se compilato ignora apertura/chiusura)</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+      <div>
+        <label style="display:block;font-size:10px;color:var(--tv-muted);margin-bottom:5px;font-family:'Inter',sans-serif;">Lordo (€)</label>
+        <input type="text" inputmode="decimal" id="pfManPnlGross" placeholder="es. 320,50 o -120" style="width:100%;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:8px 10px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:13px;outline:none;box-sizing:border-box;" oninput="pfManCalc()">
+      </div>
+      <div>
+        <label style="display:block;font-size:10px;color:var(--tv-muted);margin-bottom:5px;font-family:'Inter',sans-serif;">Data realizzo</label>
+        <input type="date" id="pfManPnlDate" style="width:100%;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:8px 10px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:13px;outline:none;box-sizing:border-box;">
       </div>
     </div>
 
@@ -10979,13 +10992,17 @@ function pfOpenDetailModal(id) {
   var inputRows = '', resultRows = '';
 
   if (isManual) {
-    inputRows = [
+    inputRows = (d.pnlGross != null ? [
+      ['Ticker',            d.ticker || '—'],
+      ['P&L realizzato',    pfManFmtEur(d.pnlGross)],
+      ['Data realizzo',     pfFmtDate(entry.closeDate)],
+    ] : [
       ['Ticker',           d.ticker || '—'],
       ['Prezzo apertura',  d.openPrice  != null ? '€' + String(d.openPrice).replace('.', ',')  : '—'],
       ['Quantità apertura',d.openQty   != null ? d.openQty  : '—'],
       ['Prezzo chiusura',  d.closePrice != null ? '€' + String(d.closePrice).replace('.', ',') : '—'],
       ['Quantità chiusura',d.closeQty  != null ? d.closeQty : '—'],
-    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + escapeHtml(row[0]) + '</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;">' + escapeHtml(row[1]) + '</td></tr>'; }).join('');
+    ]).map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + escapeHtml(row[0]) + '</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;">' + escapeHtml(row[1]) + '</td></tr>'; }).join('');
     if (r && r.net != null) {
       resultRows = [
         ['Guadagno lordo', pfManFmtEur(r.gross)],
@@ -11186,15 +11203,28 @@ function pfManCalc() {
   var openQty    = pfManParseNum(document.getElementById('pfManOpenQty').value);
   var closePrice = pfManParseNum(document.getElementById('pfManClosePrice').value);
   var closeQty   = pfManParseNum(document.getElementById('pfManCloseQty').value);
+  var pnlGross   = pfManParseNum(document.getElementById('pfManPnlGross').value);
 
-  var preview = document.getElementById('pfManPnlPreview');
-  if (isNaN(openPrice) || isNaN(openQty) || isNaN(closePrice) || isNaN(closeQty)) {
-    if (preview) preview.style.display = 'none';
-    return;
+  var preview   = document.getElementById('pfManPnlPreview');
+  var hasDirect = !isNaN(pnlGross) && isFinite(pnlGross);
+
+  // Modalita' diretta: apertura/chiusura non vengono considerate
+  var openGrid  = document.getElementById('pfManOpenGrid');
+  var closeGrid = document.getElementById('pfManCloseGrid');
+  if (openGrid)  openGrid.style.opacity  = hasDirect ? '0.35' : '1';
+  if (closeGrid) closeGrid.style.opacity = hasDirect ? '0.35' : '1';
+
+  var gross;
+  if (hasDirect) {
+    gross = pnlGross;
+  } else {
+    if (isNaN(openPrice) || isNaN(openQty) || isNaN(closePrice) || isNaN(closeQty)) {
+      if (preview) preview.style.display = 'none';
+      return;
+    }
+    gross = (closePrice - openPrice) * Math.min(openQty, closeQty);
   }
 
-  var qty      = Math.min(openQty, closeQty);
-  var gross    = (closePrice - openPrice) * qty;
   var tax      = gross > 0 ? gross * PF_CG : 0;
   var net      = gross - tax - PF_COMM;
   var netColor = net >= 0 ? '#26a69a' : 'var(--tv-red)';
@@ -11211,13 +11241,15 @@ function pfManualOpen() {
   _pfManualEditId = null;
   var title = document.getElementById('pfManualModalTitle');
   if (title) title.textContent = '+ Nuova Operazione';
-  ['pfManTicker','pfManOpenPrice','pfManOpenQty','pfManClosePrice','pfManCloseQty','pfManNote'].forEach(function(id) {
+  ['pfManTicker','pfManOpenPrice','pfManOpenQty','pfManClosePrice','pfManCloseQty','pfManPnlGross','pfManNote'].forEach(function(id) {
     var el = document.getElementById(id); if (el) el.value = '';
   });
   var today = new Date().toISOString().slice(0, 10);
   document.getElementById('pfManOpenDate').value  = today;
   document.getElementById('pfManCloseDate').value = '';
+  document.getElementById('pfManPnlDate').value   = '';
   document.getElementById('pfManPnlPreview').style.display = 'none';
+  pfManCalc();
   document.getElementById('pfManualModal').style.display = 'block';
 }
 
@@ -11234,7 +11266,10 @@ function pfManualEdit(id) {
   document.getElementById('pfManClosePrice').value  = d.closePrice  != null ? String(d.closePrice).replace('.', ',') : '';
   document.getElementById('pfManCloseQty').value    = d.closeQty    != null ? String(d.closeQty)  : '';
   document.getElementById('pfManOpenDate').value    = entry.openDate  || '';
-  document.getElementById('pfManCloseDate').value   = entry.closeDate || '';
+  var _pfDirect = (d.pnlGross != null);
+  document.getElementById('pfManCloseDate').value   = _pfDirect ? '' : (entry.closeDate || '');
+  document.getElementById('pfManPnlGross').value    = _pfDirect ? String(d.pnlGross).replace('.', ',') : '';
+  document.getElementById('pfManPnlDate').value     = _pfDirect ? (entry.closeDate || '') : '';
   document.getElementById('pfManNote').value        = entry.note || '';
   pfManCalc();
   document.getElementById('pfManualModal').style.display = 'block';
@@ -11249,17 +11284,29 @@ function pfManualConfirm() {
   var closePrice = pfManParseNum(document.getElementById('pfManClosePrice').value);
   var closeQty   = pfManParseNum(document.getElementById('pfManCloseQty').value);
   var closeDate  = document.getElementById('pfManCloseDate').value;
+  var pnlGross   = pfManParseNum(document.getElementById('pfManPnlGross').value);
+  var pnlDate    = document.getElementById('pfManPnlDate').value;
   var note       = (document.getElementById('pfManNote').value || '').trim();
 
-  if (!ticker)                              { orosAlert('Inserisci il ticker.'); return; }
-  if (isNaN(openPrice) || isNaN(openQty))  { orosAlert('Inserisci prezzo e quantità di apertura.'); return; }
+  var hasDirect  = !isNaN(pnlGross) && isFinite(pnlGross);
 
-  var hasClosure = !isNaN(closePrice) && !isNaN(closeQty) && closePrice > 0 && closeQty > 0;
+  if (!ticker) { orosAlert('Inserisci il ticker.'); return; }
+  if (!hasDirect && (isNaN(openPrice) || isNaN(openQty))) { orosAlert('Inserisci prezzo e quantità di apertura.'); return; }
+
+  var hasClosure = !hasDirect && !isNaN(closePrice) && !isNaN(closeQty) && closePrice > 0 && closeQty > 0;
+  var isClosed   = hasDirect || hasClosure;
   var qty   = hasClosure ? Math.min(openQty, closeQty) : openQty;
-  var gross = hasClosure ? (closePrice - openPrice) * qty : null;
+  var gross = hasDirect ? pnlGross : (hasClosure ? (closePrice - openPrice) * qty : null);
   var tax   = (gross !== null && gross > 0) ? gross * PF_CG : 0;
   var net   = gross !== null ? gross - tax - PF_COMM : null;
   var now   = new Date().toISOString();
+
+  var pfDataObj = hasDirect
+    ? { ticker: ticker, openPrice: null, openQty: null, closePrice: null, closeQty: null, pnlGross: pnlGross }
+    : { ticker: ticker, openPrice: openPrice, openQty: openQty, closePrice: hasClosure ? closePrice : null, closeQty: hasClosure ? closeQty : null };
+  var pfResObj  = isClosed ? { gross: gross, tax: tax, comm: PF_COMM, net: net } : null;
+  var closeDateFinal = hasDirect ? (pnlDate || now.slice(0, 10)) : (closeDate || now.slice(0, 10));
+  var closedAtFinal  = hasDirect ? new Date(closeDateFinal + 'T12:00:00').toISOString() : now;
 
   var entry;
   if (_pfManualEditId) {
@@ -11267,15 +11314,16 @@ function pfManualConfirm() {
     var list = pfLoad();
     entry = list.find(function(e){ return e.id === _pfManualEditId; });
     if (!entry) return;
-    entry.data      = { ticker: ticker, openPrice: openPrice, openQty: openQty, closePrice: hasClosure ? closePrice : null, closeQty: hasClosure ? closeQty : null };
-    entry.results   = hasClosure ? { gross: gross, tax: tax, comm: PF_COMM, net: net } : null;
-    entry.openDate  = openDate || entry.openDate;
+    entry.data      = pfDataObj;
+    entry.results   = pfResObj;
+    entry.openDate  = hasDirect ? closeDateFinal : (openDate || entry.openDate);
     entry.note      = note;
-    entry.status    = hasClosure ? 'closed' : 'open';
-    if (hasClosure) {
-      entry.closeDate    = closeDate || now.slice(0, 10);
-      entry.closedAt     = entry.closedAt || now;
+    entry.status    = isClosed ? 'closed' : 'open';
+    if (isClosed) {
+      entry.closeDate    = closeDateFinal;
+      entry.closedAt     = hasDirect ? closedAtFinal : (entry.closedAt || now);
       entry.closedProfit = net;
+      if (hasDirect) entry.addedAt = closedAtFinal;
     } else {
       entry.closeDate    = null;
       entry.closedAt     = null;
@@ -11287,16 +11335,16 @@ function pfManualConfirm() {
     entry = {
       id:      Date.now() + '_' + Math.random().toString(36).slice(2, 7),
       tipo:    'manual',
-      data:    { ticker: ticker, openPrice: openPrice, openQty: openQty, closePrice: hasClosure ? closePrice : null, closeQty: hasClosure ? closeQty : null },
-      results: hasClosure ? { gross: gross, tax: tax, comm: PF_COMM, net: net } : null,
-      openDate: openDate || now.slice(0, 10),
-      addedAt:  now,
+      data:    pfDataObj,
+      results: pfResObj,
+      openDate: hasDirect ? closeDateFinal : (openDate || now.slice(0, 10)),
+      addedAt:  hasDirect ? closedAtFinal : now,
       note:     note,
-      status:   hasClosure ? 'closed' : 'open'
+      status:   isClosed ? 'closed' : 'open'
     };
-    if (hasClosure) {
-      entry.closeDate    = closeDate || now.slice(0, 10);
-      entry.closedAt     = now;
+    if (isClosed) {
+      entry.closeDate    = closeDateFinal;
+      entry.closedAt     = closedAtFinal;
       entry.closedProfit = net;
       entry.closeNote    = '';
     }
