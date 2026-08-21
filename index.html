@@ -165,6 +165,7 @@ function debounce(fn, wait) {
 // goPage defined first — always available
 function goPage(p) {
   window.__orosCurPage = p;
+  if (typeof orosUndoNascondi === 'function') orosUndoNascondi();
   ['Home','Screener','CSP','CC','BOT','Portafoglio','Storia','Centro','Meteo','Costruz','Raccolta'].forEach(function(n) {
     var pg = document.getElementById('page' + n);
     var nb = document.getElementById('nav'  + n);
@@ -305,6 +306,12 @@ const USERS = [
     displayName: 'Lucap'
   }
 ];
+
+// Tetto massimo di schede aperte per pagina (CSP, CC, BOT).
+// Non e' un limite di prestazioni: viene disegnata solo la scheda attiva, e a
+// 200 schede il tempo di render non cambia. E' un limite di leggibilita' della
+// barra e del pannello confronto, e una rete contro le creazioni accidentali.
+var OROS_MAX_SCHEDE = 50;
 
 const SESSION_KEY    = 'oros_session_v1';
 const SESSION_HOURS  = 8;
@@ -775,6 +782,72 @@ document.addEventListener('focusin', function(e) {
     text-transform: uppercase;
     color: var(--text-dim);
   }
+
+  /* Flag "dividendo" a scomparsa, in coda alla riga di Quantita' per Opzione.
+     Chiuso non lascia nessun campo vuoto in pagina: solo la pillola spenta. */
+  /* Barra "annulla chiusura": compare in basso per pochi secondi.
+     E' l'unico modo per recuperare una scheda chiusa per sbaglio: i dati delle
+     schede vivono solo in memoria e la freccia indietro del browser non li
+     riporterebbe comunque, perche' registra le pagine, non le variabili. */
+  #orosUndoBar {
+    position: fixed;
+    left: 50%; transform: translateX(-50%);
+    bottom: calc(20px + env(safe-area-inset-bottom));
+    z-index: 4000;
+    display: none;
+    align-items: center; gap: 14px;
+    background: var(--tv-surf);
+    border: 1px solid var(--tv-bord);
+    border-radius: 10px;
+    padding: 11px 14px;
+    box-shadow: 0 8px 26px rgba(0,0,0,0.45);
+    font-family: 'Inter', sans-serif; font-size: 13px;
+    color: var(--tv-text);
+    max-width: calc(100vw - 32px);
+  }
+  #orosUndoBar.ap { display: flex; }
+  #orosUndoBar .oros-undo-txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #orosUndoBar button {
+    flex: 0 0 auto;
+    background: transparent; border: 1px solid var(--tv-blue);
+    color: var(--tv-blue); border-radius: 6px;
+    padding: 6px 13px; font-family: 'Inter', sans-serif;
+    font-size: 12px; font-weight: 700; cursor: pointer;
+    min-height: 32px;
+  }
+  #orosUndoBar button:active { opacity: 0.7; }
+  @media (max-width: 768px) {
+    #orosUndoBar { bottom: calc(104px + env(safe-area-inset-bottom)); left: 16px; right: 16px; transform: none; max-width: none; }
+  }
+
+  .oros-div-tgl {
+    margin-left: auto;
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 9px; font-weight: 700; letter-spacing: 0.8px;
+    color: var(--text-dim); background: transparent;
+    border: 1px solid var(--border); border-radius: 20px;
+    padding: 3px 9px; cursor: pointer; opacity: 0.45;
+    transition: opacity .15s, color .15s, border-color .15s;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    white-space: nowrap; flex: 0 0 auto;
+  }
+  .oros-div-tgl:hover  { opacity: 1; color: #7aa3ff; border-color: rgba(122,163,255,0.45); }
+  .oros-div-tgl:active { opacity: 1; }
+  /* Acceso quando un dividendo e' davvero impostato: sta cambiando i numeri,
+     non deve poter passare inosservato nemmeno a scatola chiusa. */
+  .oros-div-tgl.on { opacity: 1; color: var(--gold); border-color: rgba(240,180,41,0.45); }
+
+  .oros-div-box { display: none; }
+  .oros-div-box.ap { display: block; margin-top: 8px; }
+  /* Nella Raccolta rapida serve piu' peso: `.racc-f { display:grid }` e'
+     dichiarata piu' avanti nel foglio e, a parita' di specificita', vinceva
+     lei lasciando il box sempre aperto. Due classi battono una a prescindere
+     dall'ordine. Da aperto resta grid, cosi' conserva il gap del gruppo. */
+  .racc-f.oros-div-box { display: none; }
+  .racc-f.oros-div-box.ap { display: grid; margin-top: 10px; }
+
+  .field label.oros-lbl-riga { display: flex; align-items: center; gap: 8px; }
 
   .field input {
     background: var(--bg);
@@ -2801,6 +2874,20 @@ input[type="date"]::-webkit-date-and-time-value {
   min-height: 24px;
 }
 
+/* I tre campi data del modale "+ Nuova Operazione" devono avere la stessa
+   altezza degli input di testo che stanno nella stessa griglia. */
+#pfManOpenDate, #pfManCloseDate, #pfManPnlDate {
+  min-height: 0;
+  height: auto;
+  line-height: normal;
+}
+#pfManOpenDate::-webkit-date-and-time-value,
+#pfManCloseDate::-webkit-date-and-time-value,
+#pfManPnlDate::-webkit-date-and-time-value {
+  min-height: 0;
+  line-height: normal;
+}
+
 /* ══════════════════════════════════════════════
    RACCOLTA DA TELEFONO — coda multi-titolo
    ══════════════════════════════════════════════ */
@@ -3442,6 +3529,19 @@ input[type="date"]::-webkit-date-and-time-value {
 
     <!-- Apertura -->
     <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--tv-bord);font-family:'Inter',sans-serif;">📈 Apertura</div>
+    <div style="margin-bottom:10px;">
+      <label style="font-size:11px;color:var(--tv-muted);display:block;margin-bottom:5px;">Direzione</label>
+      <select id="pfManDir" onchange="pfManCalc()" style="width:100%;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:8px 10px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:13px;outline:none;box-sizing:border-box;">
+        <optgroup label="Opzioni">
+          <option value="sell">Venduta — incassi all'apertura</option>
+          <option value="buy">Comprata — paghi all'apertura</option>
+        </optgroup>
+        <optgroup label="Altri strumenti">
+          <option value="long">Long — guadagni se sale</option>
+          <option value="short">Short — guadagni se scende</option>
+        </optgroup>
+      </select>
+    </div>
     <div id="pfManOpenGrid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
       <div>
         <label style="display:block;font-size:10px;color:var(--tv-muted);margin-bottom:5px;font-family:'Inter',sans-serif;">Prezzo</label>
@@ -4258,6 +4358,15 @@ input[type="date"]::-webkit-date-and-time-value {
       <div style="font-size:12px;color:var(--tv-text);line-height:1.6;" id="orosSyncStato">—</div>
     </div>
 
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--tv-bord);">
+      <div style="font-size:11px;color:var(--tv-muted);line-height:1.6;margin-bottom:9px;">Il cloud tiene una sola versione: se cancelli qualcosa, la cancellazione si sincronizza e sovrascrive la copia buona. Un file salvato sul dispositivo no.</div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="dataExportTutto()" style="flex:1;padding:9px;border-radius:6px;border:1px solid var(--tv-bord);background:transparent;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;">↓ Esporta tutto</button>
+        <button onclick="document.getElementById('orosBackupFile').click()" style="flex:1;padding:9px;border-radius:6px;border:1px solid var(--tv-bord);background:transparent;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;">↑ Ripristina</button>
+      </div>
+      <input type="file" id="orosBackupFile" accept="application/json,.json" style="display:none;" onchange="dataImportTutto(this)">
+    </div>
+
     <button id="orosSyncOra" style="width:100%;padding:13px;background:var(--tv-blue);border:none;border-radius:8px;color:#fff;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Sincronizza adesso</button>
   </div>
 </div>
@@ -4525,7 +4634,9 @@ function orosCfgOggetto() {
     vrpCcMax:     VRP_CC_MAX,
     vrpGiorniBorsa: VRP_GIORNI_BORSA,
     botRimborso:  (typeof BOT_RIMBORSO !== 'undefined' ? BOT_RIMBORSO : null),
-    botComm:      (typeof BOT_COMM !== 'undefined' ? BOT_COMM : null)
+    botComm:      (typeof BOT_COMM !== 'undefined' ? BOT_COMM : null),
+    pfCg:         (typeof PF_CG   !== 'undefined' ? PF_CG   : null),
+    pfComm:       (typeof PF_COMM !== 'undefined' ? PF_COMM : null)
   };
 }
 
@@ -4578,6 +4689,8 @@ function orosCfgLoad() {
   if (ok(c.vrpGiorniBorsa, 200, 366)) VRP_GIORNI_BORSA = c.vrpGiorniBorsa;
   if (typeof BOT_RIMBORSO !== 'undefined' && ok(c.botRimborso, 0, 1000000)) BOT_RIMBORSO = c.botRimborso;
   if (typeof BOT_COMM     !== 'undefined' && ok(c.botComm, 0, 10000))       BOT_COMM     = c.botComm;
+  if (typeof PF_CG   !== 'undefined' && ok(c.pfCg, 0, 1))       PF_CG   = c.pfCg;
+  if (typeof PF_COMM !== 'undefined' && ok(c.pfComm, 0, 10000)) PF_COMM = c.pfComm;
 
   // La scadenza salvata vale finche' non e' passata; poi si torna
   // automaticamente al terzo venerdi' utile, cosi' il calcolo non resta rotto.
@@ -4635,7 +4748,10 @@ function orosCfgModaleSync() {
 // Numero di versione del file. Serve a un solo scopo: aprire l'ingranaggio
 // su due dispositivi e vedere subito se stanno usando lo stesso index.html.
 // Se i numeri differiscono, il problema e' la propagazione, non i dati.
-var OROS_BUILD = '11';
+// Deve coincidere con CACHE_VERSION in sw.js: e' lo stesso deploy.
+// Se i due numeri divergono, l'indicatore non e' piu' in grado di
+// dire se un dispositivo ha il file aggiornato.
+var OROS_BUILD = '25';
 
 function orosTsLabel(iso) {
   var d = new Date(iso);
@@ -4657,13 +4773,47 @@ function orosSyncChiudi() {
   if (m) m.style.display = 'none';
 }
 
+// ── Registro degli esiti di sincronizzazione, documento per documento ──
+window.__orosDocSync = window.__orosDocSync || {};
+
+var OROS_DOC_ETICHETTE = {
+  storia:        'Storico',
+  portafoglio:   'Portafoglio',
+  meteo:         'Meteo',
+  meteo_inputs:  'Dati macro',
+  costruz:       'Costruz',
+  impostazioni:  'Impostazioni'
+};
+
+function orosDocEtichetta(n) { return OROS_DOC_ETICHETTE[n] || n; }
+
+function orosDocSyncSet(docName, ok, err) {
+  window.__orosDocSync[docName] = ok
+    ? { ok: true,  ts: new Date().toISOString() }
+    : { ok: false, err: err || 'errore sconosciuto' };
+  if (typeof orosSyncStatoRender === 'function') orosSyncStatoRender();
+}
+
+// Elenco dei documenti attualmente in errore.
+function orosSyncFalliti() {
+  var out = [];
+  var r = window.__orosDocSync || {};
+  Object.keys(r).forEach(function(k) {
+    if (r[k] && r[k].ok === false) out.push(orosDocEtichetta(k));
+  });
+  if (window.__orosCfgSync && window.__orosCfgSync.ok === false) {
+    out.push(orosDocEtichetta('impostazioni'));
+  }
+  return out;
+}
+
 function orosSyncStatoRender() {
   var bl = document.getElementById('orosBuild');
   if (bl) bl.textContent = OROS_BUILD;
   // Il bottone sulla Home vira al rosso se qualcosa non ha funzionato,
   // cosi' il difetto si nota senza dover aprire il pannello.
-  var s0 = window.__orosCfgSync;
-  window.__orosSyncKo = !!(s0 && s0.ok === false);
+  var falliti = orosSyncFalliti();
+  window.__orosSyncKo = falliti.length > 0;
   var hb = document.getElementById('homeSyncBtn');
   if (hb) hb.style.color = window.__orosSyncKo ? 'rgba(239,83,80,0.75)' : 'rgba(255,255,255,0.25)';
   var el = document.getElementById('orosSyncStato');
@@ -4671,18 +4821,27 @@ function orosSyncStatoRender() {
   var esc = (typeof escapeHtml === 'function') ? escapeHtml : function (s) { return String(s); };
   var pallino = function (c, t) { return '<span style="color:' + c + ';">\u25cf</span> ' + t; };
   if (!window._orosUserId) {
-    el.innerHTML = pallino('var(--tv-gold)', 'Non connesso: le impostazioni restano solo su questo dispositivo');
+    el.innerHTML = pallino('var(--tv-gold)', 'Non connesso: i dati restano solo su questo dispositivo');
     return;
   }
-  var s = window.__orosCfgSync;
-  if (s && s.ok === false) {
-    el.innerHTML = pallino('var(--tv-red)', 'Sincronizzazione non riuscita: ' + esc(s.err));
+  if (falliti.length > 0) {
+    var s1 = window.__orosCfgSync;
+    var primo = (s1 && s1.ok === false && s1.err) ? s1.err : '';
+    if (!primo) {
+      var r = window.__orosDocSync || {};
+      var k = Object.keys(r).filter(function(x){ return r[x] && r[x].ok === false; })[0];
+      primo = (k && r[k].err) ? r[k].err : '';
+    }
+    el.innerHTML =
+      pallino('var(--tv-red)', 'Non salvato sul cloud: ' + esc(falliti.join(', '))) +
+      (primo ? '<div style="margin-top:4px;color:var(--tv-muted);font-size:11px;">' + esc(primo) + '</div>' : '') +
+      '<div style="margin-top:4px;color:var(--tv-muted);font-size:11px;">I dati restano su questo dispositivo. Premi \u201cSincronizza adesso\u201d, e se non passa esporta un backup.</div>';
     return;
   }
   var ts = '';
   try { ts = localStorage.getItem('oros_impostazioni_updatedAt') || ''; } catch (e) {}
   el.innerHTML = ts
-    ? pallino('var(--tv-green)', 'Impostazioni sincronizzate \u00b7 ultimo invio ' + esc(orosTsLabel(ts)))
+    ? pallino('var(--tv-green)', 'Tutto sincronizzato \u00b7 ultimo invio ' + esc(orosTsLabel(ts)))
     : pallino('var(--tv-gold)', 'Impostazioni mai inviate: premi \u201cSincronizza adesso\u201d');
 }
 
@@ -4724,6 +4883,44 @@ function orosGiorniScadenza() {
   return Math.round((fine - oggi) / 86400000);
 }
 
+// ── Scadenza della singola scheda BOT ──────────────────────────
+// Stesso conteggio in UTC di orosGiorniScadenza: l'ora legale non lo sposta.
+function botGiorniA(tab) {
+  var p = String((tab && tab.data && tab.data.scadenza) || '').split('-');
+  if (p.length !== 3) return NaN;
+  var a = +p[0], m = +p[1], g = +p[2];
+  if (!isFinite(a) || !isFinite(m) || !isFinite(g)) return NaN;
+  var o = new Date();
+  return Math.round((Date.UTC(a, m - 1, g) - Date.UTC(o.getFullYear(), o.getMonth(), o.getDate())) / 86400000);
+}
+
+function botScadenzaEtichetta(tab) {
+  var iso = (tab && tab.data && tab.data.scadenza) || '';
+  var p = String(iso).split('-');
+  if (p.length !== 3) return '\u2014';
+  var d = new Date(+p[0], +p[1] - 1, +p[2]);
+  if (isNaN(d.getTime())) return '\u2014';
+  var lab;
+  try { lab = d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' }); }
+  catch (e) { lab = p[2] + '/' + p[1] + '/' + p[0]; }
+  var gg = botGiorniA(tab);
+  if (!isFinite(gg)) return lab;
+  if (gg < 0)  return lab + ' \u00b7 gi\u00e0 passata';
+  if (gg === 0) return lab + ' \u00b7 oggi';
+  return lab + ' \u00b7 ' + gg + (gg === 1 ? ' giorno' : ' giorni');
+}
+
+function botScadenzaSet(tabId, iso) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return;
+  var tab = botTabs.find(function (t) { return t.id === tabId; });
+  if (!tab) return;
+  tab.data.scadenza = iso;
+  var trg = document.getElementById('bot_scadenza');
+  if (trg) trg.textContent = botScadenzaEtichetta(tab);
+  // Solo i nodi output: niente re-render del pannello.
+  botUpdateField(tabId, 'scadenza', iso);
+}
+
 function orosScadenzaLabel() {
   var p = String(VRP_SCADENZA || '').split('-');
   if (p.length !== 3) return '\u2014';
@@ -4744,7 +4941,20 @@ function orosScadenzaLabel() {
 // dello Storico in Outlook, in versione compatta.
 // Il pallino oro segna il terzo venerdi' del mese visualizzato.
 // ══════════════════════════════════════
-var OROS_CAL = { mese: null, riga: null };
+// target === null  -> scadenza opzioni (CSP/CC), comportamento storico
+// target === {tipo:'bot', tabId} -> data di rimborso di quella scheda BOT
+var OROS_CAL = { mese: null, riga: null, target: null };
+
+// Valore attualmente selezionato sul campo verso cui punta il calendario.
+function orosCalValore() {
+  var t = OROS_CAL.target;
+  if (t && t.tipo === 'bot') {
+    var tab = (typeof botTabs !== 'undefined')
+      ? botTabs.find(function (x) { return x.id === t.tabId; }) : null;
+    return (tab && tab.data.scadenza) ? tab.data.scadenza : '';
+  }
+  return VRP_SCADENZA || '';
+}
 
 function orosCalAperto() { return !!document.getElementById('orosCalPop'); }
 
@@ -4752,11 +4962,13 @@ function orosCalChiudi() {
   var el = document.getElementById('orosCalPop');
   if (el) el.parentNode.removeChild(el);
   OROS_CAL.riga = null;
+  OROS_CAL.target = null;
 }
 
-function orosCalApri(riga) {
+function orosCalApri(riga, target) {
   if (orosCalAperto()) { orosCalChiudi(); return; }
-  var p = String(VRP_SCADENZA || '').split('-');
+  OROS_CAL.target = target || null;
+  var p = String(orosCalValore()).split('-');
   var base = (p.length === 3 && isFinite(+p[0])) ? new Date(+p[0], +p[1] - 1, 1) : new Date();
   OROS_CAL.mese = new Date(base.getFullYear(), base.getMonth(), 1);
   OROS_CAL.riga = riga || null;
@@ -4798,8 +5010,10 @@ function orosCalShift(delta) {
 }
 
 function orosCalPick(v) {
+  var t = OROS_CAL.target;
   orosCalChiudi();
-  orosScadenzaSet(v);
+  if (t && t.tipo === 'bot') botScadenzaSet(t.tabId, v);
+  else orosScadenzaSet(v);
 }
 
 function orosCalRender() {
@@ -4819,11 +5033,12 @@ function orosCalRender() {
   var frecciaDx = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
   var celle = '';
+  var selCorr = orosCalValore();
   for (var i = 0; i < offset; i++) celle += '<div class="oros-cal-cell vuota"></div>';
   for (var g = 1; g <= giorni; g++) {
     var iso = orosData2Iso(new Date(anno, mese, g));
     var cls = 'oros-cal-cell';
-    if (iso === VRP_SCADENZA) cls += ' sel';
+    if (iso === selCorr) cls += ' sel';
     else if (iso === isoOggi) cls += ' oggi';
     if (iso === isoTv) cls += ' tv';
     celle += '<div class="' + cls + '" onclick="orosCalPick(\'' + iso + '\')" title="' + iso + '">' +
@@ -4844,11 +5059,12 @@ function orosCalRender() {
     '</div>' +
     '<div class="oros-cal-dow"><span>L</span><span>M</span><span>M</span><span>G</span><span>V</span><span>S</span><span>D</span></div>' +
     '<div class="oros-cal-grid">' + celle + '</div>' +
-    '<div class="oros-cal-foot">' +
-      '<button type="button" class="oros-cal-tv" onclick="orosCalPick(\'' + isoTv + '\')">' +
-        '<i></i>terzo venerd\u00ec \u00b7 ' + etTv +
-      '</button>' +
-    '</div>';
+    ((OROS_CAL.target && OROS_CAL.target.tipo === 'bot') ? '' :
+      '<div class="oros-cal-foot">' +
+        '<button type="button" class="oros-cal-tv" onclick="orosCalPick(\'' + isoTv + '\')">' +
+          '<i></i>terzo venerd\u00ec \u00b7 ' + etTv +
+        '</button>' +
+      '</div>');
 }
 
 // Chiusura: click fuori, Esc, scorrimento, ridimensionamento
@@ -4947,8 +5163,17 @@ function vrpImplied(type, S, K, T, r, price) {
 }
 
 // Ritorna null se mancano i dati opzionali: in quel caso la pagina resta identica a prima.
-function vrpCalc(type, spot, strike, premio, hvPct, nAzioni) {
+function vrpCalc(type, spot, strike, premio, hvPct, nAzioni, divLordo) {
   if (!(spot > 0) || !(strike > 0) || !(premio > 0) || !(hvPct > 0) || !(nAzioni > 0)) return null;
+  // Il giorno dello stacco il titolo scende dell'importo LORDO del dividendo.
+  // Black-Scholes non lo sa: senza correzione il valore equo di una put esce
+  // troppo basso e la IV ricavata dal premio troppo alta, cioe' un falso
+  // "extra premio". Il modello standard sottrae il dividendo dallo spot.
+  // L'attualizzazione e' volutamente omessa: entro 60 giorni vale meno dello
+  // 0,3%, molto sotto il rumore della HV stessa.
+  var div = (isFinite(divLordo) && divLordo > 0) ? divLordo : 0;
+  var S   = spot - div;
+  if (!(S > 0)) return null;
   // Scala della HV riportata su base 'giorni di borsa', la stessa su cui il
   // mercato quota la IV. Incide sia sul rapporto IV/HV sia - in modo non
   // lineare, quindi molto piu' pesante - sul valore equo Black-Scholes.
@@ -4959,8 +5184,8 @@ function vrpCalc(type, spot, strike, premio, hvPct, nAzioni) {
   var T  = gg / 365;
   var r  = VRP_TASSO / 100;
   if (!(T > 0) || !(hv > 0)) return null;
-  var iv       = vrpImplied(type, spot, strike, T, r, premio);
-  var fairUnit = vrpBs(type, spot, strike, T, r, hv);
+  var iv       = vrpImplied(type, S, strike, T, r, premio);
+  var fairUnit = vrpBs(type, S, strike, T, r, hv);
   if (!isFinite(fairUnit) || fairUnit < 0) fairUnit = 0;
   var ratio = (isFinite(iv) && iv > 0) ? iv / hv : NaN;
   var mn = (type === 'put') ? VRP_CSP_MIN : VRP_CC_MIN;
@@ -5028,6 +5253,47 @@ function orosAnnualizza(rendPeriodo) {
 // Distanza percentuale fra prezzo di mercato e strike.
 // Positiva quando lo strike e' fuori dai soldi: sotto il prezzo per una Put,
 // sopra il prezzo per una Call. E' il margine di sicurezza dell'operazione.
+// ── Flag dividendo ─────────────────────────────────────────────
+// Un dividendo impostato cambia valore equo, IV e rapporto IV/HV. A scatola
+// chiusa deve restare leggibile: la pillola mostra l'importo e diventa oro.
+function orosDivAttivo(v) {
+  var s = String(v == null ? '' : v).trim();
+  if (s === '') return false;
+  var n = parseNum(s);
+  return isFinite(n) && n > 0;
+}
+
+function orosDivChipHtml(v) {
+  return orosDivAttivo(v)
+    ? ('dividendo ' + escapeHtml(String(v).trim()))
+    : '\uFF0B dividendo';
+}
+
+function orosDivTgl(el) {
+  // .field nelle pagine CSP/CC, .racc-row nella Raccolta rapida: ogni riga ha
+  // il suo box, quindi si risale al contenitore piu' vicino di uno dei due tipi.
+  var f = el && el.closest ? el.closest('.field, .racc-row') : null;
+  if (!f) return;
+  var box = f.querySelector('[data-div-box]');
+  if (!box) return;
+  var ap = !box.classList.contains('ap');
+  box.classList.toggle('ap', ap);
+  el.setAttribute('aria-expanded', ap ? 'true' : 'false');
+  if (ap) {
+    var i = box.querySelector('input');
+    if (i) { try { i.focus(); } catch (e) {} }
+  }
+}
+
+// Aggiornamento mirato: nessun re-render, il cursore resta dov'e'.
+function orosDivSync(container, v) {
+  if (!container) return;
+  var chip = container.querySelector('[data-div-tgl]');
+  if (!chip) return;
+  chip.innerHTML = orosDivChipHtml(v);
+  chip.classList.toggle('on', orosDivAttivo(v));
+}
+
 function orosDistStrike(tipo, spot, strike) {
   if (!(spot > 0) || !(strike > 0)) return null;
   return (tipo === 'put') ? (spot - strike) / spot : (strike - spot) / spot;
@@ -5112,7 +5378,7 @@ function orosDiag(tipo, spot, strike, premio, hv, vrp) {
       if (isFinite(z) && z > DIAG_SIGMA && vrp.ratio > DIAG_RATIO) {
         w.hv = 'Con una HV del ' + fmtDec(hv, 2) + '% lo strike sta a ' + fmtDec(z, 1) +
                ' deviazioni standard dal prezzo: una distanza che il modello considera irraggiungibile. Eppure il mercato quota l\'opzione a un premio che implica il ' +
-               fmtDec(vrp.iv * 100, 1) + '% di volatilita\'. Quasi sempre significa che la HV inserita non e\' quella giusta: ricontrollala prima di fidarti del rapporto IV/HV.';
+               fmtDec(vrp.iv * 100, 1) + '% di volatilita\'. Le cause sono due: la HV inserita non e\' quella giusta, oppure il titolo stacca un dividendo prima della scadenza e non l\'hai messo nel campo Dividendo. Controlla entrambe prima di fidarti del rapporto IV/HV.';
       }
     }
   }
@@ -5496,12 +5762,18 @@ function compute(d) {
   const commissioni = COMMISSIONI_UNIT * quantita;
   const premioNettoComm = premioLordo - commissioni;
   const premioNetto = premioNettoComm - (premioNettoComm * CAPITAL_GAIN);
-  const rendScadLordo = d.cash > 0 ? premioLordo / d.cash : 0;
-  const rendAnnuoLordo = orosAnnualizza(rendScadLordo);
-  const rendScadNetto = d.cash > 0 ? premioNetto / d.cash : 0;
-  const rendAnnuoNetto = orosAnnualizza(rendScadNetto);
   const controvaloreTot = quantita * controvalore;
-  const vrp = vrpCalc('put', d.spot, d.strike, d.premio, d.hv, quantita * d.quantitaOpz);
+  // Il rendimento va misurato sul capitale DAVVERO impegnato, non su tutto il
+  // cash digitato. Con l'arrotondamento per difetto dei contratti una parte
+  // resta ferma, e dividendo per il cash totale il rendimento cambiava a
+  // seconda di quanto cash scrivevi: 10.000 su strike 9,5x500 impegna 9.500 e
+  // ne lascia 500 inutilizzati, sottostimando il rendimento del 5,3%.
+  const baseRend = controvaloreTot > 0 ? controvaloreTot : 0;
+  const rendScadLordo = baseRend > 0 ? premioLordo / baseRend : 0;
+  const rendAnnuoLordo = orosAnnualizza(rendScadLordo);
+  const rendScadNetto = baseRend > 0 ? premioNetto / baseRend : 0;
+  const rendAnnuoNetto = orosAnnualizza(rendScadNetto);
+  const vrp = vrpCalc('put', d.spot, d.strike, d.premio, d.hv, quantita * d.quantitaOpz, d.div);
   vrpApplyNet(vrp, commissioni, premioNetto);
   return { premioLordo, premioNetto, rendScadLordo, rendAnnuoLordo, rendScadNetto, rendAnnuoNetto, quantita, controvaloreTot, vrp };
 }
@@ -5534,7 +5806,7 @@ function createTab(data = null) {
   const id = `tab_${tabCounter}`;
   const tab = {
     id,
-    data: data || { ticker: '', strike: '', premio: '', quantitaOpz: '', cash: '', spot: '', hv: '' }
+    data: data || { ticker: '', strike: '', premio: '', quantitaOpz: '', cash: '', spot: '', hv: '', div: '' }
   };
   tabs.push(tab);
   setActive(id);
@@ -5543,12 +5815,32 @@ function createTab(data = null) {
 }
 
 function removeTab(id) {
+  var idx = tabs.findIndex(function(t){ return t.id === id; });
+  if (idx < 0) return;
+  var chiusa = tabs[idx];
+  var attivaPrima = activeTab;
+  var etichetta = (chiusa.data && chiusa.data.ticker) ? String(chiusa.data.ticker).trim() : '';
+
   tabs = tabs.filter(t => t.id !== id);
   if (activeTab === id) {
     activeTab = tabs.length > 0 ? tabs[tabs.length - 1].id : null;
   }
-  if (tabs.length === 0) createTab();
+  // Quando la lista resta vuota ne nasce una nuova: al ripristino va tolta,
+  // altrimenti resterebbe una scheda vuota di troppo.
+  var auto = null;
+  if (tabs.length === 0) { createTab(); auto = tabs.length ? tabs[tabs.length - 1].id : null; }
   else renderAll();
+
+  orosUndoMostra(
+    'Scheda' + (etichetta ? ' ' + etichetta : '') + ' chiusa',
+    function() {
+      if (auto) tabs = tabs.filter(function(t){ return t.id !== auto; });
+      if (tabs.some(function(t){ return t.id === chiusa.id; })) return;
+      tabs.splice(Math.min(idx, tabs.length), 0, chiusa);
+      activeTab = attivaPrima;
+      renderAll();
+    }
+  );
 }
 
 function setActive(id) {
@@ -5593,8 +5885,9 @@ function getResults(tab) {
   const cash = parseNum(d.cash);
   const spot = parseNum(d.spot);
   const hv   = parseNum(d.hv);
+  const div  = parseNum(d.div);
   const hasData = !isNaN(strike) && !isNaN(premio) && strike > 0 && premio >= 0 && quantitaOpz > 0 && cash > 0;
-  return hasData ? compute({ strike, premio, quantitaOpz, cash, spot, hv }) : null;
+  return hasData ? compute({ strike, premio, quantitaOpz, cash, spot, hv, div }) : null;
 }
 
 function updateOutputs(tab) {
@@ -5603,6 +5896,7 @@ function updateOutputs(tab) {
   const c = document.getElementById('panelsContainer');
   const set = (sel, val) => { const el = c.querySelector('[data-out="'+sel+'"]'); if (el) el.textContent = val; };
   const setW = (sel, w) => { const el = c.querySelector('[data-bar="'+sel+'"]'); if (el) el.style.width = w; };
+  orosDivSync(c, tab.data.div);
   set('premioLordo', res ? fmt(res.premioLordo) : '—');
   set('premioLordoSub', res ? cspSubLordo(res, tab.data) : 'Inserisci i dati per calcolare');
   set('premioNetto', res ? fmt(res.premioNetto) : '—');
@@ -5757,8 +6051,12 @@ function renderPanels() {
               </div>
             </div>
             <div class="field full">
-              <label>Quantità per Opzione<span class="tip"><span class="tip-i">i</span><span class="tip-box">Azioni per contratto. In Italia solitamente 100, 500 o 1000.</span></span></label>
+              <label class="oros-lbl-riga"><span>Quantità per Opzione<span class="tip"><span class="tip-i">i</span><span class="tip-box">Azioni per contratto. In Italia solitamente 100, 500 o 1000.</span></span></span><span class="oros-div-tgl${orosDivAttivo(d.div) ? ' on' : ''}" data-div-tgl role="button" tabindex="0" aria-expanded="${orosDivAttivo(d.div) ? 'true' : 'false'}" title="Dividendo lordo per azione che stacca prima della scadenza" onclick="orosDivTgl(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();orosDivTgl(this);}">${orosDivChipHtml(d.div)}</span></label>
               ${orosSelHtml(d.quantitaOpz, d._qtaCustom, d.quantitaOpz)}
+              <div class="oros-div-box${orosDivAttivo(d.div) ? ' ap' : ''}" data-div-box>
+                <label style="margin-bottom:5px;display:block;">Dividendo<span data-warn="div"></span><span class="tip"><span class="tip-i">i</span><span class="tip-box">Dividendo lordo per azione che stacca prima della scadenza. Lascia vuoto se non ne stacca nessuno. Va messo l&#39;importo lordo, non il netto: il giorno dello stacco il titolo scende del lordo. Senza, su ogni titolo che paga dividendi il rapporto IV/HV e l&#39;extra premio escono sbagliati.</span></span></label>
+                <input type="text" inputmode="decimal" placeholder="lordo per azione, es. 0,40" value="${escapeAttr(d.div)}" data-field="div">
+              </div>
             </div>
             <div class="field full" style="display:flex;gap:8px;margin-top:4px;">
               <button onclick="goToCC()" style="flex:1;padding:8px 12px;background:transparent;border:1px solid rgba(240,180,41,0.2);border-radius:6px;color:rgba(240,180,41,0.5);font-family:'Inter',sans-serif;font-size:11px;font-weight:500;cursor:pointer;transition:all 0.25s;letter-spacing:0.3px;display:flex;align-items:center;justify-content:center;gap:4px;"
@@ -5973,10 +6271,10 @@ function goToCC() {
     Object.assign(ccTab.data, nuovi);
     goPage('cc');
     ccRenderAll();
-  } else if (ccTabs.length >= 15) {
+  } else if (ccTabs.length >= OROS_MAX_SCHEDE) {
     goPage('cc');
     ccRenderAll();
-    orosAlert('Massimo 15 titoli contemporaneamente: chiudi una scheda CC prima di analizzarne un\'altra.');
+    orosAlert('Massimo ' + OROS_MAX_SCHEDE + ' titoli contemporaneamente: chiudi una scheda CC prima di analizzarne un\'altra.');
   } else {
     goPage('cc');
     ccCreateTab(nuovi);   // ccCreateTab attiva la nuova scheda e ridisegna
@@ -5985,8 +6283,8 @@ function goToCC() {
 
 // Wire buttons
 document.getElementById('addTabBtn').addEventListener('click', () => {
-  if (tabs.length < 15) createTab();
-  else orosAlert('Massimo 15 titoli contemporaneamente');
+  if (tabs.length < OROS_MAX_SCHEDE) createTab();
+  else orosAlert('Massimo ' + OROS_MAX_SCHEDE + ' titoli contemporaneamente');
 });
 
 document.getElementById('compareBtn').addEventListener('click', () => {
@@ -6144,14 +6442,20 @@ let ccCompareVisible = false;
 
 function computeCC(d) {
   const controvalore = d.quantitaOpz * d.strike;
-  const cash         = d.contratti * controvalore;
+  // Su una Covered Call il capitale impegnato sono le azioni che gia' possiedi,
+  // e valgono il PREZZO DI MERCATO, non lo strike. Usare lo strike sottostimava
+  // il rendimento sulle call OTM e lo sovrastimava sulle ITM.
+  // Se il prezzo non e' stato inserito si ripiega sullo strike: e' il
+  // comportamento vecchio, meglio di un risultato assente.
+  const baseUnit     = (d.spot > 0) ? d.spot : d.strike;
+  const cash         = d.contratti * d.quantitaOpz * baseUnit;
   const premioLordo  = d.premio * d.contratti * d.quantitaOpz;
   const commissioni  = COMMISSIONI_UNIT * d.contratti;
   const pnc          = premioLordo - commissioni;
   const premioNetto  = pnc - pnc * CAPITAL_GAIN;
   const rsl = cash > 0 ? premioLordo / cash : 0;
   const rsn = cash > 0 ? premioNetto  / cash : 0;
-  const vrp = vrpCalc('call', d.spot, d.strike, d.premio, d.hv, d.contratti * d.quantitaOpz);
+  const vrp = vrpCalc('call', d.spot, d.strike, d.premio, d.hv, d.contratti * d.quantitaOpz, d.div);
   vrpApplyNet(vrp, commissioni, premioNetto);
   return {
     premioLordo, premioNetto, controvalore, cash, commissioni, vrp,
@@ -6174,7 +6478,7 @@ function ccParseNum(v) {
 // SOPRA il prezzo: il segno della distanza si inverte, ci pensa
 // orosDistStrike.
 function ccSubLordo(res, d) {
-  var t = 'Controvalore: ' + fmt(res.controvalore) + '  \u00b7  Cash: ' + fmt(res.cash);
+  var t = 'Controvalore: ' + fmt(res.controvalore) + '  \u00b7  Capitale: ' + fmt(res.cash);
   var dist = orosDistLabel('call', ccParseNum(d.spot), ccParseNum(d.strike));
   return dist ? (t + '  \u00b7  ' + dist) : t;
 }
@@ -6187,9 +6491,10 @@ function ccGetResults(tab) {
   const contratti  = ccParseNum(d.contratti);
   const spot = ccParseNum(d.spot);
   const hv   = ccParseNum(d.hv);
+  const div  = ccParseNum(d.div);
   if ([strike, premio, quantitaOpz, contratti].some(isNaN)) return null;
   if (strike <= 0 || premio < 0 || quantitaOpz <= 0 || contratti <= 0) return null;
-  return computeCC({ strike, premio, quantitaOpz, contratti, spot, hv });
+  return computeCC({ strike, premio, quantitaOpz, contratti, spot, hv, div });
 }
 
 function ccCreateTab(data) {
@@ -6197,16 +6502,34 @@ function ccCreateTab(data) {
   const id = 'cct' + ccTabCounter;
   ccTabs.push({
     id,
-    data: data || { ticker: '', strike: '', premio: '', quantitaOpz: '', contratti: '', spot: '', hv: '', _qc: false }
+    data: data || { ticker: '', strike: '', premio: '', quantitaOpz: '', contratti: '', spot: '', hv: '', div: '', _qc: false }
   });
   ccSetActive(id);
 }
 
 function ccRemoveTab(id) {
+  var idx = ccTabs.findIndex(function(t){ return t.id === id; });
+  if (idx < 0) return;
+  var chiusa = ccTabs[idx];
+  var attivaPrima = ccActiveTab;
+  var etichetta = (chiusa.data && chiusa.data.ticker) ? String(chiusa.data.ticker).trim() : '';
+
   ccTabs = ccTabs.filter(t => t.id !== id);
   if (ccActiveTab === id) ccActiveTab = ccTabs.length ? ccTabs[ccTabs.length - 1].id : null;
-  if (!ccTabs.length) ccCreateTab();
+  var auto = null;
+  if (!ccTabs.length) { ccCreateTab(); auto = ccTabs.length ? ccTabs[ccTabs.length - 1].id : null; }
   else ccRenderAll();
+
+  orosUndoMostra(
+    'Scheda' + (etichetta ? ' ' + etichetta : '') + ' chiusa',
+    function() {
+      if (auto) ccTabs = ccTabs.filter(function(t){ return t.id !== auto; });
+      if (ccTabs.some(function(t){ return t.id === chiusa.id; })) return;
+      ccTabs.splice(Math.min(idx, ccTabs.length), 0, chiusa);
+      ccActiveTab = attivaPrima;
+      ccRenderAll();
+    }
+  );
 }
 
 function ccSetActive(id) { ccActiveTab = id; ccRenderAll(); }
@@ -6237,6 +6560,7 @@ function ccUpdateOutputs(tab) {
   const set  = (k, v) => { const el = c.querySelector(`[data-out="${k}"]`);  if (el) el.textContent = v; };
   const setW = (k, v) => { const el = c.querySelector(`[data-bar="${k}"]`); if (el) el.style.width = v; };
   const ann = (res && isFinite(res.rendAnnuoNetto)) ? Math.min(res.rendAnnuoNetto * 100 / 0.8, 100) : 0;
+  orosDivSync(c, tab.data.div);
   set('ccPL',  res ? fmt(res.premioLordo)  : '—');
   set('ccPS',  res ? ccSubLordo(res, tab.data) : 'Inserisci i dati per calcolare');
   set('ccPN',  res ? fmt(res.premioNetto)  : '—');
@@ -6300,8 +6624,12 @@ function ccRenderPanel() {
               </div>
             </div>
             <div class="field full">
-              <label>Quantità per Opzione<span class="tip"><span class="tip-i">i</span><span class="tip-box">Azioni per contratto. Deve corrispondere al lotto minimo del titolo.</span></span></label>
+              <label class="oros-lbl-riga"><span>Quantità per Opzione<span class="tip"><span class="tip-i">i</span><span class="tip-box">Azioni per contratto. Deve corrispondere al lotto minimo del titolo.</span></span></span><span class="oros-div-tgl${orosDivAttivo(d.div) ? ' on' : ''}" data-div-tgl role="button" tabindex="0" aria-expanded="${orosDivAttivo(d.div) ? 'true' : 'false'}" title="Dividendo lordo per azione che stacca prima della scadenza" onclick="orosDivTgl(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();orosDivTgl(this);}">${orosDivChipHtml(d.div)}</span></label>
               ${orosSelHtml(d.quantitaOpz, d._qc, d.quantitaOpz)}
+              <div class="oros-div-box${orosDivAttivo(d.div) ? ' ap' : ''}" data-div-box>
+                <label style="margin-bottom:5px;display:block;">Dividendo<span data-warn="div"></span><span class="tip"><span class="tip-i">i</span><span class="tip-box">Dividendo lordo per azione che stacca prima della scadenza. Lascia vuoto se non ne stacca nessuno. Va messo l&#39;importo lordo, non il netto: il giorno dello stacco il titolo scende del lordo. Senza, su ogni titolo che paga dividendi il rapporto IV/HV e l&#39;extra premio escono sbagliati.</span></span></label>
+                <input type="text" inputmode="decimal" placeholder="lordo per azione, es. 0,40" value="${escapeAttr(d.div)}" data-field="div">
+              </div>
             </div>
             <div class="field full" style="margin-top:4px;display:flex;gap:8px;">
               <button onclick="salvaCcCorrente()" style="flex:1;padding:8px 12px;background:transparent;border:1px solid rgba(38,166,154,0.2);border-radius:6px;color:rgba(38,166,154,0.5);font-family:'Inter',sans-serif;font-size:11px;font-weight:500;cursor:pointer;transition:all 0.25s;letter-spacing:0.3px;display:flex;align-items:center;justify-content:center;gap:4px;"
@@ -6482,8 +6810,8 @@ document.getElementById('ccGearBtn').addEventListener('click', () => {
   document.getElementById('settingsOverlay').style.display = 'block';
 });
 document.getElementById('ccAddTabBtn').addEventListener('click', () => {
-  if (ccTabs.length < 15) ccCreateTab();
-  else orosAlert('Massimo 15 titoli contemporaneamente');
+  if (ccTabs.length < OROS_MAX_SCHEDE) ccCreateTab();
+  else orosAlert('Massimo ' + OROS_MAX_SCHEDE + ' titoli contemporaneamente');
 });
 document.getElementById('ccCompareBtn').addEventListener('click', () => {
   ccCompareVisible = !ccCompareVisible;
@@ -6530,9 +6858,13 @@ function ccCalcDividendi() {
   const utileNetto = utileLordo - utileLordo * CAPITAL_GAIN;  // al netto capital gain
 
   // Rendimento % = utile lordo / (contratti × quantitaOpz × strike) × 100
+  // Stessa correzione di computeCC: il capitale sono le azioni al prezzo di
+  // mercato, non allo strike.
   let rendStr = '—';
-  if (!isNaN(strike) && strike > 0) {
-    const investimento = contratti * quantitaOpz * strike;
+  const spotDiv = ccParseNum(tab.data.spot);
+  const baseDiv = (spotDiv > 0) ? spotDiv : strike;
+  if (!isNaN(baseDiv) && baseDiv > 0) {
+    const investimento = contratti * quantitaOpz * baseDiv;
     const rend = (utileLordo / investimento) * 100;
     rendStr = fmtDec(rend, 2) + '%';
   }
@@ -7042,6 +7374,34 @@ document.getElementById('storiaModal').addEventListener('click', function(e) {
 // ── Custom confirm dialog (window.confirm è bloccato su iOS PWA / web clip) ──
 var _orosConfirmCb = null;
 // opts: { okLabel: testo bottone OK, danger: true=rosso (default) / false=blu, showCancel: default true }
+// ── Annulla ultima chiusura ────────────────────────────────────
+// Una sola azione alla volta: se ne arriva un'altra la precedente decade.
+var _orosUndoCb = null, _orosUndoTimer = null;
+var OROS_UNDO_MS = 15000;
+
+function orosUndoMostra(testo, ripristina) {
+  _orosUndoCb = ripristina;
+  var bar = document.getElementById('orosUndoBar');
+  var txt = document.getElementById('orosUndoTxt');
+  if (txt) txt.textContent = testo;
+  if (bar) bar.classList.add('ap');
+  if (_orosUndoTimer) clearTimeout(_orosUndoTimer);
+  _orosUndoTimer = setTimeout(orosUndoNascondi, OROS_UNDO_MS);
+}
+
+function orosUndoNascondi() {
+  if (_orosUndoTimer) { clearTimeout(_orosUndoTimer); _orosUndoTimer = null; }
+  _orosUndoCb = null;
+  var bar = document.getElementById('orosUndoBar');
+  if (bar) bar.classList.remove('ap');
+}
+
+function orosUndoEsegui() {
+  var f = _orosUndoCb;
+  orosUndoNascondi();
+  if (typeof f === 'function') { try { f(); } catch (e) { console.warn('Ripristino non riuscito:', e); } }
+}
+
 function orosConfirm(msg, cb, opts) {
   opts = opts || {};
   var ok = document.getElementById('orosConfirmOk');
@@ -7167,10 +7527,10 @@ function storiaRicarica(id) {
     if (tab && orosSchedaVuota(tab.data, 'csp')) {
       Object.assign(tab.data, entry.data);
       renderAll();
-    } else if (tabs.length >= 15) {
-      orosAlert('Massimo 15 titoli contemporaneamente: chiudi una scheda prima di ricaricare.');
+    } else if (tabs.length >= OROS_MAX_SCHEDE) {
+      orosAlert('Massimo ' + OROS_MAX_SCHEDE + ' titoli contemporaneamente: chiudi una scheda prima di ricaricare.');
     } else {
-      var base = { ticker: '', strike: '', premio: '', quantitaOpz: '', cash: '', spot: '', hv: '' };
+      var base = { ticker: '', strike: '', premio: '', quantitaOpz: '', cash: '', spot: '', hv: '', div: '' };
       createTab(Object.assign(base, JSON.parse(JSON.stringify(entry.data))));
     }
   } else {
@@ -7179,10 +7539,10 @@ function storiaRicarica(id) {
     if (ccTab && orosSchedaVuota(ccTab.data, 'cc')) {
       Object.assign(ccTab.data, entry.data);
       ccRenderAll();
-    } else if (ccTabs.length >= 15) {
-      orosAlert('Massimo 15 titoli contemporaneamente: chiudi una scheda prima di ricaricare.');
+    } else if (ccTabs.length >= OROS_MAX_SCHEDE) {
+      orosAlert('Massimo ' + OROS_MAX_SCHEDE + ' titoli contemporaneamente: chiudi una scheda prima di ricaricare.');
     } else {
-      var ccBase = { ticker: '', strike: '', premio: '', quantitaOpz: '', contratti: '', spot: '', hv: '', _qc: false };
+      var ccBase = { ticker: '', strike: '', premio: '', quantitaOpz: '', contratti: '', spot: '', hv: '', div: '', _qc: false };
       ccCreateTab(Object.assign(ccBase, JSON.parse(JSON.stringify(entry.data))));
     }
   }
@@ -7362,22 +7722,48 @@ function botGetResults(tab) {
   var capGain      = gain * 0.125;
   var utile        = gain - capGain - BOT_COMM;
   var roe          = investimento !== 0 ? utile / investimento : NaN;
-  return { delta, investimento, gain, capGain, utile, roe };
+  // Il rendimento grezzo e' di PERIODO. Senza annualizzarlo un BOT a 3 mesi e
+  // uno a 12 mostrano numeri non confrontabili, e nessuno dei due e'
+  // confrontabile col chip BOT delle pagine CSP, che e' annualizzato composto.
+  // Stessa convenzione usata ovunque in OROS: composta sui giorni reali.
+  var giorni       = botGiorniA(tab);
+  var roeAnnuo     = (isFinite(roe) && giorni > 0 && roe > -1)
+                       ? Math.pow(1 + roe, 365 / giorni) - 1
+                       : NaN;
+  return { delta, investimento, gain, capGain, utile, roe, roeAnnuo, giorni };
 }
 
 function createBotTab(data) {
   botTabCounter++;
-  var tab = { id: 'btab_' + botTabCounter, data: data || { ticker: '', price: '', qty: '' } };
+  var tab = { id: 'btab_' + botTabCounter, data: data || { ticker: '', price: '', qty: '', scadenza: '' } };
   botTabs.push(tab);
   botActiveTab = tab.id;
   botRenderAll();
 }
 
 function removeBotTab(id) {
+  var idx = botTabs.findIndex(function(t){ return t.id === id; });
+  if (idx < 0) return;
+  var chiusa = botTabs[idx];
+  var attivaPrima = botActiveTab;
+  var etichetta = (chiusa.data && chiusa.data.ticker) ? String(chiusa.data.ticker).trim() : '';
+
   botTabs = botTabs.filter(function(t){ return t.id !== id; });
   if (botActiveTab === id) botActiveTab = botTabs.length > 0 ? botTabs[botTabs.length - 1].id : null;
-  if (botTabs.length === 0) createBotTab();
+  var auto = null;
+  if (botTabs.length === 0) { createBotTab(); auto = botTabs.length ? botTabs[botTabs.length - 1].id : null; }
   else botRenderAll();
+
+  orosUndoMostra(
+    'Scheda' + (etichetta ? ' ' + etichetta : '') + ' chiusa',
+    function() {
+      if (auto) botTabs = botTabs.filter(function(t){ return t.id !== auto; });
+      if (botTabs.some(function(t){ return t.id === chiusa.id; })) return;
+      botTabs.splice(Math.min(idx, botTabs.length), 0, chiusa);
+      botActiveTab = attivaPrima;
+      botRenderAll();
+    }
+  );
 }
 
 function setBotActive(id) { botActiveTab = id; botRenderAll(); }
@@ -7421,9 +7807,13 @@ function botRenderPanel() {
         '<div>' +
           '<div class="section-title" style="margin-bottom:18px;">Parametri</div>' +
           '<div class="input-grid">' +
-            '<div class="field full">' +
+            '<div class="field">' +
               '<label>Ticker<span class="tip"><span class="tip-i">i</span><span class="tip-box">Codice identificativo del BOT (es. BOT 14MZ26).</span></span></label>' +
               '<input type="text" id="bot_ticker" class="" placeholder="es. BOT 14MZ26" value="' + escapeAttr(d.ticker||'') + '" style="text-transform:uppercase;" oninput="botUpdateField(\'' + tab.id + '\',\'ticker\',this.value.toUpperCase());this.value=this.value.toUpperCase();">' +
+            '</div>' +
+            '<div class="field">' +
+              '<label>Data di scadenza<span class="tip"><span class="tip-i">i</span><span class="tip-box">Giorno del rimborso. I giorni mancanti li calcola da solo e servono per riportare il rendimento su base annua: senza, un BOT a 3 mesi e uno a 12 non sono confrontabili.</span></span></label>' +
+              '<button type="button" id="bot_scadenza" class="oros-cal-trigger" style="text-transform:none;" onclick="orosCalApri(this,{tipo:\'bot\',tabId:\'' + tab.id + '\'})">' + botScadenzaEtichetta(tab) + '</button>' +
             '</div>' +
             '<div class="field">' +
               '<label>Prezzo acquisto<span class="tip"><span class="tip-i">i</span><span class="tip-box">Scrivilo come lo leggi sul book (97,298) oppure in frazione di nominale (0,97298): il formato viene riconosciuto da solo. Usa la virgola per i decimali.</span></span></label>' +
@@ -7460,8 +7850,9 @@ function botRenderPanel() {
             '</div>' +
           '</div>' +
           '<div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;padding:14px 16px;">' +
-            '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:5px;">Rendimento Netto</div>' +
-            '<div data-bot-out="roe" style="font-size:22px;font-weight:800;color:var(--tv-green);font-family:\'Inter\',sans-serif;">' + (res ? botFmtPct(res.roe) : '—') + '</div>' +
+            '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:5px;">Rendimento Netto Annuo</div>' +
+            '<div data-bot-out="roe" style="font-size:22px;font-weight:800;color:var(--tv-green);font-family:\'Inter\',sans-serif;">' + (res ? botFmtPct(res.roeAnnuo) : '—') + '</div>' +
+            '<div data-bot-out="roePeriodo" style="font-size:11px;color:var(--tv-muted);margin-top:4px;">' + (res ? ('Fino a scadenza: ' + botFmtPct(res.roe)) : '') + '</div>' +
           '</div>' +
         '</div>' +
       '</div>' +
@@ -7484,7 +7875,10 @@ function botUpdateField(tabId, field, value) {
   set('gain',         res ? botFmtEur(res.gain)         : '—');
   set('capGain',      res ? botFmtEur(res.capGain)      : '—');
   set('utile',        res ? botFmtEur(res.utile)        : '—');
-  set('roe',          res ? botFmtPct(res.roe)          : '—');
+  set('roe',          res ? botFmtPct(res.roeAnnuo)     : '—');
+  set('roePeriodo',   res ? ('Fino a scadenza: ' + botFmtPct(res.roe)) : '');
+  var trgScad = document.getElementById('bot_scadenza');
+  if (trgScad) trgScad.textContent = botScadenzaEtichetta(tab);
   // Rename tab label when ticker changes
   if (field === 'ticker') botRenderTabs();
 }
@@ -7571,7 +7965,10 @@ document.getElementById('botSaveSettings').addEventListener('click', function() 
 });
 
 // Add tab / compare buttons
-document.getElementById('botAddTabBtn').addEventListener('click', function() { createBotTab(); });
+document.getElementById('botAddTabBtn').addEventListener('click', function() {
+  if (botTabs.length < OROS_MAX_SCHEDE) createBotTab();
+  else orosAlert('Massimo ' + OROS_MAX_SCHEDE + ' titoli contemporaneamente');
+});
 document.getElementById('botCompareBtn').addEventListener('click', function() {
   botCompareVisible = !botCompareVisible;
   document.getElementById('botCompareBtn').classList.toggle('active', botCompareVisible);
@@ -8242,7 +8639,11 @@ function meteoCalc() {
   var da = meteoNum('metIn_dxya'), db = meteoNum('metIn_dxyb');
   if (da !== null && db !== null && db !== 0) {
     c.dxy = (da / db - 1) * 100;
-    c.corrente = c.dxy > 1.5 ? 3 : (c.dxy >= 0.5 ? 2 : 1);
+    // Stessa convenzione del barometro: conta l'ampiezza della scossa, non il
+    // verso. Col test con segno un crollo del dollaro del 5% risultava verde,
+    // mentre e' un evento macro grosso quanto un rialzo.
+    var adx = Math.abs(c.dxy);
+    c.corrente = adx > 1.5 ? 3 : (adx >= 0.5 ? 2 : 1);
   }
   return c;
 }
@@ -9214,6 +9615,11 @@ function meteoOpenPage() {
 }
 </script>
 
+<div id="orosUndoBar" role="status" aria-live="polite">
+  <span class="oros-undo-txt" id="orosUndoTxt">Scheda chiusa</span>
+  <button type="button" onclick="orosUndoEsegui()">Annulla</button>
+</div>
+
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script>
@@ -9223,6 +9629,7 @@ function meteoOpenPage() {
   window.fsPfCloudSave = function() {};
   window.fsMeteoCloudSave = function() {};
   window.fsMeteoInCloudSave = function() {};
+  window.fsPbCloudSave = function() {};
   window.fsCfgCloudSave = function() { return Promise.resolve({ ok: false, err: 'Firestore non disponibile' }); };
   window.fsSyncOnLogin = function() {};
   window.fsInboxSave   = function() { return Promise.reject(new Error('Firestore non disponibile')); };
@@ -9250,20 +9657,33 @@ function meteoOpenPage() {
   function _tsKey(docName) { return 'oros_' + docName + '_updatedAt'; }
 
   // ── Salvataggio cloud con timestamp (mirror anche in locale) ──
+  // Ogni esito finisce in window.__orosDocSync: un fallimento silenzioso
+  // farebbe credere salvato un dato che sul cloud non e' mai arrivato.
   function _cloudSave(docName, list) {
-    if (!window._orosUserId) return;
+    if (!window._orosUserId) {
+      orosDocSyncSet(docName, false, 'Non connesso');
+      return;
+    }
     var ts = new Date().toISOString();
     orosLsSet(_tsKey(docName), ts);
     _db.collection('users').doc(window._orosUserId)
       .collection('data').doc(docName)
       .set({ list: list, updatedAt: ts })
-      .catch(function(e){ console.warn('Firestore save error (' + docName + '):', e); });
+      .then(function() {
+        orosDocSyncSet(docName, true);
+      })
+      .catch(function(e) {
+        var m = (e && e.message) ? e.message : String(e);
+        console.warn('Firestore save error (' + docName + '):', e);
+        orosDocSyncSet(docName, false, m);
+      });
   }
 
   window.fsCloudSave   = function(list) { _cloudSave('storia', list); };
   window.fsPfCloudSave = function(list) { _cloudSave('portafoglio', list); };
   window.fsMeteoCloudSave = function(list) { _cloudSave('meteo', list); };
   window.fsMeteoInCloudSave = function(list) { _cloudSave('meteo_inputs', list); };
+  window.fsPbCloudSave = function(list) { _cloudSave('costruz', list); };
 
   // ── Impostazioni ──────────────────────────────────────────────────
   // Documento a oggetto singolo, non una lista: non passa da _cloudSave,
@@ -9326,7 +9746,7 @@ function meteoOpenPage() {
       delete _unsub[k];
     });
   }
-  function _attachListener(docName, lsKey, renderFn, sanificaId) {
+  function _attachListener(docName, lsKey, renderFn, sanificaId, scriviLocale) {
     if (_unsub[docName]) return;   // già agganciato a questo documento
     _unsub[docName] = _db.collection('users').doc(window._orosUserId)
       .collection('data').doc(docName)
@@ -9343,11 +9763,15 @@ function meteoOpenPage() {
           // Stessa difesa applicata all'import da file: gli id in arrivo
           // finiscono in attributi onclick, non possono restare arbitrari.
           if (sanificaId) lista = orosSanitizeList(lista, true);
-          orosLsSet(lsKey, JSON.stringify(lista));
+          if (typeof scriviLocale === 'function') scriviLocale(lista);
+          else orosLsSet(lsKey, JSON.stringify(lista));
           orosLsSet(_tsKey(docName), cloudTs);
           if (typeof renderFn === 'function') renderFn();
         }
-      }, function(e){ console.warn('Firestore listener error (' + docName + '):', e); });
+      }, function(e) {
+        console.warn('Firestore listener error (' + docName + '):', e);
+        orosDocSyncSet(docName, false, 'lettura non riuscita');
+      });
   }
 
   function _attachCfgListener() {
@@ -9437,7 +9861,14 @@ function meteoOpenPage() {
       { name: 'storia',      ls: 'oros_storia_v1',      sanId: true,  save: window.fsCloudSave,   render: function(){ if (typeof renderStoria === 'function') renderStoria(); } },
       { name: 'portafoglio', ls: 'oros_portafoglio_v1', sanId: true,  save: window.fsPfCloudSave, render: function(){ if (typeof portafoglioRender === 'function') portafoglioRender(); } },
       { name: 'meteo',        ls: 'oros_meteo_v1',        sanId: true,  save: window.fsMeteoCloudSave,  render: function(){ if (typeof meteoRender === 'function') meteoRender(); } },
-      { name: 'meteo_inputs', ls: 'oros_meteo_inputs_v1', sanId: false, save: window.fsMeteoInCloudSave, render: function(){ if (typeof meteoInputsFromCloud === 'function') meteoInputsFromCloud(); } }
+      { name: 'meteo_inputs', ls: 'oros_meteo_inputs_v1', sanId: false, save: window.fsMeteoInCloudSave, render: function(){ if (typeof meteoInputsFromCloud === 'function') meteoInputsFromCloud(); } },
+      // costruz: il locale e' un oggetto { pf, cur }, non una lista nuda.
+      // leggiLocale/scriviLocale traducono nei due sensi lasciando `cur` al
+      // dispositivo.
+      { name: 'costruz', ls: 'oros_pb_v4', sanId: true, save: window.fsPbCloudSave,
+        leggiLocale:  function(){ return (typeof pbListaLocale  === 'function') ? pbListaLocale()  : []; },
+        scriviLocale: function(l){ if (typeof pbScriviLocale === 'function') pbScriviLocale(l); },
+        render: function(){ if (typeof pbFromCloud === 'function') pbFromCloud(); } }
     ];
 
     docs.forEach(function(cfg) {
@@ -9446,7 +9877,11 @@ function meteoOpenPage() {
         .then(function(snap) {
           var localTs   = localStorage.getItem(_tsKey(cfg.name)) || '';
           var localList;
-          try { localList = JSON.parse(localStorage.getItem(cfg.ls) || '[]'); } catch (e) { localList = []; }
+          if (typeof cfg.leggiLocale === 'function') {
+            localList = cfg.leggiLocale();
+          } else {
+            try { localList = JSON.parse(localStorage.getItem(cfg.ls) || '[]'); } catch (e) { localList = []; }
+          }
           if (!Array.isArray(localList)) localList = [];
 
           if (!snap.exists) {
@@ -9464,11 +9899,13 @@ function meteoOpenPage() {
             // Altrimenti: cloud più recente (o uguale) → ci pensa il listener ad allinearlo
           }
           // Attiva il listener real-time per gli aggiornamenti continui
-          _attachListener(cfg.name, cfg.ls, cfg.render, cfg.sanId);
+          _attachListener(cfg.name, cfg.ls, cfg.render, cfg.sanId, cfg.scriviLocale);
         })
         .catch(function(e) {
+          var m = (e && e.message) ? e.message : String(e);
           console.warn('Firestore sync error (' + cfg.name + '):', e);
-          _attachListener(cfg.name, cfg.ls, cfg.render, cfg.sanId);
+          orosDocSyncSet(cfg.name, false, m);
+          _attachListener(cfg.name, cfg.ls, cfg.render, cfg.sanId, cfg.scriviLocale);
         });
     });
 
@@ -9534,7 +9971,7 @@ function meteoOpenPage() {
 var RACC = { tipo: 'csp', rows: [], cash: '', sessionId: '', focusRow: '', doneId: '', seq: 0 };
 
 // Stato lato ricezione (il dispositivo che si tiene davanti)
-var RACC_RX = { tipo: null, on: false, map: {}, sid: '', lastDone: '', nRighe: 0, pos: 0 };
+var RACC_RX = { tipo: null, on: false, map: {}, sid: '', lastDone: '', nRighe: 0, pos: 0, pieno: false };
 
 // Tipo scelto nella modale, in attesa della risposta dell'utente
 var RACC_MODAL_TIPO = 'csp';
@@ -9558,9 +9995,9 @@ var RACC_TIPI = {
     etichetta: 'TITOLO',
     aggiungi: '\uff0b Aggiungi titolo',
     unita: ['titolo', 'titoli'],
-    campi: ['ticker', 'spot', 'hv', 'strike', 'premio', 'qta', 'cash'],
+    campi: ['ticker', 'spot', 'hv', 'div', 'strike', 'premio', 'qta', 'cash'],
     nuova: function () {
-      return { ticker: '', spot: '', hv: '', strike: '', premio: '', qta: '', qtaCustom: false, qtaMan: false, cash: '' };
+      return { ticker: '', spot: '', hv: '', div: '', strike: '', premio: '', qta: '', qtaCustom: false, qtaMan: false, cash: '' };
     },
     scheda: raccSchedaCsp,
     applica: raccApplicaCsp,
@@ -9682,6 +10119,12 @@ function raccAutoQta(r) {
 
 function raccAddRow() {
   var cfg = raccCfg();
+  // Ogni riga della raccolta CSP diventa una scheda sul dispositivo che
+  // riceve: il tetto dev'essere lo stesso, altrimenti da qui si aggira.
+  if (RACC.tipo === 'csp' && RACC.rows.length >= OROS_MAX_SCHEDE) {
+    orosAlert('Massimo ' + OROS_MAX_SCHEDE + ' titoli contemporaneamente: togli una riga prima di aggiungerne un\'altra.');
+    return;
+  }
   var r = cfg.nuova();
   r.id = raccNuovoId();
   RACC.rows.push(r);
@@ -9732,6 +10175,12 @@ function raccOnInput(rid, campo, el) {
   r[campo] = el.value;
   RACC.focusRow = rid;
   RACC.doneId = '';
+  // Aggiornamento mirato della pillola: un raccRender() qui ricostruirebbe
+  // gli input mentre si scrive e farebbe perdere il cursore.
+  if (campo === 'div' && typeof orosDivSync === 'function') {
+    var riga = el.closest ? el.closest('.racc-row') : null;
+    if (riga) orosDivSync(riga, el.value);
+  }
   if (cfg.nomeCampo && campo === cfg.nomeCampo) {
     raccUpdNome(rid);
     if (RACC.tipo === 'csp' && raccAutoQta(r)) raccUpdQta(rid);
@@ -9847,7 +10296,21 @@ function raccSchedaCsp(r, id, ph) {
     '</div>' +
     '<div class="racc-f due" style="margin-top:10px;">' +
       c('spot', 'Prezzo', '9,52', 'inputmode="decimal"') +
-      c('hv', 'HV %', '24,5', 'inputmode="decimal"') +
+      // Il flag "dividendo" sta in coda all'etichetta della HV: chiuso non
+      // lascia nessun campo vuoto, e resta nel gruppo che si compila
+      // guardando TradingView.
+      '<div><label class="oros-lbl-riga"><span>HV %</span>' +
+        '<span class="oros-div-tgl' + (orosDivAttivo(r.div) ? ' on' : '') + '" data-div-tgl role="button" tabindex="0"' +
+        ' aria-expanded="' + (orosDivAttivo(r.div) ? 'true' : 'false') + '"' +
+        ' title="Dividendo lordo per azione che stacca prima della scadenza"' +
+        ' onclick="orosDivTgl(this)"' +
+        ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();orosDivTgl(this);}">' +
+        orosDivChipHtml(r.div) + '</span></label>' +
+        '<input type="text" inputmode="decimal" placeholder="24,5" value="' + escapeAttr(r.hv) + '" ' +
+        'oninput="raccOnInput(\'' + id + '\',\'hv\',this)"></div>' +
+    '</div>' +
+    '<div class="racc-f oros-div-box' + (orosDivAttivo(r.div) ? ' ap' : '') + '" data-div-box>' +
+      c('div', 'Dividendo', 'lordo per azione, es. 0,40', 'inputmode="decimal"') +
     '</div>' +
     '<div class="racc-sep"></div>' +
     '<div class="racc-f due">' +
@@ -9989,6 +10452,14 @@ function raccRxTab(rid) {
     if (!gia) libera = tabs[0];
   }
   if (!libera) {
+    if (tabs.length >= OROS_MAX_SCHEDE) {
+      if (!RACC_RX.pieno) {
+        RACC_RX.pieno = true;
+        orosAlert('Sono aperte ' + OROS_MAX_SCHEDE + ' schede CSP: i titoli in arrivo dalla raccolta non vengono piu\' aggiunti. Chiudi qualche scheda.');
+      }
+      return null;
+    }
+    RACC_RX.pieno = false;
     var nid = createTab();
     for (var j = 0; j < tabs.length; j++) if (tabs[j].id === nid) libera = tabs[j];
   }
@@ -10042,6 +10513,7 @@ function raccApplicaCsp(p, rows, cash) {
     tab.data.ticker = raccStr(r.ticker).slice(0, 40);
     tab.data.spot   = raccStr(r.spot);
     tab.data.hv     = raccStr(r.hv);
+    tab.data.div    = raccStr(r.div);
     tab.data.strike = raccStr(r.strike);
     tab.data.premio = raccStr(r.premio);
     // Cash proprio del titolo se presente, altrimenti quello globale della lista.
@@ -11202,13 +11674,37 @@ function pfGearSave() {
   if (!isNaN(cg)   && cg   >= 0) PF_CG   = cg / 100;
   if (!isNaN(comm) && comm >= 0) PF_COMM = comm;
   document.getElementById('pfGearModal').style.display = 'none';
+  orosCfgSave();   // senza questa i due valori tornavano ai default a ogni ricarica
   pfManCalc(); // aggiorna preview se modal aperto
 }
 
 // ── Parse numero italiano/internazionale
+// Direzioni ammesse. Qualunque altro valore - voce vecchia, file manomesso -
+// ricade su 'sell', che e' il caso normale di OROS.
+function pfManDirNorm(v) {
+  return (v === 'buy' || v === 'long' || v === 'short') ? v : 'sell';
+}
+function pfManSegno(v) {
+  return (v === 'buy' || v === 'long') ? 1 : -1;
+}
+
 function pfManParseNum(v) {
-  var s = String(v || '').trim().replace(/\./g, '').replace(',', '.');
-  return parseFloat(s);
+  // Prima cancellava OGNI punto: '1.75' diventava 175 e '0.018' diventava 18,
+  // silenziosamente. Ora usa la stessa regola di parseNum della pagina CSP:
+  // la virgola e' sempre decimale, il punto e' separatore di migliaia solo
+  // quando la forma e' inequivocabile (1.000 / 1.234.567), altrimenti resta
+  // decimale.
+  var s = String(v == null ? '' : v).trim();
+  if (s === '') return NaN;
+  var neg = false;
+  if (s.charAt(0) === '-' || s.charAt(0) === '\u2212') { neg = true; s = s.slice(1).trim(); }
+  if (s.indexOf(',') > -1) {
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(s)) {
+    s = s.replace(/\./g, '');
+  }
+  var n = parseFloat(s);
+  return isNaN(n) ? NaN : (neg ? -n : n);
 }
 function pfManFmtEur(n) {
   if (isNaN(n) || !isFinite(n)) return '—';
@@ -11243,7 +11739,15 @@ function pfManCalc() {
       if (preview) preview.style.display = 'none';
       return;
     }
-    gross = (closePrice - openPrice) * Math.min(openQty, closeQty);
+    // Su una posizione VENDUTA il guadagno arriva quando il prezzo scende:
+    // apri a 0,50 e ricompri a 0,20 sono +0,30, non -0,30. Senza il segno
+    // ogni CSP e ogni CC chiusa in utile veniva registrata come perdita.
+    // Due sole formule, quattro etichette: 'comprata' e 'long' guadagnano al
+    // rialzo, 'venduta' e 'short' al ribasso. Le etichette restano distinte
+    // perche' servono a rileggere lo storico, non al calcolo.
+    var _dirEl = document.getElementById('pfManDir');
+    var _segno = pfManSegno(_dirEl ? _dirEl.value : 'sell');
+    gross = _segno * (closePrice - openPrice) * Math.min(openQty, closeQty);
   }
 
   var tax      = gross > 0 ? gross * PF_CG : 0;
@@ -11265,6 +11769,7 @@ function pfManualOpen() {
   ['pfManTicker','pfManOpenPrice','pfManOpenQty','pfManClosePrice','pfManCloseQty','pfManPnlGross','pfManNote'].forEach(function(id) {
     var el = document.getElementById(id); if (el) el.value = '';
   });
+  var _dirNew = document.getElementById('pfManDir'); if (_dirNew) _dirNew.value = 'sell';
   var today = new Date().toISOString().slice(0, 10);
   document.getElementById('pfManOpenDate').value  = today;
   document.getElementById('pfManCloseDate').value = '';
@@ -11292,6 +11797,7 @@ function pfManualEdit(id) {
   document.getElementById('pfManPnlGross').value    = _pfDirect ? String(d.pnlGross).replace('.', ',') : '';
   document.getElementById('pfManPnlDate').value     = _pfDirect ? (entry.closeDate || '') : '';
   document.getElementById('pfManNote').value        = entry.note || '';
+  document.getElementById('pfManDir').value         = pfManDirNorm(d.dir);
   pfManCalc();
   document.getElementById('pfManualModal').style.display = 'block';
 }
@@ -11317,14 +11823,17 @@ function pfManualConfirm() {
   var hasClosure = !hasDirect && !isNaN(closePrice) && !isNaN(closeQty) && closePrice > 0 && closeQty > 0;
   var isClosed   = hasDirect || hasClosure;
   var qty   = hasClosure ? Math.min(openQty, closeQty) : openQty;
-  var gross = hasDirect ? pnlGross : (hasClosure ? (closePrice - openPrice) * qty : null);
+  var _dirEl2 = document.getElementById('pfManDir');
+  var _dir    = pfManDirNorm(_dirEl2 ? _dirEl2.value : 'sell');
+  var _segno2 = pfManSegno(_dir);
+  var gross = hasDirect ? pnlGross : (hasClosure ? _segno2 * (closePrice - openPrice) * qty : null);
   var tax   = (gross !== null && gross > 0) ? gross * PF_CG : 0;
   var net   = gross !== null ? gross - tax - PF_COMM : null;
   var now   = new Date().toISOString();
 
   var pfDataObj = hasDirect
     ? { ticker: ticker, openPrice: null, openQty: null, closePrice: null, closeQty: null, pnlGross: pnlGross }
-    : { ticker: ticker, openPrice: openPrice, openQty: openQty, closePrice: hasClosure ? closePrice : null, closeQty: hasClosure ? closeQty : null };
+    : { ticker: ticker, openPrice: openPrice, openQty: openQty, closePrice: hasClosure ? closePrice : null, closeQty: hasClosure ? closeQty : null, dir: _dir };
   var pfResObj  = isClosed ? { gross: gross, tax: tax, comm: PF_COMM, net: net } : null;
   var closeDateFinal = hasDirect ? (pnlDate || now.slice(0, 10)) : (closeDate || now.slice(0, 10));
   var closedAtFinal  = hasDirect ? new Date(closeDateFinal + 'T12:00:00').toISOString() : now;
@@ -11411,6 +11920,102 @@ function dataExport(which) {
   a.click();
   document.body.removeChild(a);
   setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+
+// ── Backup completo ────────────────────────────────────────────
+// Elenco unico usato sia in esportazione sia in importazione: aggiungere una
+// sezione qui la fa entrare in entrambe, senza toccare altro.
+var OROS_BACKUP_SEZIONI = [
+  { k: 'storia',       ls: 'oros_storia_v1',        nome: 'Storico simulazioni' },
+  { k: 'portafoglio',  ls: 'oros_portafoglio_v1',   nome: 'Portafoglio' },
+  { k: 'costruz',      ls: 'oros_pb_v4',            nome: 'Costruz / Allocazione' },
+  { k: 'meteo',        ls: 'oros_meteo_v1',         nome: 'Meteo' },
+  { k: 'meteo_inputs', ls: 'oros_meteo_inputs_v1',  nome: 'Dati macro' },
+  { k: 'impostazioni', ls: 'oros_impostazioni_v1',  nome: 'Impostazioni' }
+];
+
+function orosBackupOggetto() {
+  var out = {};
+  OROS_BACKUP_SEZIONI.forEach(function(s) {
+    var raw = null;
+    try { raw = localStorage.getItem(s.ls); } catch (e) { raw = null; }
+    if (raw == null) return;
+    try { out[s.k] = JSON.parse(raw); } catch (e) { /* voce illeggibile: si salta */ }
+  });
+  return out;
+}
+
+function dataExportTutto() {
+  var payload = {
+    _oros: 'backup',
+    _version: 1,
+    exportedAt: new Date().toISOString(),
+    sezioni: orosBackupOggetto()
+  };
+  var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href = url;
+  a.download = 'oros_backup_completo_' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+
+function dataImportTutto(inputEl) {
+  var file = inputEl && inputEl.files && inputEl.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function() {
+    var parsed;
+    try { parsed = JSON.parse(reader.result); }
+    catch (e) { orosAlert('File non valido: non \u00e8 un JSON leggibile.'); return; }
+    if (!parsed || parsed._oros !== 'backup' || !parsed.sezioni || typeof parsed.sezioni !== 'object') {
+      orosAlert('Questo non \u00e8 un backup completo di OROS. Per i backup di una sola sezione usa il pulsante Importa di quella pagina.');
+      return;
+    }
+    var presenti = OROS_BACKUP_SEZIONI.filter(function(s) {
+      return Object.prototype.hasOwnProperty.call(parsed.sezioni, s.k);
+    });
+    if (!presenti.length) { orosAlert('Il backup non contiene nessuna sezione riconosciuta.'); return; }
+    var elenco = presenti.map(function(s){ return s.nome; }).join(', ');
+    orosConfirm(
+      'Ripristinare ' + presenti.length + ' sezioni (' + elenco + ')? ' +
+      'I dati attuali di queste sezioni verranno sostituiti.',
+      function() { orosBackupRipristina(parsed.sezioni, presenti); },
+      { okLabel: '\u2713 Ripristina', danger: true }
+    );
+  };
+  reader.onerror = function() { orosAlert('Impossibile leggere il file selezionato.'); };
+  reader.readAsText(file);
+  inputEl.value = '';
+}
+
+function orosBackupRipristina(sezioni, presenti) {
+  presenti.forEach(function(s) {
+    var v = sezioni[s.k];
+    // Le liste passano dalla stessa sanificazione dell'import per sezione:
+    // gli id finiscono dentro attributi onclick e non possono restare liberi.
+    if (Array.isArray(v)) v = orosSanitizeList(v, true);
+    else if (s.k === 'costruz' && v && Array.isArray(v.pf)) v = { pf: orosSanitizeList(v.pf, true), cur: null };
+    try { orosLsSet(s.ls, JSON.stringify(v)); } catch (e) {}
+  });
+  // Rilettura a caldo di tutto quello che sa rileggersi da solo.
+  try { if (typeof orosCfgLoad === 'function') orosCfgLoad(); } catch (e) {}
+  try { if (typeof pbFromCloud === 'function') pbFromCloud(); } catch (e) {}
+  ['renderStoria','portafoglioRender','meteoRender','renderAll','ccRenderAll','botRenderAll'].forEach(function(f) {
+    try { if (typeof window[f] === 'function') window[f](); } catch (e) {}
+  });
+  // Rimando al cloud quello che e' sincronizzato, cosi' il ripristino non
+  // resta confinato a questo dispositivo.
+  try {
+    if (Array.isArray(sezioni.storia)      && typeof fsCloudSave      === 'function') fsCloudSave(sezioni.storia);
+    if (Array.isArray(sezioni.portafoglio) && typeof fsPfCloudSave    === 'function') fsPfCloudSave(sezioni.portafoglio);
+    if (Array.isArray(sezioni.meteo)       && typeof fsMeteoCloudSave === 'function') fsMeteoCloudSave(sezioni.meteo);
+    if (sezioni.costruz && Array.isArray(sezioni.costruz.pf) && typeof fsPbCloudSave === 'function') fsPbCloudSave(sezioni.costruz.pf);
+  } catch (e) {}
+  orosAlert('Ripristino completato.');
 }
 
 function dataImport(which, inputEl) {
@@ -11503,7 +12108,41 @@ function pbEsc(s){ return (typeof escapeHtml === 'function') ? escapeHtml(s == n
 /* Persistono solo i portafogli salvati e quale è selezionato.
    La bozza di costruzione resta in memoria per la sessione ma non viene
    ripristinata alla riapertura: aprire la pagina significa partire da zero. */
-function pbSave(){ try { orosLsSet(PB_KEY, JSON.stringify({ pf: PB.pf, cur: PB.cur })); } catch(e) {} }
+function pbSave(){
+  try { orosLsSet(PB_KEY, JSON.stringify({ pf: PB.pf, cur: PB.cur })); } catch(e) {}
+  if (typeof window.fsPbCloudSave === 'function') window.fsPbCloudSave(Array.isArray(PB.pf) ? PB.pf : []);
+}
+
+// Lettura della sola lista portafogli dal formato a oggetto salvato in locale.
+function pbListaLocale() {
+  try {
+    var o = JSON.parse(localStorage.getItem(PB_KEY) || 'null');
+    return (o && Array.isArray(o.pf)) ? o.pf : [];
+  } catch (e) { return []; }
+}
+
+// Scrittura della lista in arrivo dal cloud, preservando `cur` locale.
+function pbScriviLocale(lista) {
+  var cur = null;
+  try {
+    var o = JSON.parse(localStorage.getItem(PB_KEY) || 'null');
+    if (o && o.cur) cur = o.cur;
+  } catch (e) {}
+  if (!Array.isArray(lista)) lista = [];
+  // Se il portafoglio selezionato non esiste piu' nella lista remota, la
+  // selezione va azzerata: puntare a un id inesistente romperebbe il render.
+  if (cur && !lista.some(function(p){ return p && p.id === cur; })) cur = null;
+  try { orosLsSet(PB_KEY, JSON.stringify({ pf: lista, cur: cur })); } catch (e) {}
+}
+
+// Adozione dei dati remoti a caldo, senza ricaricare la pagina.
+function pbFromCloud() {
+  var lista = pbListaLocale();
+  PB.pf = lista;
+  if (PB.cur && !lista.some(function(p){ return p && p.id === PB.cur; })) PB.cur = null;
+  _pbCaricato = true;
+  if (window.__orosCurPage === 'costruz' && typeof pbOpenPage === 'function') pbOpenPage();
+}
 var _pbCaricato = false;
 function pbLoad(){
   if (_pbCaricato) return;
