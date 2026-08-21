@@ -4367,7 +4367,7 @@ input[type="date"]::-webkit-date-and-time-value {
       <input type="file" id="orosBackupFile" accept="application/json,.json" style="display:none;" onchange="dataImportTutto(this)">
     </div>
 
-    <button id="orosSyncOra" style="width:100%;padding:13px;background:var(--tv-blue);border:none;border-radius:8px;color:#fff;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Sincronizza adesso</button>
+    <button id="orosSyncOra" style="width:100%;margin-top:12px;padding:13px;background:var(--tv-blue);border:none;border-radius:8px;color:#fff;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Sincronizza adesso</button>
   </div>
 </div>
 
@@ -4751,7 +4751,7 @@ function orosCfgModaleSync() {
 // Deve coincidere con CACHE_VERSION in sw.js: e' lo stesso deploy.
 // Se i due numeri divergono, l'indicatore non e' piu' in grado di
 // dire se un dispositivo ha il file aggiornato.
-var OROS_BUILD = '25';
+var OROS_BUILD = '26';
 
 function orosTsLabel(iso) {
   var d = new Date(iso);
