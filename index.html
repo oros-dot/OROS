@@ -4288,7 +4288,7 @@ input[type="date"]::-webkit-date-and-time-value {
       <div style="font-size:11px;color:var(--tv-muted);margin-top:4px;line-height:1.5;margin-top:0;margin-bottom:14px;">
         Sotto <b style="color:var(--tv-text);">Premio Netto</b> di CSP e CC compare una barra divisa in due: la parte verde è il <b style="color:var(--tv-text);">valore equo</b>, cioè quanto varrebbe l'opzione se fosse prezzata sulla volatilità realizzata del titolo. La parte oro è l'<b style="color:var(--tv-text);">extra premio</b>: quanto il mercato ti sta pagando in più del rischio effettivo. È l'unica fonte di margine reale nella vendita di opzioni.<br><br>
         Per vederla devi compilare <b style="color:var(--tv-text);">Prezzo attuale</b> e <b style="color:var(--tv-text);">HV %</b> nella pagina. Se li lasci vuoti la barra torna a quella di prima e non cambia nulla.<br><br>
-        <b style="color:var(--tv-text);">Dove trovi la HV:</b> su TradingView apri il grafico giornaliero del titolo, aggiungi l'indicatore <i>Historical Volatility</i>, imposta lunghezza 30 e leggi il valore. Il campo chiamato <i>Volatility</i> dello screener TradingView misura tutt'altro (l'escursione media giornaliera) e non va usato qui.
+        <b style="color:var(--tv-text);">Dove trovi la HV:</b> su TradingView apri il grafico giornaliero del titolo, aggiungi l'indicatore <i>Historical Volatility</i>, imposta lunghezza 30 e leggi il valore. Il campo chiamato <i>Volatility</i> dello screener TradingView misura tutt'altro (l'escursione media giornaliera) e non va usato qui. Inserisci il numero così come lo leggi: alla conversione sui giorni di borsa pensa il programma.
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;">
         <div>
@@ -4309,6 +4309,11 @@ input[type="date"]::-webkit-date-and-time-value {
       </div>
       <div id="s_vrpTassoOut" style="font-size:11px;color:var(--tv-muted);margin-top:4px;line-height:1.5;margin-top:10px;padding:9px 12px;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;">—</div>
       <div style="font-size:11px;color:var(--tv-muted);margin-top:4px;line-height:1.5;">Un BOT non paga cedole: lo compri sotto 100 e a scadenza ti rimborsano 100. Quella differenza è tutto il tuo rendimento. Il programma la riporta su base annua con la formula composta, così un BOT semestrale e uno annuale diventano confrontabili. Sul calcolo dell’extra premio questo tasso incide pochissimo: non è un numero da inseguire.</div>
+      <div style="margin-top:14px;">
+        <label style="font-size:11px;color:var(--tv-muted);display:block;margin-bottom:5px;">Giorni di borsa all'anno</label>
+        <input id="s_vrpGiorniBorsa" type="text" value="252" style="width:100%;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:9px 13px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;outline:none;box-sizing:border-box;">
+        <div style="font-size:11px;color:var(--tv-muted);margin-top:4px;line-height:1.5;">TradingView annualizza la HV su 365 giorni anche sul grafico giornaliero, dove le barre sono circa 252: il valore che leggi è gonfiato di circa il 20%. Il programma lo riporta da solo sulla scala giusta, quindi continua a inserire il numero così com'è. Borsa Italiana 253, mercati USA 252, crypto 365. Mettendo 365 la correzione si disattiva.</div>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;">
         <div>
           <label style="font-size:11px;color:var(--tv-muted);display:block;margin-bottom:5px;">Banda CSP — minimo</label>
@@ -4378,6 +4383,7 @@ document.getElementById('gearBtn').addEventListener('click', () => {
   document.getElementById('s_vrpCspMax').value = String(VRP_CSP_MAX);
   document.getElementById('s_vrpCcMin').value  = String(VRP_CC_MIN);
   document.getElementById('s_vrpCcMax').value  = String(VRP_CC_MAX);
+  document.getElementById('s_vrpGiorniBorsa').value = String(VRP_GIORNI_BORSA);
   document.getElementById('settingsOverlay').style.display = 'block';
 });
 document.getElementById('vrpInfoOverlay').addEventListener('click', (e) => {
@@ -4426,6 +4432,8 @@ document.getElementById('saveSettings').addEventListener('click', () => {
   }
   if (!isNaN(p1) && p1 > 0 && !isNaN(p2) && p2 > p1) { VRP_CSP_MIN = p1; VRP_CSP_MAX = p2; }
   if (!isNaN(c1) && c1 > 0 && !isNaN(c2) && c2 > c1) { VRP_CC_MIN  = c1; VRP_CC_MAX  = c2; }
+  const gb = parseFloat((document.getElementById('s_vrpGiorniBorsa').value || '').replace(',', '.'));
+  if (!isNaN(gb) && gb >= 200 && gb <= 366) VRP_GIORNI_BORSA = gb;
   // Update formula display
   document.getElementById('f_premioNetto').textContent =
     `= (Premio Lordo − Commissioni) × (1 − ${(CAPITAL_GAIN*100).toFixed(0)}%)`;
@@ -4455,6 +4463,11 @@ let VRP_CSP_MIN = 1.15;  // banda put  — sotto: nessun margine
 let VRP_CSP_MAX = 1.40;  // banda put  — sopra: anomalo
 let VRP_CC_MIN  = 0.95;  // banda call — piu' bassa per lo skew
 let VRP_CC_MAX  = 1.20;
+// TradingView annualizza la HV con radice(365) anche sulle barre giornaliere,
+// che pero' sono ~252 all'anno: il numero letto e' gonfiato di circa il 20%.
+// Questo valore lo riporta sulla scala su cui e' quotata la IV. Con 365 il
+// fattore vale 1 e la correzione e' disattivata.
+let VRP_GIORNI_BORSA = 252;
 
 
 // Dal prezzo di mercato del BOT al rendimento annuo composto.
@@ -4510,6 +4523,7 @@ function orosCfgOggetto() {
     vrpCspMax:    VRP_CSP_MAX,
     vrpCcMin:     VRP_CC_MIN,
     vrpCcMax:     VRP_CC_MAX,
+    vrpGiorniBorsa: VRP_GIORNI_BORSA,
     botRimborso:  (typeof BOT_RIMBORSO !== 'undefined' ? BOT_RIMBORSO : null),
     botComm:      (typeof BOT_COMM !== 'undefined' ? BOT_COMM : null)
   };
@@ -4561,6 +4575,7 @@ function orosCfgLoad() {
   if (ok(c.vrpCcMin, 0, 10) && ok(c.vrpCcMax, 0, 10) && c.vrpCcMax > c.vrpCcMin) {
     VRP_CC_MIN = c.vrpCcMin; VRP_CC_MAX = c.vrpCcMax;
   }
+  if (ok(c.vrpGiorniBorsa, 200, 366)) VRP_GIORNI_BORSA = c.vrpGiorniBorsa;
   if (typeof BOT_RIMBORSO !== 'undefined' && ok(c.botRimborso, 0, 1000000)) BOT_RIMBORSO = c.botRimborso;
   if (typeof BOT_COMM     !== 'undefined' && ok(c.botComm, 0, 10000))       BOT_COMM     = c.botComm;
 
@@ -4600,6 +4615,7 @@ function orosCfgModaleSync() {
     v('s_vrpCspMax', String(VRP_CSP_MAX));
     v('s_vrpCcMin', String(VRP_CC_MIN));
     v('s_vrpCcMax', String(VRP_CC_MAX));
+    v('s_vrpGiorniBorsa', String(VRP_GIORNI_BORSA));
     var sc = document.getElementById('s_vrpScadenza');
     if (sc && typeof orosScadenzaLabel === 'function') sc.textContent = orosScadenzaLabel();
   }
@@ -4933,7 +4949,11 @@ function vrpImplied(type, S, K, T, r, price) {
 // Ritorna null se mancano i dati opzionali: in quel caso la pagina resta identica a prima.
 function vrpCalc(type, spot, strike, premio, hvPct, nAzioni) {
   if (!(spot > 0) || !(strike > 0) || !(premio > 0) || !(hvPct > 0) || !(nAzioni > 0)) return null;
-  var hv = hvPct / 100;
+  // Scala della HV riportata su base 'giorni di borsa', la stessa su cui il
+  // mercato quota la IV. Incide sia sul rapporto IV/HV sia - in modo non
+  // lineare, quindi molto piu' pesante - sul valore equo Black-Scholes.
+  var hvFatt = (VRP_GIORNI_BORSA > 0) ? Math.sqrt(VRP_GIORNI_BORSA / 365) : 1;
+  var hv = (hvPct / 100) * hvFatt;
   var gg = orosGiorniScadenza();
   if (!(gg > 0)) return null;
   var T  = gg / 365;
@@ -5087,7 +5107,7 @@ function orosDiag(tipo, spot, strike, premio, hv, vrp) {
   if (ok(hv) && ok(spot) && ok(strike) && vrp && isFinite(vrp.ratio)) {
     var gg = orosGiorniScadenza();
     if (gg > 0) {
-      var sig = (hv / 100) * Math.sqrt(gg / 365);
+      var sig = vrp.hv * Math.sqrt(gg / 365);
       var z = sig > 0 ? Math.abs(Math.log(strike / spot) / sig) : NaN;
       if (isFinite(z) && z > DIAG_SIGMA && vrp.ratio > DIAG_RATIO) {
         w.hv = 'Con una HV del ' + fmtDec(hv, 2) + '% lo strike sta a ' + fmtDec(z, 1) +
@@ -6458,6 +6478,7 @@ document.getElementById('ccGearBtn').addEventListener('click', () => {
   document.getElementById('s_vrpCspMax').value = String(VRP_CSP_MAX);
   document.getElementById('s_vrpCcMin').value  = String(VRP_CC_MIN);
   document.getElementById('s_vrpCcMax').value  = String(VRP_CC_MAX);
+  document.getElementById('s_vrpGiorniBorsa').value = String(VRP_GIORNI_BORSA);
   document.getElementById('settingsOverlay').style.display = 'block';
 });
 document.getElementById('ccAddTabBtn').addEventListener('click', () => {
