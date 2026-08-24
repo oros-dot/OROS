@@ -1850,10 +1850,12 @@ body.has-sidebar #pageMeteo {
   -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
 }
 #meteoPickSheet {
-  position: absolute; left: 0; right: 0; bottom: 0; margin: 0 auto; max-width: 520px;
-  background: var(--tv-surf); border: 1px solid var(--tv-bord); border-bottom: none;
-  border-radius: 14px 14px 0 0;
-  padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: calc(100vw - 24px); max-width: 520px;
+  max-height: calc(100vh - 24px); overflow-y: auto;
+  background: var(--tv-surf); border: 1px solid var(--tv-bord);
+  border-radius: 14px;
+  padding: 16px;
 }
 .met-pick-title { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700; color: var(--tv-text); text-align: center; margin-bottom: 10px; }
 .met-pick-cols { position: relative; display: flex; gap: 8px; justify-content: center; }
@@ -3839,7 +3841,7 @@ input[type="date"]::-webkit-date-and-time-value {
 
     <div class="met-row">
       <div class="met-rlab">
-        <div class="met-name"><span class="met-chip" id="metChip_previsioni"></span>EVENTI<span class="tip"><span class="tip-i">i</span><span class="tip-box">Calendario economico, filtro impatto alto: cosa c'è in arrivo?</span></span></div>
+        <div class="met-name"><span class="met-chip" id="metChip_previsioni"></span>EVENTI<span class="tip"><span class="tip-i">i</span><span class="tip-box">Vale il mercato intero, non il singolo titolo. Filtro impatto alto, poi solo inflazione, tassi e lavoro: CPI e PCE, Fed e BCE (decisione, verbali, conferenza), NFP, ISM, PIL USA, Jackson Hole, rating sull'Italia. Fuori sussidi settimanali, scorte petrolio, fiducia, indici regionali, aste. Una trimestrale conta solo se è una big tech che muove l'indice. La terza voce è per i tre grandi — CPI, Fed, NFP — entro 48 ore.</span></span></div>
       </div>
       <div class="met-rin">
         <div class="met-inrow" style="flex:1;min-width:230px;">
@@ -4751,7 +4753,7 @@ function orosCfgModaleSync() {
 // Deve coincidere con CACHE_VERSION in sw.js: e' lo stesso deploy.
 // Se i due numeri divergono, l'indicatore non e' piu' in grado di
 // dire se un dispositivo ha il file aggiornato.
-var OROS_BUILD = '26';
+var OROS_BUILD = '30';
 
 function orosTsLabel(iso) {
   var d = new Date(iso);
