@@ -21,10 +21,12 @@
   if (!ctx) return;
   var cx = 90, cy = 100;
 
-  // Background
+  // Background. roundRect manca sui browser meno recenti: si ripiega sul
+  // rettangolo pieno invece di interrompere il blocco con un TypeError.
   ctx.fillStyle = '#0a0e1a';
   ctx.beginPath();
-  ctx.roundRect(0, 0, 180, 180, 32);
+  if (typeof ctx.roundRect === 'function') ctx.roundRect(0, 0, 180, 180, 32);
+  else ctx.rect(0, 0, 180, 180);
   ctx.fill();
 
   // Stars
@@ -69,10 +71,11 @@
   ctx.fillStyle='#0277bd'; ctx.beginPath(); ctx.ellipse(cx,cy+26,20,10,0,0,Math.PI*2); ctx.fill();
 
   // Set icon
+  var png = c.toDataURL('image/png');   // una sola codifica per entrambi i link
   var link = document.getElementById('atos-icon');
-  if(link) link.href = c.toDataURL('image/png');
+  if(link) link.href = png;
   var fav = document.getElementById('oros-favicon');
-  if(fav) fav.href = c.toDataURL('image/png');
+  if(fav) fav.href = png;
 })();
 </script>
 
@@ -295,10 +298,15 @@ function toggleTheme() {
 // AUTH SYSTEM — SHA-256 + session
 // ══════════════════════════════════════
 
-// ── Credenziali (SHA-256 hash di username:password)
+// ── Credenziali: due hash SHA-256 SEPARATI, uno dello username e uno della
+// password. loginAttempt confronta sha256(username) e sha256(password): NON
+// l'hash della stringa "username:password".
 // Per aggiungere utenti duplica una riga USERS con nuove credenziali.
-// Per cambiare password: calcola il nuovo hash su https://emn178.github.io/online-tools/sha256.html
-// inserendo "username:nuovapassword" (tutto minuscolo per lo username, password case-sensitive)
+// Per cambiare password: calcola sha256 della SOLA password (case-sensitive),
+// per esempio su https://emn178.github.io/online-tools/sha256.html, e mettilo
+// in pswHash. userHash e' sha256 dello username scritto tutto in minuscolo.
+// Nota: il file e' pubblico e l'hash e' senza salt: e' un deterrente, non una
+// protezione. La sicurezza vera sta nelle regole Firestore lato server.
 const USERS = [
   {
     userHash: '20adeb19887fa7b7790d4592a46c03c4825e4889c05d9dd54e0a493b5eede245',
@@ -1127,8 +1135,6 @@ document.addEventListener('focusin', function(e) {
 
   /* iOS: font < 16px sui campi provoca lo zoom automatico al focus */
   .field input, .field select, .field textarea { font-size: 16px; }
-  .sc-bar { flex-direction: column; align-items: flex-start; }
-  .sc-search { width: 100%; }
   .sc-inp { width: 100%; min-width: 0; }
   .sc-btn { white-space: nowrap; flex-shrink: 0; }
 
@@ -2584,9 +2590,6 @@ body.has-sidebar #pageMeteo {
   #pageCentro .output-row  { grid-template-columns: 1fr 1fr !important; }
 }
 
-/* Settings modal */
-#settingsOverlay { backdrop-filter: blur(8px); }
-
 @keyframes fadeUpDown {
   0%,100% { opacity:0.4; transform:translateX(-50%) translateY(0); }
   50% { opacity:1; transform:translateX(-50%) translateY(-6px); }
@@ -2917,7 +2920,6 @@ input[type="date"]::-webkit-date-and-time-value {
 
 .racc-row { background:var(--tv-surf); border:1px solid var(--tv-bord); border-radius:8px; padding:14px; margin-bottom:10px; }
 .racc-rowhead { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:11px; }
-.racc-num { font-size:10px; font-weight:700; letter-spacing:1.5px; color:var(--tv-muted); }
 .racc-del { background:rgba(239,83,80,.10); border:1px solid rgba(239,83,80,.28); color:var(--tv-red); border-radius:6px; padding:5px 10px; font-size:11px; font-weight:600; cursor:pointer; }
 .racc-tk { font-size:15px; font-weight:800; color:var(--tv-text); font-family:'Inter',sans-serif; }
 
@@ -4483,7 +4485,9 @@ let CAPITAL_GAIN = 0.26;
 let COMMISSIONI_UNIT = 1.14;
 
 // ── Settings modal
-document.getElementById('gearBtn').addEventListener('click', () => {
+// Un solo punto che popola e apre l'ingranaggio: lo usano il bottone della
+// CSP e quello della CC, cosi' un campo aggiunto qui compare in entrambe.
+function orosGearApri() {
   document.getElementById('s_capitalGain').value = (CAPITAL_GAIN * 100).toString();
   document.getElementById('s_commissioni').value = COMMISSIONI_UNIT.toString();
   document.getElementById('s_vrpScadenza').textContent = orosScadenzaLabel();
@@ -4496,7 +4500,8 @@ document.getElementById('gearBtn').addEventListener('click', () => {
   document.getElementById('s_vrpCcMax').value  = String(VRP_CC_MAX);
   document.getElementById('s_vrpGiorniBorsa').value = String(VRP_GIORNI_BORSA);
   document.getElementById('settingsOverlay').style.display = 'block';
-});
+}
+document.getElementById('gearBtn').addEventListener('click', orosGearApri);
 document.getElementById('vrpInfoOverlay').addEventListener('click', (e) => {
   if (e.target === document.getElementById('vrpInfoOverlay')) vrpInfoClose();
 });
@@ -4753,7 +4758,7 @@ function orosCfgModaleSync() {
 // Deve coincidere con CACHE_VERSION in sw.js: e' lo stesso deploy.
 // Se i due numeri divergono, l'indicatore non e' piu' in grado di
 // dire se un dispositivo ha il file aggiornato.
-var OROS_BUILD = '30';
+var OROS_BUILD = '31';
 
 function orosTsLabel(iso) {
   var d = new Date(iso);
@@ -5510,10 +5515,6 @@ function orosBotAlertRender() {
   });
 }
 
-// Barra: [valore equo | extra premio]. Se i dati non ci sono, torna la barra originale.
-
-// Cella IV/HV per le tabelle di confronto.
-// Oro = dentro la banda, rosso = sopra la banda (verifica), grigio = nessun extra.
 // ══════════════════════
 // CONFRONTO — vista tabella o vista card
 // La tabella serve a leggere i numeri, la griglia a leggere le barre: sono
@@ -5583,6 +5584,8 @@ function cmpCardsHtml(results, bestIdx, pagina) {
   }).join('') + '</div>';
 }
 
+// Cella IV/HV per le tabelle di confronto.
+// Oro = dentro la banda, rosso = sopra la banda (verifica), grigio = nessun extra.
 function vrpCompareCell(res) {
   var v = res ? res.vrp : null;
   if (!v || !isFinite(v.ratio)) return '<td style="color:var(--text-dim);">\u2014</td>';
@@ -5592,16 +5595,6 @@ function vrpCompareCell(res) {
   return '<td style="color:' + col + ';font-weight:700;">' + fmtDec(v.ratio, 2) +
          (v.stato === 'anomalo' ? ' \u26A0' : '') + '</td>';
 }
-
-// Indice del candidato migliore per il confronto.
-// Non e' semplicemente il rapporto piu' alto: deve superare quattro guardrail.
-//   1. il rapporto deve essere calcolabile (servono prezzo attuale e HV)
-//   2. deve stare DENTRO la banda: sotto non paga, sopra non e' un vincitore
-//      ma un titolo su cui indagare prima di vendere
-//   3. l'extra premio deve restare positivo dopo commissioni e imposta
-//   4. il premio netto deve essere positivo
-// Se nessuno passa i guardrail torna -1 e il badge non compare affatto:
-// l'assenza del badge e' un'informazione, non un errore.
 
 // ══════════════════════════════════════
 // Tendina personalizzata per "Quantita' per Opzione".
@@ -5680,6 +5673,15 @@ document.addEventListener('click', function (e) {
   orosSelCloseAll();
 });
 
+// Indice del candidato migliore per il confronto.
+// Non e' semplicemente il rapporto piu' alto: deve superare quattro guardrail.
+//   1. il rapporto deve essere calcolabile (servono prezzo attuale e HV)
+//   2. deve stare DENTRO la banda: sotto non paga, sopra non e' un vincitore
+//      ma un titolo su cui indagare prima di vendere
+//   3. l'extra premio deve restare positivo dopo commissioni e imposta
+//   4. il premio netto deve essere positivo
+// Se nessuno passa i guardrail torna -1 e il badge non compare affatto:
+// l'assenza del badge e' un'informazione, non un errore.
 function vrpBestIdx(results, rfGate) {
   var rf = rfGate ? orosRfNetto() : NaN;
   var best = -1, bestVal = -Infinity;
@@ -5699,6 +5701,7 @@ function vrpBestIdx(results, rfGate) {
   return best;
 }
 
+// Barra: [valore equo | extra premio]. Se i dati non ci sono, torna la barra originale.
 function vrpBarHtml(res, fallbackKey, fallbackWidth) {
   var v = res ? res.vrp : null;
   if (!v || !isFinite(v.ratio)) {
@@ -5856,8 +5859,12 @@ function renderAll() {
   if (compareVisible) renderCompare();
 }
 
+// Parser UNICO del formato numerico italiano (usato anche da ccParseNum,
+// botParseNum e centroParseNum): la virgola e' sempre decimale, il punto e'
+// separatore di migliaia solo nella forma inequivocabile 1.000 / 1.234.567.
+// Cancellare ogni punto trasformerebbe 1.75 in 175.
 function parseNum(v) {
-  var s = String(v).trim();
+  var s = String(v == null ? '' : v).trim();
   if (s.indexOf(',') > -1) {
     // comma = decimal separator, dots = thousands separators
     s = s.replace(/\./g, '').replace(',', '.');
@@ -6296,7 +6303,7 @@ document.getElementById('compareBtn').addEventListener('click', () => {
 });
 
 
-// Init with 1 tab pre-populated with sample data
+// Avvio: una scheda vuota
 createTab();
 </script>
 
@@ -6308,8 +6315,12 @@ function buildScreener(theme) {
   if (!mount) return;
 
   // ── Intercept TradingView widget navigation → open in new tab ──
-  // TV widget navigates parent window via location.assign or direct href set.
-  // We override location methods once so every left-click opens a new tab.
+  // Il widget chiede al parent di navigare via postMessage: i messaggi si
+  // intercettano una volta sola e si aprono in una scheda nuova.
+  // Nota: location.assign e location.replace sono proprieta' non
+  // sovrascrivibili ("unforgeable" per specifica HTML). Un override, come
+  // quello presente fino alla build 30, viene ignorato in silenzio: la
+  // protezione reale sta nel listener 'message' e nella rete di sicurezza.
   if (!window._tvNavIntercepted) {
     window._tvNavIntercepted = true;
 
@@ -6324,23 +6335,6 @@ function buildScreener(theme) {
       } catch (ex) { return false; }
     }
 
-    // Override location.assign
-    try {
-      var _origAssign = window.location.assign.bind(window.location);
-      window.location.assign = function(url) {
-        if (url && _isTvUrl(url)) window.open(url, '_blank', 'noopener');
-        else _origAssign(url);
-      };
-    } catch(e) {}
-
-    // Override location.replace
-    try {
-      var _origReplace = window.location.replace.bind(window.location);
-      window.location.replace = function(url) {
-        if (url && _isTvUrl(url)) window.open(url, '_blank', 'noopener');
-        else _origReplace(url);
-      };
-    } catch(e) {}
     // Catch postMessage from TV iframe (symbol click event)
     window.addEventListener('message', function(e) {
       if (!e.data) return;
@@ -6466,15 +6460,9 @@ function computeCC(d) {
   };
 }
 
-function ccParseNum(v) {
-  var s = String(v).trim();
-  if (s.indexOf(',') > -1) {
-    s = s.replace(/\./g, '').replace(',', '.');
-  } else if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(s)) {
-    s = s.replace(/\./g, '');
-  }
-  return parseFloat(s);
-}
+// Stesso parser del formato italiano di tutta l'app: l'implementazione
+// e' una sola (parseNum), qui resta solo il nome usato dalla pagina CC.
+function ccParseNum(v) { return parseNum(v); }
 
 // Come cspSubLordo, ma sulla Call lo strike e' fuori dai soldi quando sta
 // SOPRA il prezzo: il segno della distanza si inverte, ci pensa
@@ -6711,11 +6699,11 @@ function ccRenderPanel() {
                 <div class="out-value" id="ccDivLordo" style="color:var(--accent);">—</div>
               </div>
               <div class="output-mini">
-                <div class="out-label">Utile Netto (−26%)</div>
+                <div class="out-label">Utile Netto (−${Math.round(CAPITAL_GAIN * 100)}%)</div>
                 <div class="out-value" id="ccDivNetto" style="color:var(--accent);">—</div>
               </div>
               <div class="output-mini">
-                <div class="out-label">Rend. % Lordo su Investimento<span class="tip"><span class="tip-i">i</span><span class="tip-box">Rendimento lordo: Utile Lordo ÷ (Contratti × Quantità × Strike). Non include il capital gain del 26%.</span></span></div>
+                <div class="out-label">Rend. % Lordo su Investimento<span class="tip"><span class="tip-i">i</span><span class="tip-box">Rendimento lordo: Utile Lordo ÷ (Contratti × Quantità × Strike). Non include il capital gain del ${Math.round(CAPITAL_GAIN * 100)}%.</span></span></div>
                 <div class="out-value" id="ccDivRend">—</div>
               </div>
             </div>
@@ -6797,20 +6785,7 @@ function ccRenderCompare() {
 }
 
 // Wire buttons
-document.getElementById('ccGearBtn').addEventListener('click', () => {
-  document.getElementById('s_capitalGain').value = (CAPITAL_GAIN * 100).toString();
-  document.getElementById('s_commissioni').value = COMMISSIONI_UNIT.toString();
-  document.getElementById('s_vrpScadenza').textContent = orosScadenzaLabel();
-  document.getElementById('s_vrpBotPrezzo').value = String(VRP_BOT_PREZZO).replace('.', ',');
-  document.getElementById('s_vrpBotGiorni').value = String(VRP_BOT_GIORNI);
-  vrpBotPreview();
-  document.getElementById('s_vrpCspMin').value = String(VRP_CSP_MIN);
-  document.getElementById('s_vrpCspMax').value = String(VRP_CSP_MAX);
-  document.getElementById('s_vrpCcMin').value  = String(VRP_CC_MIN);
-  document.getElementById('s_vrpCcMax').value  = String(VRP_CC_MAX);
-  document.getElementById('s_vrpGiorniBorsa').value = String(VRP_GIORNI_BORSA);
-  document.getElementById('settingsOverlay').style.display = 'block';
-});
+document.getElementById('ccGearBtn').addEventListener('click', orosGearApri);   // stessa modale della CSP
 document.getElementById('ccAddTabBtn').addEventListener('click', () => {
   if (ccTabs.length < OROS_MAX_SCHEDE) ccCreateTab();
   else orosAlert('Massimo ' + OROS_MAX_SCHEDE + ' titoli contemporaneamente');
@@ -6821,7 +6796,7 @@ document.getElementById('ccCompareBtn').addEventListener('click', () => {
   ccRenderCompare();
 });
 
-// Init with sample data from xlsx (spmi, strike=3, premio=0.01, qtà=1000, contratti=6)
+// Avvio: una scheda vuota
 ccCreateTab();
 
 
@@ -6877,6 +6852,30 @@ function ccCalcDividendi() {
   if (rendEl) rendEl.textContent = rendStr;
 }
 
+// Dividendi compilati nella sezione della scheda attiva, pronti per lo
+// storico e per il portafoglio. Null se la sezione e' chiusa o vuota.
+// Stessa base di ccCalcDividendi (prezzo di mercato se presente, altrimenti
+// strike). Fino alla build 30 questo blocco esisteva in due copie, in
+// salvaCcCorrente e in aggiungiCcAPortafoglio, e usava sempre lo strike:
+// il rendimento salvato non coincideva con quello mostrato a video.
+function ccDividendiCorrenti(tab) {
+  var divSection = document.getElementById('ccDivSection');
+  var divImporto = document.getElementById('ccDivImporto');
+  if (!divSection || divSection.style.display === 'none' || !divImporto || divImporto.value.trim() === '') return null;
+  var importo     = parseFloat(divImporto.value.replace(',', '.'));
+  var contratti   = ccParseNum(tab.data.contratti);
+  var quantitaOpz = ccParseNum(tab.data.quantitaOpz);
+  var strike      = ccParseNum(tab.data.strike);
+  if (isNaN(importo) || importo <= 0 || isNaN(contratti) || isNaN(quantitaOpz)) return null;
+  var quantita   = contratti * quantitaOpz;
+  var utileLordo = importo * quantita;
+  var utileNetto = utileLordo - utileLordo * CAPITAL_GAIN;
+  var spotDiv = ccParseNum(tab.data.spot);
+  var baseDiv = (spotDiv > 0) ? spotDiv : strike;
+  var rend = (!isNaN(baseDiv) && baseDiv > 0) ? (utileLordo / (contratti * quantitaOpz * baseDiv)) * 100 : null;
+  return { importo: importo, quantita: quantita, utileLordo: utileLordo, utileNetto: utileNetto, rendPct: rend };
+}
+
 </script>
 
 <script>
@@ -6889,7 +6888,7 @@ function ccCalcDividendi() {
     // Senza guardia il loop requestAnimationFrame solleverebbe un'eccezione
     // a ogni singolo frame per tutta la vita della pagina.
     if (!ctx) return;
-    let W, H, stars = [], ships = [], shooters = [];
+    let W, H, stars = [], shooters = [];
 
     function resize() {
       W = canvas.width  = window.innerWidth;
@@ -7164,6 +7163,17 @@ function fmtDate(iso) {
          ' ' + d.toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit'});
 }
 
+// Il modale e' condiviso col dettaglio del Portafoglio, che vi aggiunge due
+// bottoni propri: prima di mostrare una voce dello storico vanno tolti e va
+// riacceso il bottone Elimina dello storico.
+function storiaModalResetBottoni() {
+  document.getElementById('storiaModalDelete').style.display = '';
+  ['pfModalDeleteBtn', 'pfModalEditBtn'].forEach(function (id) {
+    var b = document.getElementById(id);
+    if (b) b.remove();
+  });
+}
+
 function storiaOpenModal(id) {
   var list = storiaLoad();
   var entry = list.find(function(e){ return e.id === id; });
@@ -7238,7 +7248,7 @@ function storiaOpenModal(id) {
       document.getElementById('storiaModal').style.display = 'none';
       if (typeof pbTab === 'function') { goPage('costruz'); pbTab('B'); }
     };
-    document.getElementById('storiaModalDelete').style.display = ''; var _pfdb = document.getElementById('pfModalDeleteBtn'); if (_pfdb) _pfdb.remove(); var _pfeb = document.getElementById('pfModalEditBtn'); if (_pfeb) _pfeb.remove();
+    storiaModalResetBottoni();
     document.getElementById('storiaModal').style.display = 'block';
     return;
   }
@@ -7287,7 +7297,7 @@ function storiaOpenModal(id) {
       if (tab) { tab.data.ticker = d.ticker || ''; tab.data.price = d.price || ''; tab.data.qty = d.qty || ''; }
       botRenderAll();
     };
-    document.getElementById('storiaModalDelete').style.display = ''; var _pdb = document.getElementById('pfModalDeleteBtn'); if (_pdb) _pdb.remove(); var _peb = document.getElementById('pfModalEditBtn'); if (_peb) _peb.remove();
+    storiaModalResetBottoni();
     document.getElementById('storiaModal').style.display = 'block';
     return;
   }
@@ -7365,7 +7375,7 @@ function storiaOpenModal(id) {
   loadBtn.onclick = function() {
     storiaRicarica(id);
   };
-  document.getElementById('storiaModalDelete').style.display = ''; var _pdb = document.getElementById('pfModalDeleteBtn'); if (_pdb) _pdb.remove(); var _peb = document.getElementById('pfModalEditBtn'); if (_peb) _peb.remove();
+  storiaModalResetBottoni();
   document.getElementById('storiaModal').style.display = 'block';
 }
 
@@ -7375,7 +7385,6 @@ document.getElementById('storiaModal').addEventListener('click', function(e) {
 
 // ── Custom confirm dialog (window.confirm è bloccato su iOS PWA / web clip) ──
 var _orosConfirmCb = null;
-// opts: { okLabel: testo bottone OK, danger: true=rosso (default) / false=blu, showCancel: default true }
 // ── Annulla ultima chiusura ────────────────────────────────────
 // Una sola azione alla volta: se ne arriva un'altra la precedente decade.
 var _orosUndoCb = null, _orosUndoTimer = null;
@@ -7404,6 +7413,7 @@ function orosUndoEsegui() {
   if (typeof f === 'function') { try { f(); } catch (e) { console.warn('Ripristino non riuscito:', e); } }
 }
 
+// opts: { okLabel: testo bottone OK, danger: true=rosso (default) / false=blu, showCancel: default true }
 function orosConfirm(msg, cb, opts) {
   opts = opts || {};
   var ok = document.getElementById('orosConfirmOk');
@@ -7575,23 +7585,8 @@ function salvaCcCorrente() {
   var res = ccGetResults(tab);
   if (!res) { orosAlert('Inserisci i dati prima di salvare.'); return; }
 
-  // Capture dividendi if section is open and importo is filled
-  var divData = null;
-  var divSection = document.getElementById('ccDivSection');
-  var divImporto = document.getElementById('ccDivImporto');
-  if (divSection && divSection.style.display !== 'none' && divImporto && divImporto.value.trim() !== '') {
-    var importo = parseFloat(divImporto.value.replace(',', '.'));
-    var contratti  = ccParseNum(tab.data.contratti);
-    var quantitaOpz= ccParseNum(tab.data.quantitaOpz);
-    var strike     = ccParseNum(tab.data.strike);
-    if (!isNaN(importo) && importo > 0 && !isNaN(contratti) && !isNaN(quantitaOpz)) {
-      var quantita   = contratti * quantitaOpz;
-      var utileLordo = importo * quantita;
-      var utileNetto = utileLordo - utileLordo * CAPITAL_GAIN;
-      var rend = (!isNaN(strike) && strike > 0) ? (utileLordo / (contratti * quantitaOpz * strike)) * 100 : null;
-      divData = { importo: importo, quantita: quantita, utileLordo: utileLordo, utileNetto: utileNetto, rendPct: rend };
-    }
-  }
+  // Dividendi compilati nella sezione (se aperta): stessa funzione del Portafoglio
+  var divData = ccDividendiCorrenti(tab);
 
   var inputData = Object.assign({}, tab.data, divData ? { _dividendi: divData } : {});
   storiaAdd('cc', inputData, res, '');
@@ -7637,18 +7632,13 @@ function botFmtThousands(input) {
   }
 }
 
-function centroParseNum(v) {
-  var s = String(v || '').trim();
-  if (!s) return NaN;
-  if (s.indexOf(',') > -1) s = s.replace(/\./g, '').replace(',', '.');
-  else if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
-  return parseFloat(s);
-}
+// Formato italiano: implementazione unica in parseNum (vedi pagina CSP).
+function centroParseNum(v) { return parseNum(v); }
 
-function centroFmt(n, dec) {
+// Sempre due decimali: i chiamanti non scelgono la precisione.
+function centroFmt(n) {
   if (isNaN(n) || !isFinite(n)) return '—';
-  dec = 2; // always 2 decimals
-  var parts = n.toFixed(dec).split('.');
+  var parts = n.toFixed(2).split('.');
   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   return parts[0] + ',' + parts[1];
 }
@@ -7676,17 +7666,8 @@ var botActiveTab = null;
 var botTabCounter = 0;
 var botCompareVisible = false;
 
-function botParseNum(s) {
-  if (s === null || s === undefined || s === '') return NaN;
-  var str = String(s).trim();
-  // Italian format: '.' = thousands separator, ',' = decimal
-  if (str.indexOf(',') > -1) {
-    str = str.replace(/\./g, '').replace(',', '.');
-  } else if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(str)) {
-    str = str.replace(/\./g, '');
-  }
-  return parseFloat(str);
-}
+// Formato italiano: implementazione unica in parseNum (vedi pagina CSP).
+function botParseNum(v) { return parseNum(v); }
 function botFmtEur(n) {
   if (isNaN(n) || !isFinite(n)) return '—';
   var neg = n < 0;
@@ -7721,7 +7702,7 @@ function botGetResults(tab) {
   var delta        = rimborso - price;
   var investimento = price * qty;
   var gain         = delta * qty;
-  var capGain      = gain * 0.125;
+  var capGain      = gain * BOT_ALIQUOTA;   // 12,5%: stessa costante del confronto col tasso senza rischio
   var utile        = gain - capGain - BOT_COMM;
   var roe          = investimento !== 0 ? utile / investimento : NaN;
   // Il rendimento grezzo e' di PERIODO. Senza annualizzarlo un BOT a 3 mesi e
@@ -8006,12 +7987,11 @@ function centroRenderHistory() {
   var html = '';
   list.forEach(function(entry, idx) {
     var d = entry.data || {};
-    var callVal = parseFloat(String(d.futCallSettle||'').replace(',','.')) || 0;
-    var putVal  = parseFloat(String(d.futPutSettle||'').replace(',','.'))  || 0;
+    // Stesso parser della pagina: "1.050" vale 1050 (migliaia), non 1,05.
+    var callVal = centroParseNum(d.futCallSettle) || 0;
+    var putVal  = centroParseNum(d.futPutSettle)  || 0;
     var sigma   = callVal + putVal;
-    var sigmaStr = sigma > 0 ? centroFmt(sigma, 3) : '—';
-    var settlStr = (entry.results && entry.results.futSettlement != null) ? centroFmt(entry.results.futSettlement, 3) : '—';
-    var strikeStr = d.futStrike || '—';
+    var sigmaStr = sigma > 0 ? centroFmt(sigma) : '—';
     var dateStr = fmtDate(entry.savedAt);
     var isEven = idx % 2 === 0;
     html +=
@@ -8058,8 +8038,8 @@ function centroRenderChart(list) {
   });
   var values = entries.map(function(e) {
     var d = e.data || {};
-    var c = parseFloat(String(d.futCallSettle||'').replace(',','.')) || 0;
-    var p = parseFloat(String(d.futPutSettle||'').replace(',','.'))  || 0;
+    var c = centroParseNum(d.futCallSettle) || 0;
+    var p = centroParseNum(d.futPutSettle)  || 0;
     return c + p > 0 ? parseFloat((c + p).toFixed(4)) : null;
   });
 
@@ -8158,11 +8138,11 @@ function centroCalc() {
     futMov    = futSigma / futSettle;
   }
 
-  setVal('fut_delta', futReady ? centroFmt(futDelta, 3) : '');
-  setVal('fut_sigma', futReady ? centroFmt(futSigma, 3) : '');
-  setEl('fut_out_settlement', futReady ? centroFmt(futSettle, 3) : '—');
-  setEl('fut_out_supporto',   futReady ? centroFmt(futSup, 3)    : '—');
-  setEl('fut_out_resistenza', futReady ? centroFmt(futRes, 3)    : '—');
+  setVal('fut_delta', futReady ? centroFmt(futDelta) : '');
+  setVal('fut_sigma', futReady ? centroFmt(futSigma) : '');
+  setEl('fut_out_settlement', futReady ? centroFmt(futSettle) : '—');
+  setEl('fut_out_supporto',   futReady ? centroFmt(futSup)    : '—');
+  setEl('fut_out_resistenza', futReady ? centroFmt(futRes)    : '—');
   setEl('fut_out_movPct',     futReady ? centroFmtPct(futMov)    : '—');
 
 }
@@ -8273,8 +8253,8 @@ function renderStoria() {
       var d = entry.data || {};
       var r = entry.results || {};
       var strikeLbl = escapeHtml(d.futStrike || d.spxStrikeES || '—');
-      var supVal  = r.futSupporto   != null ? centroFmt(r.futSupporto, 2)   : (r.mmSupporto   != null ? centroFmt(r.mmSupporto, 2)   : '—');
-      var resVal  = r.futResistenza != null ? centroFmt(r.futResistenza, 2) : (r.mmResistenza != null ? centroFmt(r.mmResistenza, 2) : '—');
+      var supVal  = r.futSupporto   != null ? centroFmt(r.futSupporto)   : (r.mmSupporto   != null ? centroFmt(r.mmSupporto)   : '—');
+      var resVal  = r.futResistenza != null ? centroFmt(r.futResistenza) : (r.mmResistenza != null ? centroFmt(r.mmResistenza) : '—');
       html += '<div onclick="centrioStoriaOpenModal(\'' + entry.id + '\')" style="cursor:pointer;background:var(--tv-surf);border:1px solid ' + accentBord + ';border-radius:10px;padding:18px;transition:transform 0.15s,box-shadow 0.15s;" ' +
         'onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 8px 24px rgba(0,0,0,0.25)\'" ' +
         'onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'none\'">' +
@@ -8404,14 +8384,14 @@ function centrioStoriaOpenModal(id) {
     mkRow('Strike',   d.futStrike     || '—');
 
   var sigma = (d.futCallSettle && d.futPutSettle)
-    ? centroFmt(centroParseNum(d.futCallSettle) + centroParseNum(d.futPutSettle), 3)
+    ? centroFmt(centroParseNum(d.futCallSettle) + centroParseNum(d.futPutSettle))
     : '—';
 
   var resRows =
     mkRow('Σ (Call + Put)',  sigma,                                                          'var(--tv-green)') +
-    mkRow('Settlement',      r.futSettlement != null ? centroFmt(r.futSettlement, 3) : '—', 'var(--tv-green)') +
-    mkRow('Supporto',        r.futSupporto   != null ? centroFmt(r.futSupporto, 3)   : '—', 'var(--tv-green)') +
-    mkRow('Resistenza',      r.futResistenza != null ? centroFmt(r.futResistenza, 3) : '—', 'var(--tv-red)')   +
+    mkRow('Settlement',      r.futSettlement != null ? centroFmt(r.futSettlement) : '—', 'var(--tv-green)') +
+    mkRow('Supporto',        r.futSupporto   != null ? centroFmt(r.futSupporto)   : '—', 'var(--tv-green)') +
+    mkRow('Resistenza',      r.futResistenza != null ? centroFmt(r.futResistenza) : '—', 'var(--tv-red)')   +
     mkRow('Mov. Atteso %',   r.futMovPct     != null ? centroFmtPct(r.futMovPct)     : '—', 'var(--tv-green)');
 
   document.getElementById('storiaModalBody').innerHTML =
@@ -8438,7 +8418,7 @@ function centrioStoriaOpenModal(id) {
     setInp('fut_strike',     d.futStrike);
     centroCalc();
   };
-  document.getElementById('storiaModalDelete').style.display = ''; var _pdb = document.getElementById('pfModalDeleteBtn'); if (_pdb) _pdb.remove(); var _peb = document.getElementById('pfModalEditBtn'); if (_peb) _peb.remove();
+  storiaModalResetBottoni();
   document.getElementById('storiaModal').style.display = 'block';
 }
 
@@ -8777,7 +8757,7 @@ function meteoInputsApply() {
   if (Array.isArray(o)) o = o[0] || {};
   meteoUI.spx  = (o.spx === 0 || o.spx === 1) ? o.spx : -1;
   meteoUI.mib  = (o.mib === 0 || o.mib === 1) ? o.mib : -1;
-  meteoUI.prev = o.prev || 0;
+  meteoUI.prev = (o.prev === 1 || o.prev === 2 || o.prev === 3) ? o.prev : 0;   // fuori scala = nessun evento
   METEO_IN.forEach(function(id) {
     var el = document.getElementById(id);
     if (el && typeof o[id] === 'string') el.value = o[id];
@@ -10405,7 +10385,7 @@ function raccCompleta() {
 }
 
 function raccNuovaSessione() {
-  orosConfirm('Svuotare la lista e iniziare una nuova sessione?<br><br>Quello che hai gi\u00e0 mandato resta dov\u2019\u00e8.', function () {
+  orosConfirm('Svuotare la lista e iniziare una nuova sessione? Quello che hai gi\u00e0 mandato resta dov\u2019\u00e8.', function () {
     RACC.rows = [];
     RACC.focusRow = '';
     RACC.doneId = '';
@@ -10912,23 +10892,8 @@ function aggiungiCcAPortafoglio() {
   if (!res) { orosAlert('Inserisci i dati prima di aggiungere al portafoglio.'); return; }
   var ticker = escapeHtml((tab.data.ticker || 'CC').toUpperCase());
 
-  // Cattura dividendi se compilati (stessa logica di salvaCcCorrente)
-  var divData = null;
-  var divSection = document.getElementById('ccDivSection');
-  var divImporto = document.getElementById('ccDivImporto');
-  if (divSection && divSection.style.display !== 'none' && divImporto && divImporto.value.trim() !== '') {
-    var importo = parseFloat(divImporto.value.replace(',', '.'));
-    var contratti   = ccParseNum(tab.data.contratti);
-    var quantitaOpz = ccParseNum(tab.data.quantitaOpz);
-    var strike      = ccParseNum(tab.data.strike);
-    if (!isNaN(importo) && importo > 0 && !isNaN(contratti) && !isNaN(quantitaOpz)) {
-      var quantita   = contratti * quantitaOpz;
-      var utileLordo = importo * quantita;
-      var utileNetto = utileLordo - utileLordo * CAPITAL_GAIN;
-      var rend = (!isNaN(strike) && strike > 0) ? (utileLordo / (contratti * quantitaOpz * strike)) * 100 : null;
-      divData = { importo: importo, quantita: quantita, utileLordo: utileLordo, utileNetto: utileNetto, rendPct: rend };
-    }
-  }
+  // Dividendi compilati nella sezione (se aperta): stessa funzione dello storico
+  var divData = ccDividendiCorrenti(tab);
 
   // Totale netto = premio netto + utile netto dividendi
   var totaleNetto = res.premioNetto + (divData ? divData.utileNetto : 0);
@@ -11391,15 +11356,12 @@ function portafoglioRender(opts) {
       var typeLabel   = isCsp ? 'CSP' : (isCc ? 'CC' : (isBot ? 'BOT' : '●'));
       var ticker = escapeHtml((entry.data && entry.data.ticker) ? entry.data.ticker.toUpperCase() : typeLabel);
 
-      var metricLabel, metricValue;
+      var metricValue;
       if (isBot) {
-        metricLabel = 'Utile Netto';
         metricValue = (entry.results && entry.results.utile != null) ? botFmtEur(entry.results.utile) : '—';
       } else if (isManual) {
-        metricLabel = 'P&L Netto';
         metricValue = (entry.results && entry.results.net != null) ? pfManFmtEur(entry.results.net) : '—';
       } else {
-        metricLabel = 'Premio Netto';
         metricValue = (entry.results && entry.results.premioNetto != null) ? fmt(entry.results.premioNetto) : '—';
       }
 
@@ -11700,12 +11662,7 @@ function pfManParseNum(v) {
   if (s === '') return NaN;
   var neg = false;
   if (s.charAt(0) === '-' || s.charAt(0) === '\u2212') { neg = true; s = s.slice(1).trim(); }
-  if (s.indexOf(',') > -1) {
-    s = s.replace(/\./g, '').replace(',', '.');
-  } else if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(s)) {
-    s = s.replace(/\./g, '');
-  }
-  var n = parseFloat(s);
+  var n = parseNum(s);   // stesso parser italiano di tutta l'app
   return isNaN(n) ? NaN : (neg ? -n : n);
 }
 function pfManFmtEur(n) {
@@ -11900,11 +11857,11 @@ document.getElementById('pfCloseModal').addEventListener('click', function(e) {
 
 // ── Export / Import backup JSON (Portafoglio + Storico) ──
 function dataExport(which) {
-  var key, data, fname;
+  var data, fname;
   if (which === 'portafoglio') {
-    key = 'oros_portafoglio_v1'; data = pfLoad(); fname = 'oros_portafoglio';
+    data = pfLoad(); fname = 'oros_portafoglio';
   } else {
-    key = 'oros_storia_v1'; data = storiaLoad(); fname = 'oros_storico';
+    data = storiaLoad(); fname = 'oros_storico';
   }
   var payload = {
     _oros: which,
@@ -11995,12 +11952,16 @@ function dataImportTutto(inputEl) {
 }
 
 function orosBackupRipristina(sezioni, presenti) {
+  // Copia sanificata per sezione: la stessa che va in locale va anche sul
+  // cloud, cosi' i due archivi restano identici (stessi id, stesse voci).
+  var puliti = {};
   presenti.forEach(function(s) {
     var v = sezioni[s.k];
     // Le liste passano dalla stessa sanificazione dell'import per sezione:
     // gli id finiscono dentro attributi onclick e non possono restare liberi.
     if (Array.isArray(v)) v = orosSanitizeList(v, true);
     else if (s.k === 'costruz' && v && Array.isArray(v.pf)) v = { pf: orosSanitizeList(v.pf, true), cur: null };
+    puliti[s.k] = v;
     try { orosLsSet(s.ls, JSON.stringify(v)); } catch (e) {}
   });
   // Rilettura a caldo di tutto quello che sa rileggersi da solo.
@@ -12012,10 +11973,10 @@ function orosBackupRipristina(sezioni, presenti) {
   // Rimando al cloud quello che e' sincronizzato, cosi' il ripristino non
   // resta confinato a questo dispositivo.
   try {
-    if (Array.isArray(sezioni.storia)      && typeof fsCloudSave      === 'function') fsCloudSave(sezioni.storia);
-    if (Array.isArray(sezioni.portafoglio) && typeof fsPfCloudSave    === 'function') fsPfCloudSave(sezioni.portafoglio);
-    if (Array.isArray(sezioni.meteo)       && typeof fsMeteoCloudSave === 'function') fsMeteoCloudSave(sezioni.meteo);
-    if (sezioni.costruz && Array.isArray(sezioni.costruz.pf) && typeof fsPbCloudSave === 'function') fsPbCloudSave(sezioni.costruz.pf);
+    if (Array.isArray(puliti.storia)      && typeof fsCloudSave      === 'function') fsCloudSave(puliti.storia);
+    if (Array.isArray(puliti.portafoglio) && typeof fsPfCloudSave    === 'function') fsPfCloudSave(puliti.portafoglio);
+    if (Array.isArray(puliti.meteo)       && typeof fsMeteoCloudSave === 'function') fsMeteoCloudSave(puliti.meteo);
+    if (puliti.costruz && Array.isArray(puliti.costruz.pf) && typeof fsPbCloudSave === 'function') fsPbCloudSave(puliti.costruz.pf);
   } catch (e) {}
   orosAlert('Ripristino completato.');
 }
@@ -12754,7 +12715,7 @@ function pbR1(){
 function pbR2(){
   var w = document.getElementById('pbSaaOut'); if (!w) return;
   var saa = pbSAA(), M = saa.macro, cap = pbN(PB.cap);
-  var vp = saa.volTatt, target = saa.volTarget, vs = saa.volStrat, dVol = vp - vs;
+  var vp = saa.volTatt, target = saa.volTarget, vs = saa.volStrat;
   var rcs = saa.map(function(b){ return b.w / 100 * b.v; });
   var rcT = rcs.reduce(function(a, b){ return a + b; }, 0);
 
