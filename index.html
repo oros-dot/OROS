@@ -2748,6 +2748,10 @@ input[type="number"]:focus {
   transition: background .25s, border-color .25s, color .25s;
 }
 #pageBOT .field input:focus { border-color: var(--tv-blue); box-shadow: 0 0 0 2px rgba(41,98,255,.15); }
+/* Pillola vendita anticipata: maiuscola come le altre pillole, che stanno
+   dentro un'etichetta; accesa a piena luce anche prima di scegliere la data. */
+#pageBOT .oros-div-tgl { text-transform: uppercase; }
+#pageBOT .oros-div-tgl[aria-expanded="true"] { opacity: 1; }
 
 /* Sidebar icon colors matching home dropdown */
 #navScreener { color: #2962ff; }
@@ -3387,6 +3391,7 @@ input[type="date"]::-webkit-date-and-time-value {
         <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">CAPITAL GAIN</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-red);">= Gain × 12,5% (aliquota agevolata BOT)</div></div>
         <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">UTILE NETTO</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-green);">= Gain − Capital Gain − Commissioni</div></div>
         <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">ROE</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--tv-gold);">= Utile Netto ÷ Investimento</div></div>
+        <div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;padding:11px;"><div style="font-size:9px;color:var(--tv-muted);margin-bottom:3px;letter-spacing:1px;">VENDITA ANTICIPATA</div><div style="font-family:'Inter',sans-serif;font-size:12px;color:rgba(122,163,255,0.9);">Prezzo di vendita = Rimborso × (Prezzo ÷ Rimborso) ^ (giorni fra vendita e scadenza ÷ giorni a scadenza)<br>Commissioni × 2: acquisto e vendita</div></div>
       </div>
     </div>
 
@@ -4758,7 +4763,7 @@ function orosCfgModaleSync() {
 // Deve coincidere con CACHE_VERSION in sw.js: e' lo stesso deploy.
 // Se i due numeri divergono, l'indicatore non e' piu' in grado di
 // dire se un dispositivo ha il file aggiornato.
-var OROS_BUILD = '31';
+var OROS_BUILD = '32';
 
 function orosTsLabel(iso) {
   var d = new Date(iso);
@@ -4892,8 +4897,9 @@ function orosGiorniScadenza() {
 
 // ── Scadenza della singola scheda BOT ──────────────────────────
 // Stesso conteggio in UTC di orosGiorniScadenza: l'ora legale non lo sposta.
-function botGiorniA(tab) {
-  var p = String((tab && tab.data && tab.data.scadenza) || '').split('-');
+// campo: 'scadenza' se omesso, 'vendita' per la data di vendita anticipata.
+function botGiorniA(tab, campo) {
+  var p = String((tab && tab.data && tab.data[campo || 'scadenza']) || '').split('-');
   if (p.length !== 3) return NaN;
   var a = +p[0], m = +p[1], g = +p[2];
   if (!isFinite(a) || !isFinite(m) || !isFinite(g)) return NaN;
@@ -4901,15 +4907,19 @@ function botGiorniA(tab) {
   return Math.round((Date.UTC(a, m - 1, g) - Date.UTC(o.getFullYear(), o.getMonth(), o.getDate())) / 86400000);
 }
 
-function botScadenzaEtichetta(tab) {
-  var iso = (tab && tab.data && tab.data.scadenza) || '';
-  var p = String(iso).split('-');
-  if (p.length !== 3) return '\u2014';
+// Data in chiaro, stringa vuota se non valida. Serve a scadenza e vendita.
+function botDataEtichetta(iso) {
+  var p = String(iso || '').split('-');
+  if (p.length !== 3) return '';
   var d = new Date(+p[0], +p[1] - 1, +p[2]);
-  if (isNaN(d.getTime())) return '\u2014';
-  var lab;
-  try { lab = d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' }); }
-  catch (e) { lab = p[2] + '/' + p[1] + '/' + p[0]; }
+  if (isNaN(d.getTime())) return '';
+  try { return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' }); }
+  catch (e) { return p[2] + '/' + p[1] + '/' + p[0]; }
+}
+
+function botScadenzaEtichetta(tab) {
+  var lab = botDataEtichetta(tab && tab.data && tab.data.scadenza);
+  if (!lab) return '\u2014';
   var gg = botGiorniA(tab);
   if (!isFinite(gg)) return lab;
   if (gg < 0)  return lab + ' \u00b7 gi\u00e0 passata';
@@ -4917,15 +4927,94 @@ function botScadenzaEtichetta(tab) {
   return lab + ' \u00b7 ' + gg + (gg === 1 ? ' giorno' : ' giorni');
 }
 
-function botScadenzaSet(tabId, iso) {
+function botScadenzaSet(tabId, iso, campo) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return;
   var tab = botTabs.find(function (t) { return t.id === tabId; });
   if (!tab) return;
-  tab.data.scadenza = iso;
+  campo = (campo === 'vendita') ? 'vendita' : 'scadenza';
+  tab.data[campo] = iso;
   var trg = document.getElementById('bot_scadenza');
   if (trg) trg.textContent = botScadenzaEtichetta(tab);
   // Solo i nodi output: niente re-render del pannello.
-  botUpdateField(tabId, 'scadenza', iso);
+  botUpdateField(tabId, campo, iso);
+}
+
+// ── Vendita anticipata della singola scheda BOT ────────────────
+// Col flag acceso utile, imposta e rendimento si calcolano alla data in cui
+// si pensa di vendere, non alla scadenza. Stati:
+//   'off'   flag spento: calcolo a scadenza
+//   'vuota' flag acceso ma data non ancora scelta: calcolo ancora a scadenza
+//   'ok'    data dopo oggi e prima della scadenza: calcolo alla vendita
+//   'no'    data inutilizzabile (passata, oggi, dalla scadenza in poi o
+//           scadenza mancante): nessun risultato, l'etichetta dice perche'
+function botVenditaStato(tab) {
+  var d = tab && tab.data;
+  if (!d || !d.vendOn) return 'off';
+  if (!d.vendita) return 'vuota';
+  var gv = botGiorniA(tab, 'vendita'), gs = botGiorniA(tab);
+  return (gv > 0 && gv < gs) ? 'ok' : 'no';
+}
+
+function botVenditaEtichetta(tab) {
+  var lab = botDataEtichetta(tab && tab.data && tab.data.vendita);
+  if (!lab) return '\u2014';
+  var gv = botGiorniA(tab, 'vendita'), gs = botGiorniA(tab);
+  if (gv < 0)          return lab + ' \u00b7 gi\u00e0 passata';
+  if (gv === 0)        return lab + ' \u00b7 oggi';
+  if (!isFinite(gs))   return lab + ' \u00b7 manca la scadenza';
+  if (gv === gs)       return lab + ' \u00b7 \u00e8 la scadenza';
+  if (gv > gs)         return lab + ' \u00b7 dopo la scadenza';
+  return lab + ' \u00b7 ' + gv + (gv === 1 ? ' giorno' : ' giorni');
+}
+
+var BOT_VENDITA_MSG = 'La data di vendita deve cadere dopo oggi e prima della scadenza. Correggila oppure spegni il flag.';
+
+function botVenditaTglTesto(on) {
+  return on ? 'vendita anticipata' : '\uFF0B vendita anticipata';
+}
+
+// Stessa pillola del flag dividendo di CSP e CC, ma sotto il pulsante della
+// scadenza: nell'etichetta, a due colonne, mandava a capo "Data di scadenza"
+// e disallineava la riga col Ticker. Oro solo quando la data sta davvero
+// cambiando i numeri.
+function botVenditaTglHtml(tab) {
+  var on = !!(tab && tab.data && tab.data.vendOn);
+  return '<span class="oros-div-tgl' + (botVenditaStato(tab) === 'ok' ? ' on' : '') + '" data-bot-vend-tgl role="button" tabindex="0"' +
+    ' aria-expanded="' + (on ? 'true' : 'false') + '"' +
+    ' title="Calcolo alla data in cui pensi di vendere, prima della scadenza"' +
+    ' onclick="botVenditaTgl(\'' + tab.id + '\')"' +
+    ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();botVenditaTgl(\'' + tab.id + '\');}">' +
+    botVenditaTglTesto(on) + '</span>';
+}
+
+// Aggiornamento mirato di pillola, riquadro ed etichetta: nessun re-render.
+function botVenditaSync(tab) {
+  var c = document.getElementById('botPanelsContainer');
+  if (!c || !tab) return;
+  var on = !!tab.data.vendOn;
+  var box = c.querySelector('[data-bot-vend-box]');
+  if (box) box.classList.toggle('ap', on);
+  var tgl = c.querySelector('[data-bot-vend-tgl]');
+  if (tgl) {
+    tgl.classList.toggle('on', botVenditaStato(tab) === 'ok');
+    tgl.setAttribute('aria-expanded', on ? 'true' : 'false');
+    tgl.textContent = botVenditaTglTesto(on);
+  }
+  var trg = document.getElementById('bot_vendita');
+  if (trg) trg.textContent = botVenditaEtichetta(tab);
+}
+
+function botVenditaTgl(tabId) {
+  var tab = botTabs.find(function (t) { return t.id === tabId; });
+  if (!tab) return;
+  botUpdateField(tabId, 'vendOn', !tab.data.vendOn);
+}
+
+// Nei dati salvati la data di vendita entra solo quando ha guidato il
+// calcolo: una voce senza questo campo e' sempre un calcolo a scadenza.
+function botDatiSalvati(tab, dati) {
+  if (botVenditaStato(tab) === 'ok') dati.vendita = tab.data.vendita;
+  return dati;
 }
 
 function orosScadenzaLabel() {
@@ -4950,6 +5039,7 @@ function orosScadenzaLabel() {
 // ══════════════════════════════════════
 // target === null  -> scadenza opzioni (CSP/CC), comportamento storico
 // target === {tipo:'bot', tabId} -> data di rimborso di quella scheda BOT
+// target === {tipo:'bot', tabId, campo:'vendita'} -> data di vendita anticipata
 var OROS_CAL = { mese: null, riga: null, target: null };
 
 // Valore attualmente selezionato sul campo verso cui punta il calendario.
@@ -4958,7 +5048,8 @@ function orosCalValore() {
   if (t && t.tipo === 'bot') {
     var tab = (typeof botTabs !== 'undefined')
       ? botTabs.find(function (x) { return x.id === t.tabId; }) : null;
-    return (tab && tab.data.scadenza) ? tab.data.scadenza : '';
+    var campo = (t.campo === 'vendita') ? 'vendita' : 'scadenza';
+    return (tab && tab.data[campo]) ? tab.data[campo] : '';
   }
   return VRP_SCADENZA || '';
 }
@@ -5019,7 +5110,7 @@ function orosCalShift(delta) {
 function orosCalPick(v) {
   var t = OROS_CAL.target;
   orosCalChiudi();
-  if (t && t.tipo === 'bot') botScadenzaSet(t.tabId, v);
+  if (t && t.tipo === 'bot') botScadenzaSet(t.tabId, v, t.campo);
   else orosScadenzaSet(v);
 }
 
@@ -7272,7 +7363,7 @@ function storiaOpenModal(id) {
       ['N° titoli', d.qty || '—'],
       ['Rimborso', d.rimborso || '1'],
       ['Commissioni', d.comm ? '€' + d.comm : '—'],
-    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + escapeHtml(row[0]) + '</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:400;">' + escapeHtml(row[1]) + '</td></tr>'; }).join('');
+    ].concat(d.vendita ? [['Vendita prevista', botDataEtichetta(d.vendita) || d.vendita]] : []).map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + escapeHtml(row[0]) + '</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;font-weight:400;">' + escapeHtml(row[1]) + '</td></tr>'; }).join('');
     var resultRows = [
       ['Investimento', r.investimento != null ? botFmtEur(r.investimento) : '—'],
       ['Gain Lordo',   r.gain        != null ? botFmtEur(r.gain)         : '—'],
@@ -7679,6 +7770,15 @@ function botFmtPct(n) {
   if (isNaN(n) || !isFinite(n)) return '—';
   return (n * 100).toFixed(2).replace('.', ',') + '%';
 }
+// Periodo coperto dal calcolo. Con la vendita anticipata anche il prezzo
+// stimato, sulla scala del book: e' quello da confrontare il giorno della vendita.
+function botPeriodoTxt(res) {
+  if (res && res.ggVendita > 0) {
+    return 'Fino alla vendita: ' + botFmtPct(res.roe) +
+           ' \u00b7 prezzo stimato ' + (res.prezzoVendita * 100).toFixed(3).replace('.', ',');
+  }
+  return 'Fino a scadenza: ' + botFmtPct(res.roe);
+}
 
 // Il prezzo di un BOT si scrive in due modi: come lo mostra il book (97,298)
 // o in frazione di nominale (0,97298). Li accetta entrambi e li porta sulla
@@ -7699,21 +7799,36 @@ function botGetResults(tab) {
   if (isNaN(price) || isNaN(qty)) return null;
   var rimborso     = botNormPrezzo(BOT_RIMBORSO);
   if (isNaN(rimborso)) return null;
-  var delta        = rimborso - price;
+  var statoVend    = botVenditaStato(tab);
+  if (statoVend === 'no') return null;
+  var giorni       = botGiorniA(tab);
+  // Vendita anticipata: il prezzo a quella data si stima tenendo fermo il
+  // rendimento annuo composto di oggi, la stessa convenzione del resto di
+  // OROS. Rimborso x (Prezzo / Rimborso) ^ (giorni rimasti / giorni totali).
+  // Commissioni due volte: acquisto e vendita. A scadenza ne resta una.
+  var vendita      = (statoVend === 'ok');
+  var ggPeriodo    = vendita ? botGiorniA(tab, 'vendita') : giorni;
+  var prezzoFine   = vendita
+                       ? rimborso * Math.pow(price / rimborso, (giorni - ggPeriodo) / giorni)
+                       : rimborso;
+  var comm         = vendita ? BOT_COMM * 2 : BOT_COMM;
+  var delta        = prezzoFine - price;
   var investimento = price * qty;
   var gain         = delta * qty;
   var capGain      = gain * BOT_ALIQUOTA;   // 12,5%: stessa costante del confronto col tasso senza rischio
-  var utile        = gain - capGain - BOT_COMM;
+  var utile        = gain - capGain - comm;
   var roe          = investimento !== 0 ? utile / investimento : NaN;
   // Il rendimento grezzo e' di PERIODO. Senza annualizzarlo un BOT a 3 mesi e
   // uno a 12 mostrano numeri non confrontabili, e nessuno dei due e'
   // confrontabile col chip BOT delle pagine CSP, che e' annualizzato composto.
   // Stessa convenzione usata ovunque in OROS: composta sui giorni reali.
-  var giorni       = botGiorniA(tab);
-  var roeAnnuo     = (isFinite(roe) && giorni > 0 && roe > -1)
-                       ? Math.pow(1 + roe, 365 / giorni) - 1
+  // Con la vendita anticipata i giorni sono quelli fino alla vendita.
+  var roeAnnuo     = (isFinite(roe) && ggPeriodo > 0 && roe > -1)
+                       ? Math.pow(1 + roe, 365 / ggPeriodo) - 1
                        : NaN;
-  return { delta, investimento, gain, capGain, utile, roe, roeAnnuo, giorni };
+  var out = { delta, investimento, gain, capGain, utile, roe, roeAnnuo, giorni };
+  if (vendita) { out.ggVendita = ggPeriodo; out.prezzoVendita = prezzoFine; }
+  return out;
 }
 
 function createBotTab(data) {
@@ -7797,6 +7912,11 @@ function botRenderPanel() {
             '<div class="field">' +
               '<label>Data di scadenza<span class="tip"><span class="tip-i">i</span><span class="tip-box">Giorno del rimborso. I giorni mancanti li calcola da solo e servono per riportare il rendimento su base annua: senza, un BOT a 3 mesi e uno a 12 non sono confrontabili.</span></span></label>' +
               '<button type="button" id="bot_scadenza" class="oros-cal-trigger" style="text-transform:none;" onclick="orosCalApri(this,{tipo:\'bot\',tabId:\'' + tab.id + '\'})">' + botScadenzaEtichetta(tab) + '</button>' +
+              botVenditaTglHtml(tab) +
+              '<div class="oros-div-box' + (d.vendOn ? ' ap' : '') + '" data-bot-vend-box>' +
+                '<label style="margin-bottom:5px;display:block;">Data di vendita<span class="tip"><span class="tip-i">i</span><span class="tip-box">Il giorno in cui pensi di vendere il BOT, prima della scadenza. Utile, imposta e rendimento vengono calcolati fino a questa data, commissione di vendita compresa. Il prezzo di vendita è stimato tenendo fermo il rendimento annuo di oggi: quello vero dipenderà dai tassi di quel giorno.</span></span></label>' +
+                '<button type="button" id="bot_vendita" class="oros-cal-trigger" style="text-transform:none;" onclick="orosCalApri(this,{tipo:\'bot\',tabId:\'' + tab.id + '\',campo:\'vendita\'})">' + botVenditaEtichetta(tab) + '</button>' +
+              '</div>' +
             '</div>' +
             '<div class="field">' +
               '<label>Prezzo acquisto<span class="tip"><span class="tip-i">i</span><span class="tip-box">Scrivilo come lo leggi sul book (97,298) oppure in frazione di nominale (0,97298): il formato viene riconosciuto da solo. Usa la virgola per i decimali.</span></span></label>' +
@@ -7835,7 +7955,7 @@ function botRenderPanel() {
           '<div style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;padding:14px 16px;">' +
             '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);margin-bottom:5px;">Rendimento Netto Annuo</div>' +
             '<div data-bot-out="roe" style="font-size:22px;font-weight:800;color:var(--tv-green);font-family:\'Inter\',sans-serif;">' + (res ? botFmtPct(res.roeAnnuo) : '—') + '</div>' +
-            '<div data-bot-out="roePeriodo" style="font-size:11px;color:var(--tv-muted);margin-top:4px;">' + (res ? ('Fino a scadenza: ' + botFmtPct(res.roe)) : '') + '</div>' +
+            '<div data-bot-out="roePeriodo" style="font-size:11px;color:var(--tv-muted);margin-top:4px;">' + (res ? botPeriodoTxt(res) : '') + '</div>' +
           '</div>' +
         '</div>' +
       '</div>' +
@@ -7859,9 +7979,10 @@ function botUpdateField(tabId, field, value) {
   set('capGain',      res ? botFmtEur(res.capGain)      : '—');
   set('utile',        res ? botFmtEur(res.utile)        : '—');
   set('roe',          res ? botFmtPct(res.roeAnnuo)     : '—');
-  set('roePeriodo',   res ? ('Fino a scadenza: ' + botFmtPct(res.roe)) : '');
+  set('roePeriodo',   res ? botPeriodoTxt(res) : '');
   var trgScad = document.getElementById('bot_scadenza');
   if (trgScad) trgScad.textContent = botScadenzaEtichetta(tab);
+  botVenditaSync(tab);
   // Rename tab label when ticker changes
   if (field === 'ticker') botRenderTabs();
 }
@@ -7876,8 +7997,9 @@ function salvaBotCorrente() {
     return;
   }
   var res    = botGetResults(tab);
+  if (!res && botVenditaStato(tab) === 'no') { orosAlert(BOT_VENDITA_MSG); return; }
   var ticker = (tab.data.ticker || '').trim();
-  storiaAdd('bot', { ticker: ticker, price: tab.data.price, rimborso: String(BOT_RIMBORSO), qty: tab.data.qty, comm: String(BOT_COMM) }, res, ticker || 'BOT');
+  storiaAdd('bot', botDatiSalvati(tab, { ticker: ticker, price: tab.data.price, rimborso: String(BOT_RIMBORSO), qty: tab.data.qty, comm: String(BOT_COMM) }), res, ticker || 'BOT');
   var btn = document.getElementById('botBtnSalva');
   if (btn) {
     var orig = btn.innerHTML;
@@ -7913,6 +8035,9 @@ function botRenderCompare() {
     ['Utile Netto', function(r){ return r ? '<span class="green-val">' + botFmtEur(r.utile) + '</span>' : '—'; }],
     ['Rendimento Netto', function(r){ return r ? '<span class="green-val">' + botFmtPct(r.roe) + '</span>' : '—'; }],
   ];
+  if (botTabs.some(function(t){ return botVenditaStato(t) === 'ok'; })) {
+    rows.splice(2, 0, ['Vendita', function(r,d){ return !r ? '—' : (r.ggVendita > 0 ? escapeHtml(botDataEtichetta(d.vendita)) : 'a scadenza'); }]);
+  }
   rows.forEach(function(row, i) {
     var bg = i % 2 === 0 ? '' : 'background:rgba(255,255,255,0.02)';
     html += '<tr style="' + bg + '">' +
@@ -10933,11 +11058,12 @@ function aggiungiBotAPortafoglio() {
   var qty   = botParseNum(tab.data.qty);
   if (isNaN(price) || isNaN(qty)) { orosAlert('Inserisci almeno Prezzo e N° titoli prima di aggiungere al portafoglio.'); return; }
   var res = botGetResults(tab);
+  if (!res && botVenditaStato(tab) === 'no') { orosAlert(BOT_VENDITA_MSG); return; }
   // In archivio va il valore grezzo; l'escape si applica solo dove il dato
   // viene scritto nell'HTML, altrimenti si accumula una doppia codifica.
   var tickerRaw = (tab.data.ticker || 'BOT').toUpperCase();
   var ticker = escapeHtml(tickerRaw);
-  var botData = { ticker: tickerRaw, price: tab.data.price, rimborso: String(BOT_RIMBORSO), qty: tab.data.qty, comm: String(BOT_COMM) };
+  var botData = botDatiSalvati(tab, { ticker: tickerRaw, price: tab.data.price, rimborso: String(BOT_RIMBORSO), qty: tab.data.qty, comm: String(BOT_COMM) });
   var preview =
     '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
       '<span style="background:rgba(122,163,255,0.12);color:#7aa3ff;border:1px solid rgba(122,163,255,0.3);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;font-family:\'Inter\',sans-serif;">BOT</span>' +
@@ -11478,7 +11604,7 @@ function pfOpenDetailModal(id) {
       ['N° titoli',       d.qty     || '—'],
       ['Rimborso',        d.rimborso || '1'],
       ['Commissioni',     d.comm ? '€' + d.comm : '—'],
-    ].map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + escapeHtml(row[0]) + '</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;">' + escapeHtml(row[1]) + '</td></tr>'; }).join('');
+    ].concat(d.vendita ? [['Vendita prevista', botDataEtichetta(d.vendita) || d.vendita]] : []).map(function(row){ return '<tr><td style="padding:8px 12px;color:var(--tv-muted);font-size:12px;">' + escapeHtml(row[0]) + '</td><td style="padding:8px 12px;color:var(--tv-text);font-family:\'Inter\',sans-serif;font-size:12px;">' + escapeHtml(row[1]) + '</td></tr>'; }).join('');
     resultRows = [
       ['Investimento',      r.investimento != null ? botFmtEur(r.investimento) : '—'],
       ['Gain Lordo',        r.gain         != null ? botFmtEur(r.gain)         : '—'],
