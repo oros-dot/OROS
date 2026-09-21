@@ -2308,12 +2308,22 @@ body.has-sidebar #pageMeteo {
   line-height: 1;
   cursor: pointer;
   vertical-align: middle;
-  animation: warnPulse 2.4s ease-in-out infinite;
+  animation: warnPulse 1.6s ease-in-out infinite;
 }
 .warn-i:hover { background: rgba(240,180,41,.3); }
+/* Tutti i triangoli di avviso sono uguali: stessa icona, stesso colore,
+   stesso lampeggio. L'icona e' SVG: il carattere del triangolo su iOS
+   diventa un'emoji e ignora il colore. */
+.warn-i svg {
+  display: block;
+  filter: drop-shadow(0 0 2px rgba(240,180,41,.95));
+}
 @keyframes warnPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(240,180,41,.35); }
-  50%      { box-shadow: 0 0 0 4px rgba(240,180,41,0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(240,180,41,.55), 0 0 6px 1px rgba(240,180,41,.40); }
+  50%      { box-shadow: 0 0 0 5px rgba(240,180,41,0), 0 0 12px 3px rgba(240,180,41,.60); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .warn-i { animation: none; box-shadow: 0 0 8px 2px rgba(240,180,41,.5); }
 }
 
 .bot-alert {
@@ -2517,6 +2527,41 @@ body.has-sidebar #pageMeteo {
 #pageCC .best-badge { background: rgba(38,166,154,.12); color: var(--tv-green); border-color: rgba(38,166,154,.25); }
 #pageCC .green-val { color: var(--tv-green); }
 #pageCC .gold-val  { color: var(--tv-gold); }
+
+/* Confronto: intestazioni che ordinano la tabella e card spente.
+   Le regole delle card di pagina hanno l'id nel selettore: queste lo
+   ripetono, altrimenti perderebbero la cascata. */
+.compare-table th.cmp-th {
+  position: relative;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+/* La freccia sta nel margine sinistro dell'intestazione, fuori dal flusso:
+   comparendo o spostandosi non allarga la colonna, quindi col riordino si
+   muovono solo le righe. */
+.compare-table th.cmp-th .cmp-ord {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  letter-spacing: 0;
+  color: var(--tv-blue);
+}
+#pageCSP .output-card.cmp-card,
+#pageCC .output-card.cmp-card {
+  cursor: pointer;
+  transition: background .25s, opacity .2s, filter .2s;
+}
+#pageCSP .output-card.cmp-spenta,
+#pageCC .output-card.cmp-spenta {
+  opacity: .35;
+  filter: grayscale(1);
+}
 
 /* ── pageCentro styles ── */
 #pageCentro .logo-area h1 {
@@ -4763,7 +4808,7 @@ function orosCfgModaleSync() {
 // Deve coincidere con CACHE_VERSION in sw.js: e' lo stesso deploy.
 // Se i due numeri divergono, l'indicatore non e' piu' in grado di
 // dire se un dispositivo ha il file aggiornato.
-var OROS_BUILD = '32';
+var OROS_BUILD = '35';
 
 function orosTsLabel(iso) {
   var d = new Date(iso);
@@ -5495,10 +5540,16 @@ function orosDiag(tipo, spot, strike, premio, hv, vrp) {
   return w;
 }
 
+// Icona unica per tutti i triangoli di avviso: nessun campo ne ha una propria.
+var OROS_ICO_WARN = '<svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true">' +
+  '<path d="M8 1.8 15 14.2H1Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>' +
+  '<path d="M8 6.3v3.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>' +
+  '<circle cx="8" cy="12.1" r="1" fill="currentColor"/></svg>';
+
 function orosWarnHtml(msg) {
   if (!msg) return '';
   return '<span class="warn-i" data-msg="' + escapeAttr(msg) +
-         '" onclick="orosWarnShow(this)" title="Valore da verificare">\u26A0</span>';
+         '" onclick="orosWarnShow(this)" title="Valore da verificare">' + OROS_ICO_WARN + '</span>';
 }
 
 function orosWarnShow(el) {
@@ -5510,9 +5561,41 @@ function orosWarnShow(el) {
 function orosWarnApply(container, warn) {
   if (!container) return;
   ['strike', 'premio', 'spot', 'hv'].forEach(function (k) {
-    var el = container.querySelector('[data-warn="' + k + '"]');
-    if (el) el.innerHTML = orosWarnHtml(warn ? warn[k] : null);
+    orosWarnSet(container.querySelector('[data-warn="' + k + '"]'), warn ? warn[k] : '');
   });
+}
+
+// Un solo punto che scrive un triangolo, per qualunque campo. Riscrive solo
+// quando il messaggio cambia: cosi' il lampeggio non riparte a ogni battuta.
+function orosWarnSet(el, msg) {
+  if (!el) return;
+  msg = msg || '';
+  if (el.getAttribute('data-k') === msg) return;
+  el.setAttribute('data-k', msg);
+  el.innerHTML = orosWarnHtml(msg);
+}
+
+// ══════════════════════════════════════
+// CASH CHE NON COPRE UN CONTRATTO (solo CSP)
+// compute() arrotonda i contratti per difetto: con un cash sotto il
+// controvalore di un contratto ne escono zero, e premi e rendimenti restano
+// a zero senza spiegazione. Il triangolo lo dice subito. Stessa formula di
+// compute(), cosi' si accende esattamente quando i contratti sono zero.
+// Il premio non serve.
+// ══════════════════════════════════════
+function cspCashMsg(d) {
+  var cash = parseNum(d.cash), strike = parseNum(d.strike), q = parseNum(d.quantitaOpz);
+  if (!(cash > 0) || !(strike > 0) || !(q > 0)) return '';
+  var contratto = q * strike;
+  if (Math.floor(cash / contratto) >= 1) return '';
+  return 'Il cash non copre nemmeno un contratto: ne servono almeno ' + fmt(contratto) +
+         ' (strike \u00d7 quantit\u00e0 per opzione). Con ' + fmt(cash) +
+         ' i contratti vendibili sono zero, quindi premi e rendimenti restano a zero.';
+}
+
+// Stesso triangolo e stessa logica di tutti gli altri campi.
+function cspCashWarnApply(c, d) {
+  orosWarnSet(c ? c.querySelector('[data-warn="cash"]') : null, cspCashMsg(d));
 }
 
 
@@ -5649,6 +5732,141 @@ function cmpSetMode(pagina, val) {
   else ccRenderCompare();
 }
 
+// ══════════════════════
+// CONFRONTO — ordinamento della tabella
+// Primo clic sull'intestazione: dal migliore al peggiore. Secondo: al
+// contrario. Terzo: torna l'ordine delle schede. Una colonna alla volta; le
+// righe senza il dato restano in fondo in entrambi i versi.
+// Stato in memoria come le schede: la tabella si ridisegna a ogni battuta,
+// quindi l'ordine non puo' stare nel DOM.
+// ══════════════════════
+var CMP_SORT = { csp: { col: '', dir: 0 }, cc: { col: '', dir: 0 } };
+
+// Colonne della tabella, nell'ordine in cui compaiono.
+var CMP_COLONNE = {
+  csp: [['titolo', 'Titolo'], ['strike', 'Strike'], ['cash', 'Cash'],
+        ['premioLordo', 'Premio Lordo'], ['premioNetto', 'Premio Netto'],
+        ['rendScadNetto', 'Rend. Scad. Netto'], ['rendAnnuoNetto', 'Rend. Annuo Netto'],
+        ['ivhv', 'IV / HV']],
+  cc:  [['titolo', 'Titolo'], ['strike', 'Strike'], ['contratti', 'Contratti'],
+        ['premioLordo', 'Premio Lordo'], ['premioNetto', 'Premio Netto'],
+        ['rendScadNetto', 'Rend. Scad. Netto'], ['rendAnnuoNetto', 'Rend. Annuo Netto'],
+        ['ivhv', 'IV / HV']]
+};
+
+// Freccia della colonna ordinata; vuota sulle altre. Lo span c'e' sempre:
+// il riordino cambia solo il testo, non crea ne' toglie elementi.
+function cmpFreccia(pagina, col) {
+  var s = CMP_SORT[pagina];
+  return (s.dir !== 0 && s.col === col) ? (s.dir === 1 ? '\u2193' : '\u2191') : '';
+}
+
+function cmpThHtml(pagina) {
+  return CMP_COLONNE[pagina].map(function (c) {
+    var f = cmpFreccia(pagina, c[0]);
+    return '<th class="cmp-th' + (f ? ' cmp-on' : '') + '" onclick="cmpSort(\'' + pagina + '\',\'' + c[0] + '\')">' + c[1] +
+           '<span class="cmp-ord">' + f + '</span></th>';
+  }).join('');
+}
+
+// Righe del confronto, una per scheda nell'ordine delle schede. Una sola
+// fonte per tabella, card e riordino.
+function cmpRisultati(pagina) {
+  var csp = (pagina === 'csp');
+  return (csp ? tabs : ccTabs).map(function (tab, i) {
+    return { tab: tab, res: csp ? getResults(tab) : ccGetResults(tab), ticker: tab.data.ticker || ('T' + (i + 1)) };
+  });
+}
+
+function cmpSort(pagina, col) {
+  var s = CMP_SORT[pagina];
+  if (s.col !== col)    { s.col = col; s.dir = 1; }
+  else if (s.dir === 1) { s.dir = -1; }
+  else                  { s.col = ''; s.dir = 0; }
+  // Riordino sul posto: si spostano le righe che ci sono gia' e cambia solo
+  // la freccia. Sezione, riquadro scorrevole, tabella e intestazioni restano
+  // gli stessi elementi. Ridisegnarli, anche senza animazione, su Safari iOS
+  // ricrea il riquadro scorrevole e la tabella sparisce per un istante.
+  var sec = document.getElementById(pagina === 'csp' ? 'compareSection' : 'ccCompareSection');
+  var tb  = sec ? sec.querySelector('.compare-table tbody') : null;
+  var ths = sec ? sec.querySelectorAll('.compare-table thead th') : [];
+  var righe = {};
+  if (tb) Array.prototype.forEach.call(tb.children, function (tr) { righe[tr.getAttribute('data-tab')] = tr; });
+  var ordine = cmpOrdina(pagina, cmpRisultati(pagina));
+  var pronto = !!tb && ths.length === CMP_COLONNE[pagina].length && tb.children.length === ordine.length &&
+               ordine.every(function (r) { return !!righe[r.tab.id]; });
+  if (!pronto) { if (pagina === 'csp') renderCompare(); else ccRenderCompare(); return; }
+  ordine.forEach(function (r) { tb.appendChild(righe[r.tab.id]); });
+  CMP_COLONNE[pagina].forEach(function (c, j) {
+    var f = cmpFreccia(pagina, c[0]);
+    ths[j].classList.toggle('cmp-on', !!f);
+    var o = ths[j].querySelector('.cmp-ord');
+    if (o && o.textContent !== f) o.textContent = f;
+  });
+}
+
+// Valore di una riga nella colonna scelta. Numero: piu' alto = migliore.
+// Testo: ordine alfabetico. Coppia [fascia, valore]: conta prima la fascia.
+// null: dato assente.
+function cmpValore(col, r) {
+  var v;
+  if (col === 'titolo') return String(r.ticker).toUpperCase();
+  if (col === 'ivhv')   return cmpIvHvRango(r.res);
+  if (col === 'strike' || col === 'cash' || col === 'contratti') v = parseNum(r.tab.data[col]);
+  else v = r.res ? r.res[col] : NaN;
+  return (typeof v === 'number' && isFinite(v)) ? v : null;
+}
+
+// IV/HV: piu' alto non vuol dire migliore. Sopra la banda e' un avviso, non
+// un premio: e' lo stesso criterio del BEST e della spiegazione della barra.
+// Prima i rapporti dentro la banda, dal piu' alto; poi quelli sotto, dal piu'
+// vicino alla soglia; per ultimi quelli sopra, dal meno lontano.
+function cmpIvHvRango(res) {
+  var v = res ? res.vrp : null;
+  if (!v || !isFinite(v.ratio)) return null;
+  if (v.stato === 'extra') return [3, v.ratio];
+  if (v.stato === 'equo')  return [2, v.ratio];
+  return [1, -v.ratio];
+}
+
+// Positivo se a e' migliore di b.
+function cmpMeglio(a, b) {
+  if (Array.isArray(a)) return (a[0] - b[0]) || (a[1] - b[1]);
+  if (typeof a === 'string') return b.localeCompare(a, 'it', { numeric: true });
+  return a - b;
+}
+
+function cmpOrdina(pagina, results) {
+  var s = CMP_SORT[pagina];
+  if (!s.col || !s.dir) return results;
+  return results
+    .map(function (r, i) { return { r: r, i: i, v: cmpValore(s.col, r) }; })
+    .sort(function (x, y) {
+      if (x.v === null || y.v === null) {
+        if (x.v === y.v) return x.i - y.i;
+        return (x.v === null) ? 1 : -1;
+      }
+      return (s.dir * cmpMeglio(y.v, x.v)) || (x.i - y.i);
+    })
+    .map(function (x) { return x.r; });
+}
+
+// ══════════════════════
+// CONFRONTO — card spente
+// Un tocco spegne la card, un altro la riaccende. E' un primo scarto, non
+// una cancellazione: i numeri restano identici, cambia solo il peso visivo.
+// Nessun ridisegno: cambia la classe della sola card toccata. Stato in
+// memoria per scheda, come le schede stesse.
+// ══════════════════════
+var CMP_SPENTE = { csp: {}, cc: {} };
+
+function cmpCardTgl(el, pagina, id) {
+  var spenta = !CMP_SPENTE[pagina][id];
+  if (spenta) CMP_SPENTE[pagina][id] = true;
+  else delete CMP_SPENTE[pagina][id];
+  el.classList.toggle('cmp-spenta', spenta);
+}
+
 // Griglia di card: solo ticker e premio netto con la sua barra.
 // Niente strike, niente cash, niente rendimenti: quelli stanno in tabella.
 // Qui si guarda la proporzione fra valore equo ed extra premio.
@@ -5661,7 +5879,9 @@ function cmpCardsHtml(results, bestIdx, pagina) {
     var res = r.res;
     var isBest = (i === bestIdx);
     var bordo = isBest ? 'border-color:rgba(38,166,154,.55);box-shadow:0 0 0 1px rgba(38,166,154,.18);' : '';
-    return '<div class="output-card primary" style="padding:16px;' + bordo + '">' +
+    var spenta = !!CMP_SPENTE[pagina][r.tab.id];
+    return '<div class="output-card primary cmp-card' + (spenta ? ' cmp-spenta' : '') + '" style="padding:16px;' + bordo + '" ' +
+           'onclick="cmpCardTgl(this,\'' + pagina + '\',\'' + r.tab.id + '\')">' +
       '<div class="cmp-card-head">' +
         '<span class="ticker-badge">' + escapeHtml(String(r.ticker).toUpperCase()) + '</span>' +
         (isBest ? '<span class="best-badge" style="margin-left:0;">BEST</span>' : '') +
@@ -6009,6 +6229,7 @@ function updateOutputs(tab) {
   if (rfEl) rfEl.innerHTML = res ? orosRfChipHtml() : '';
   orosWarnApply(c, (res && tab) ? orosDiag('put', parseNum(tab.data.spot), parseNum(tab.data.strike),
                                             parseNum(tab.data.premio), parseNum(tab.data.hv), res.vrp) : null);
+  cspCashWarnApply(c, tab.data);
   set('rendScadLordo', res ? fmtPct(res.rendScadLordo) : '—');
   set('rendAnnuoLordo', res ? fmtPct(res.rendAnnuoLordo) : '—');
   const vb = c.querySelector('[data-vrpbar="csp"]');
@@ -6131,7 +6352,7 @@ function renderPanels() {
               <input type="text" inputmode="decimal" placeholder="3.00" value="${escapeAttr(d.strike)}" data-field="strike">
             </div>
             <div class="field">
-              <label>Cash Disponibile<span class="tip"><span class="tip-i">i</span><span class="tip-box">Capitale messo a garanzia. Determina quanti contratti puoi vendere.</span></span></label>
+              <label>Cash Disponibile<span data-warn="cash"></span><span class="tip"><span class="tip-i">i</span><span class="tip-box">Capitale messo a garanzia. Determina quanti contratti puoi vendere.</span></span></label>
               <input type="text" inputmode="decimal" placeholder="20000" value="${escapeAttr(d.cash)}" data-field="cash">
             </div>
             <div class="field full">
@@ -6225,6 +6446,8 @@ function renderPanels() {
     </div>
   `;
 
+  cspCashWarnApply(container, d);
+
   // Bind inputs — update only outputs, never re-render the inputs themselves
   container.querySelectorAll('input[data-field]').forEach(input => {
     input.addEventListener('input', (e) => {
@@ -6283,35 +6506,26 @@ function renderCompare() {
   }
   section.style.display = 'block';
 
-  const results = tabs.map(tab => {
-    const res = getResults(tab);
-    return { tab, res, ticker: tab.data.ticker || `T${tabs.indexOf(tab)+1}` };
-  });
+  const results = cmpRisultati('csp');
 
   // find best rendimento annuo netto
   const bestIdx = vrpBestIdx(results, true);
+  const best = bestIdx >= 0 ? results[bestIdx] : null;   // il BEST segue la riga, non la posizione
 
   const tabellaHtml = `
       <div class="panel" style="padding:0;overflow-x:auto;overflow-y:hidden">
         <table class="compare-table">
           <thead>
             <tr>
-              <th>Titolo</th>
-              <th>Strike</th>
-              <th>Cash</th>
-              <th>Premio Lordo</th>
-              <th>Premio Netto</th>
-              <th>Rend. Scad. Netto</th>
-              <th>Rend. Annuo Netto</th>
-              <th>IV / HV</th>
+              ${cmpThHtml('csp')}
             </tr>
           </thead>
           <tbody>
-            ${results.map((r, i) => `
-              <tr>
+            ${cmpOrdina('csp', results).map(r => `
+              <tr data-tab="${r.tab.id}">
                 <td>
                   <span class="ticker-badge">${escapeHtml(r.ticker.toUpperCase())}</span>
-                  ${i === bestIdx ? '<span class="best-badge">BEST</span>' : ''}
+                  ${r === best ? '<span class="best-badge">BEST</span>' : ''}
                 </td>
                 <td class="gold-val">${r.tab.data.strike ? '€' + fmtDec(parseNum(r.tab.data.strike), 3) : '—'}</td>
                 <td class="gold-val">${r.tab.data.cash ? '€' + fmtDec(parseNum(r.tab.data.cash), 0) : '—'}</td>
@@ -6843,17 +7057,16 @@ function ccRenderCompare() {
   if (!section) return;
   if (!ccCompareVisible || ccTabs.length < 2) { section.style.display = 'none'; return; }
   section.style.display = 'block';
-  const results = ccTabs.map((tab, i) => ({
-    tab, res: ccGetResults(tab), ticker: tab.data.ticker || ('T' + (i + 1))
-  }));
+  const results = cmpRisultati('cc');
   const bestIdx = vrpBestIdx(results);
+  const best = bestIdx >= 0 ? results[bestIdx] : null;   // il BEST segue la riga, non la posizione
   const ccTabellaHtml = `
       <div class="panel" style="padding:0;overflow-x:auto;overflow-y:hidden">
         <table class="compare-table"><thead><tr>
-          <th>Titolo</th><th>Strike</th><th>Contratti</th><th>Premio Lordo</th><th>Premio Netto</th><th>Rend. Scad. Netto</th><th>Rend. Annuo Netto</th><th>IV / HV</th>
+          ${cmpThHtml('cc')}
         </tr></thead><tbody>
-        ${results.map((r, i) => `<tr>
-          <td><span class="ticker-badge">${escapeHtml(r.ticker.toUpperCase())}</span>${i===bestIdx?'<span class="best-badge">BEST</span>':''}</td>
+        ${cmpOrdina('cc', results).map(r => `<tr data-tab="${r.tab.id}">
+          <td><span class="ticker-badge">${escapeHtml(r.ticker.toUpperCase())}</span>${r===best?'<span class="best-badge">BEST</span>':''}</td>
           <td class="gold-val">${r.tab.data.strike ? '€' + fmtDec(ccParseNum(r.tab.data.strike), 3) : '—'}</td>
           <td class="gold-val">${r.tab.data.contratti || '—'}</td>
           <td class="green-val">${r.res ? fmt(r.res.premioLordo)  : '—'}</td>
@@ -11152,6 +11365,28 @@ function pfFmtDateTime(isoDateTime) {
   return dd + '/' + mm + '/' + yyyy + ' ' + hh + ':' + min;
 }
 
+// ── Divisori dei mesi fra le operazioni chiuse
+// Il mese e' quello della vendita: la prima data della card (apertura),
+// calcolata come la mostra la card, in ora locale. Cosi' divisore e card
+// non si contraddicono mai e i gruppi seguono l'ordine della lista.
+function pfMeseChiave(iso) {
+  if (!iso) return '';
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+function pfMeseDivHtml(chiave) {
+  var p = chiave.split('-');
+  var nome;
+  try { nome = new Date(+p[0], +p[1] - 1, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }); }
+  catch (e) { nome = p[1] + '/' + p[0]; }
+  nome = nome.charAt(0).toUpperCase() + nome.slice(1);
+  return '<div class="pf-mese" style="grid-column:1/-1;display:flex;align-items:center;gap:10px;margin-top:6px;opacity:.55;">' +
+           '<span style="font-size:10px;font-weight:600;letter-spacing:.4px;color:var(--tv-muted);font-family:\'Inter\',sans-serif;white-space:nowrap;">' + escapeHtml(nome) + '</span>' +
+           '<span style="flex:1;height:1px;background:var(--tv-bord);"></span>' +
+         '</div>';
+}
+
 // ── Render grafico profitti cumulativi
 function pfToggleDateFilter() {
   var panel = document.getElementById('pfDateFilterPanel');
@@ -11469,7 +11704,17 @@ function portafoglioRender(opts) {
 
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;">';
 
+    var mesePrec = null;
     group.entries.forEach(function(entry) {
+      // Operazioni chiuse: una riga leggera col mese ogni volta che cambia.
+      // Non filtra e non riordina: la lista resta quella di prima.
+      if (entry.status === 'closed') {
+        var mese = pfMeseChiave(entry.addedAt || entry.openDate);
+        if (mese !== mesePrec) {
+          mesePrec = mese;
+          if (mese) html += pfMeseDivHtml(mese);
+        }
+      }
       var isCsp    = entry.tipo === 'csp';
       var isCc     = entry.tipo === 'cc';
       var isBot    = entry.tipo === 'bot';
