@@ -2728,6 +2728,21 @@ input[type="number"]:focus {
 [data-theme="light"] .tip-box { background: #ffffff; border-color: #e0e3eb; color: #131722; box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
 [data-theme="light"] .tip-box::after { border-top-color: #e0e3eb; }
 
+/* Meteo, "I dati del mese": i box dei sinonimi sono lunghi. Si aprono sotto
+   l'etichetta, allineati a sinistra del campo; meteoTipLato() li allinea a
+   destra quando uscirebbero dallo schermo (colonna di destra su iPhone).
+   L'etichetta e' maiuscola e spaziata: il box non deve ereditarlo. */
+#pageMeteo .met-mgrid .met-minilab { position: relative; }
+#pageMeteo .met-mgrid .met-minilab .tip { position: static; }
+#pageMeteo .met-mgrid .met-minilab .tip-i { text-transform: none; letter-spacing: 0; }
+#pageMeteo .met-mgrid .met-minilab .tip-box {
+  top: calc(100% + 6px); bottom: auto; left: 0; right: auto; transform: none;
+  width: 280px; max-width: calc(100vw - 24px);
+  text-transform: none; letter-spacing: normal;
+}
+#pageMeteo .met-mgrid .met-minilab .tip-box.tip-dx { left: auto; right: 0; }
+#pageMeteo .met-mgrid .met-minilab .tip-box::after { display: none; }
+
 #pageCSP .compare-btn, #pageCC .compare-btn, #pageBOT .compare-btn {
   background: var(--tv-surf);
   border-color: var(--tv-bord);
@@ -3908,11 +3923,11 @@ input[type="date"]::-webkit-date-and-time-value {
   <div class="panel">
     <div class="section-title">I dati del mese</div>
     <div class="met-mgrid">
-      <div class="met-mini"><span class="met-minilab">CPI YoY ultimo %</span><div class="met-inrow"><input class="met-inp" id="metIn_cpiu" inputmode="decimal" placeholder="3,2" oninput="meteoRecalc()"><button class="met-dial" onclick="meteoPickOpen('metIn_cpiu')" title="Scegli col rullo"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3.5 4.5 6 2l2.5 2.5M3.5 7.5 6 10l2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
-      <div class="met-mini"><span class="met-minilab">CPI YoY precedente %</span><div class="met-inrow"><input class="met-inp" id="metIn_cpip" inputmode="decimal" placeholder="2,9" oninput="meteoRecalc()"><button class="met-dial" onclick="meteoPickOpen('metIn_cpip')" title="Scegli col rullo"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3.5 4.5 6 2l2.5 2.5M3.5 7.5 6 10l2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
-      <div class="met-mini"><span class="met-minilab">PMI manifatt. USA</span><div class="met-inrow"><input class="met-inp" id="metIn_pmi" inputmode="decimal" placeholder="52,8" oninput="meteoRecalc()"><button class="met-dial" onclick="meteoPickOpen('metIn_pmi')" title="Scegli col rullo"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3.5 4.5 6 2l2.5 2.5M3.5 7.5 6 10l2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
-      <div class="met-mini"><span class="met-minilab">NFP uscito (K)</span><div class="met-inrow"><input class="met-inp" id="metIn_nfpa" inputmode="decimal" placeholder="227" oninput="meteoRecalc()"><button class="met-dial" onclick="meteoPickOpen('metIn_nfpa')" title="Scegli col rullo"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3.5 4.5 6 2l2.5 2.5M3.5 7.5 6 10l2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
-      <div class="met-mini"><span class="met-minilab">NFP previsto (K)</span><div class="met-inrow"><input class="met-inp" id="metIn_nfpf" inputmode="decimal" placeholder="200" oninput="meteoRecalc()"><button class="met-dial" onclick="meteoPickOpen('metIn_nfpf')" title="Scegli col rullo"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3.5 4.5 6 2l2.5 2.5M3.5 7.5 6 10l2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
+      <div class="met-mini"><span class="met-minilab">CPI YoY ultimo %<span class="tip"><span class="tip-i">i</span><span class="tip-box"><b>Inflazione USA su base annua, dato complessivo</b><br><b>Italiano:</b> IPC annuale, inflazione tendenziale, inflazione headline<br><b>Inglese:</b> CPI YoY, CPI y/y, Inflation Rate YoY, headline CPI<br><b>Investing:</b> «IPC (Indice dei Prezzi al Consumo) (Annuale)» o «CPI (YoY)», bandiera USA, colonna Attuale (Actual)<br><b>TradingView:</b> ECONOMICS:USIRYY<br><b>Non confondere:</b> Core CPI, che su Investing in italiano si chiama «Indice principali prezzi al consumo»; CPI mensile (MoM); PCE</span></span></span><div class="met-inrow"><input class="met-inp" id="metIn_cpiu" inputmode="decimal" placeholder="3,2" oninput="meteoRecalc()"><button class="met-dial" onclick="meteoPickOpen('metIn_cpiu')" title="Scegli col rullo"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3.5 4.5 6 2l2.5 2.5M3.5 7.5 6 10l2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
+      <div class="met-mini"><span class="met-minilab">CPI YoY precedente %<span class="tip"><span class="tip-i">i</span><span class="tip-box"><b>Lo stesso CPI annuale USA, un mese prima</b><br><b>Italiano:</b> precedente, lettura precedente, dato del mese scorso<br><b>Inglese:</b> Previous, Prior, Prev.<br><b>Investing:</b> stessa riga del CPI annuale USA, colonna Precedente (Previous)</span></span></span><div class="met-inrow"><input class="met-inp" id="metIn_cpip" inputmode="decimal" placeholder="2,9" oninput="meteoRecalc()"><button class="met-dial" onclick="meteoPickOpen('metIn_cpip')" title="Scegli col rullo"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3.5 4.5 6 2l2.5 2.5M3.5 7.5 6 10l2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
+      <div class="met-mini"><span class="met-minilab">PMI manifatt. USA<span class="tip"><span class="tip-i">i</span><span class="tip-box"><b>PMI manifatturiero dell'ISM, Stati Uniti</b><br><b>Italiano:</b> PMI manifatturiero ISM, ISM manifatturiero, indice dei direttori acquisti<br><b>Inglese:</b> ISM Manufacturing PMI, ISM Manufacturing Index, Manufacturing ISM Report On Business<br><b>Investing:</b> la riga deve contenere «ISM»<br><b>TradingView:</b> ECONOMICS:USBCOI<br><b>Non confondere:</b> il PMI manifatturiero S&amp;P Global (ex Markit), flash o finale: la finale esce 15 minuti prima dell'ISM; i sottoindici ISM (prezzi, nuovi ordini, occupazione); l'ISM dei servizi</span></span></span><div class="met-inrow"><input class="met-inp" id="metIn_pmi" inputmode="decimal" placeholder="52,8" oninput="meteoRecalc()"><button class="met-dial" onclick="meteoPickOpen('metIn_pmi')" title="Scegli col rullo"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3.5 4.5 6 2l2.5 2.5M3.5 7.5 6 10l2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
+      <div class="met-mini"><span class="met-minilab">NFP uscito (K)<span class="tip"><span class="tip-i">i</span><span class="tip-box"><b>Nuovi posti di lavoro USA fuori dall'agricoltura, in migliaia</b><br><b>Italiano:</b> buste paga del settore non agricolo, occupati non agricoli, rapporto sull'occupazione, dato sul lavoro USA<br><b>Inglese:</b> Nonfarm Payrolls, NFP, Non-Farm Employment Change, payrolls, jobs report, Employment Situation<br><b>Investing:</b> «Buste paga del settore non agricolo» o «Nonfarm Payrolls», colonna Attuale (Actual)<br><b>TradingView:</b> ECONOMICS:USNFP<br><b>Non confondere:</b> ADP, stesso nome con «ADP» davanti, esce di solito due giorni prima; Private Nonfarm Payrolls, solo settore privato; tasso di disoccupazione</span></span></span><div class="met-inrow"><input class="met-inp" id="metIn_nfpa" inputmode="decimal" placeholder="227" oninput="meteoRecalc()"><button class="met-dial" onclick="meteoPickOpen('metIn_nfpa')" title="Scegli col rullo"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3.5 4.5 6 2l2.5 2.5M3.5 7.5 6 10l2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
+      <div class="met-mini"><span class="met-minilab">NFP previsto (K)<span class="tip"><span class="tip-i">i</span><span class="tip-box"><b>La stima del mercato prima dell'uscita, in migliaia</b><br><b>Italiano:</b> previsto, previsione, stime, attese, consenso<br><b>Inglese:</b> Forecast, Consensus, Expected, Estimate, Survey (Bloomberg)<br><b>Investing:</b> stessa riga del NFP, colonna Previsto o Previsione (Forecast)<br><b>Non confondere:</b> TEForecast di Trading Economics, che è la loro stima e non il consenso; whisper number</span></span></span><div class="met-inrow"><input class="met-inp" id="metIn_nfpf" inputmode="decimal" placeholder="200" oninput="meteoRecalc()"><button class="met-dial" onclick="meteoPickOpen('metIn_nfpf')" title="Scegli col rullo"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3.5 4.5 6 2l2.5 2.5M3.5 7.5 6 10l2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
     </div>
     <div class="met-hint" style="margin-top:2px;">Aggiorni questi numeri solo quando esce il dato nuovo: restano salvati.</div>
 
@@ -4808,7 +4823,7 @@ function orosCfgModaleSync() {
 // Deve coincidere con CACHE_VERSION in sw.js: e' lo stesso deploy.
 // Se i due numeri divergono, l'indicatore non e' piu' in grado di
 // dire se un dispositivo ha il file aggiornato.
-var OROS_BUILD = '35';
+var OROS_BUILD = '36';
 
 function orosTsLabel(iso) {
   var d = new Date(iso);
@@ -9933,6 +9948,28 @@ function meteoOpenPage() {
   meteoRender();
   meteoTerStart();
 }
+
+// Dati del mese: il box dei sinonimi si apre sotto l'etichetta, allineato a
+// sinistra del campo. Se cosi' uscirebbe dallo schermo (colonna di destra su
+// iPhone) si allinea a destra. Il lato si decide al tocco o al passaggio del
+// mouse, prima che il box compaia.
+function meteoTipLato(t) {
+  var box = t.querySelector('.tip-box');
+  var lab = t.parentNode;
+  if (!box || !lab || !lab.getBoundingClientRect) return;
+  var sx = lab.getBoundingClientRect().left;
+  box.classList.toggle('tip-dx', sx + box.offsetWidth > document.documentElement.clientWidth - 8);
+}
+(function () {
+  var g = document.querySelector('#pageMeteo .met-mgrid');
+  if (!g) return;
+  function su(e) {
+    var t = e.target && e.target.closest ? e.target.closest('.tip') : null;
+    if (t && g.contains(t)) meteoTipLato(t);
+  }
+  g.addEventListener('touchstart', su, { passive: true });
+  g.addEventListener('mouseover', su);
+})();
 </script>
 
 <div id="orosUndoBar" role="status" aria-live="polite">
