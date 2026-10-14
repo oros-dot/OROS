@@ -3119,6 +3119,14 @@ input[type="date"]::-webkit-date-and-time-value {
 @media (prefers-reduced-motion: reduce) { .app-ed { animation: none; } }
 .app-ed-head { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px 10px 20px; }
 .app-ed-data { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--tv-muted); }
+/* Cestino rosso e spunta verde: stessi toni dei bottoni Elimina e Salva dell'app */
+.app-ed-btn {
+  width: 34px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 6px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.app-ed-btn:active { opacity: .7; }
+.app-ed-del { background: rgba(239,83,80,.12); border: 1px solid rgba(239,83,80,.3); color: var(--tv-red); }
+.app-ed-ok  { background: rgba(38,166,154,.12); border: 1px solid rgba(38,166,154,.3); color: var(--tv-green); }
 
 /* Barra di formattazione: una riga sola, scorre in orizzontale quando non ci sta */
 .app-tb {
@@ -3202,8 +3210,13 @@ input[type="date"]::-webkit-date-and-time-value {
   }
   .app-tb-b { min-width: 36px; height: 36px; }
   .app-tb-sep { margin: 0 3px; }
+  .app-ed-btn { width: 40px; height: 36px; }
 }
 @media (max-width: 768px) {
+  /* L'effetto dello swipe ruota la pagina attorno al suo centro: con poche
+     note la pagina era corta e l'animazione partiva da un altro punto
+     rispetto alle pagine lunghe. 110px = margini sopra e sotto del body. */
+  #pageAppunti { min-height: calc(100vh - 110px - env(safe-area-inset-bottom)); min-height: calc(100dvh - 110px - env(safe-area-inset-bottom)); }
   .app-griglia { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .app-card { height: 160px; padding: 12px 13px; }
   .app-card-testo { --app-b: 12.5px; }
@@ -3897,8 +3910,8 @@ input[type="date"]::-webkit-date-and-time-value {
     <div class="app-ed-head">
       <div class="app-ed-data" id="appEdData"></div>
       <div class="met-hd-btns">
-        <button type="button" class="met-hd-del" onclick="appElimina()" title="Elimina questo appunto"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M2 3.5h10M5 3.5V2.5a1 1 0 011-1h2a1 1 0 011 1v1M3 3.5l.5 8a1 1 0 001 1h5a1 1 0 001-1l.5-8" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg> Elimina</button>
-        <button type="button" class="met-hd-close" onclick="appChiudi()">✕ Chiudi</button>
+        <button type="button" class="app-ed-btn app-ed-del" onclick="appElimina()" title="Elimina" aria-label="Elimina"><svg width="15" height="15" viewBox="0 0 14 14" fill="none"><path d="M2 3.5h10M5 3.5V2.5a1 1 0 011-1h2a1 1 0 011 1v1M3 3.5l.5 8a1 1 0 001 1h5a1 1 0 001-1l.5-8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button type="button" class="app-ed-btn app-ed-ok" onclick="appChiudi()" title="Chiudi" aria-label="Chiudi"><svg width="15" height="15" viewBox="0 0 14 14" fill="none"><path d="M2.6 7.4l3 3 5.8-6.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       </div>
     </div>
     <div class="app-tb" id="appTb" role="toolbar" aria-label="Formattazione">
@@ -4377,17 +4390,26 @@ function appChiudiVista() {
   appRender();
 }
 
+// Come la chiusura delle schede di CSP: niente conferma, una barra
+// "Annulla" per qualche secondo rimette la nota com'era.
 function appElimina() {
   var id = APP.aperta;
   if (!id) return;
-  orosConfirm('Eliminare questo appunto?', function () {
-    if (APP.aperta !== id) return;
-    if (APP.sporca) appSalva();
-    if (!(APP.bozza && APP.bozza.id === id)) {
-      var n = appTrova(id);
-      if (n && !n.eliminato) { appTomba(n); appSalvaLocale(); appInvia([n]); }
-    }
-    appChiudiVista();
+  if (APP.sporca) appSalva();
+  var n = (APP.bozza && APP.bozza.id === id) ? null : appTrova(id);
+  var testo = n && !n.eliminato ? n.html : '';
+  if (n && !n.eliminato) { appTomba(n); appSalvaLocale(); appInvia([n]); }
+  appChiudiVista();
+  if (!n || appHtmlVuoto(testo) || typeof orosUndoMostra !== 'function') return;
+  orosUndoMostra('Appunto eliminato', function () {
+    var m = appTrova(id);
+    if (!m || !m.eliminato) return;   // nel frattempo riscritto altrove
+    m.html = testo;
+    m.eliminato = null;
+    m.modificato = appTsDopo(appTs(m));
+    appSalvaLocale();
+    appInvia([m]);
+    appRender();
   });
 }
 
@@ -5938,7 +5960,7 @@ function orosCfgModaleSync() {
 // Deve coincidere con CACHE_VERSION in sw.js: e' lo stesso deploy.
 // Se i due numeri divergono, l'indicatore non e' piu' in grado di
 // dire se un dispositivo ha il file aggiornato.
-var OROS_BUILD = '37';
+var OROS_BUILD = '38';
 
 function orosTsLabel(iso) {
   var d = new Date(iso);
@@ -7318,6 +7340,37 @@ function parseNum(v) {
   return parseFloat(s);
 }
 
+// Strike di CSP e CC: il punto delle migliaia compare da solo mentre si
+// scrive, come nel Cash disponibile. I punti battuti a mano restano come
+// sono e valgono quello che vale per parseNum: 14.5 resta 14,5 e 34.000
+// resta 34000. Si raggruppa solo cio' che e' stato scritto a cifre.
+var OROS_STRIKE_GRUPPI = /^\d{1,3}(\.\d{3})*(,\d*)?$/;
+function orosStrikeFmt(el, e) {
+  var v = String(el.value);
+  var prima = (el._orosPrima != null) ? el._orosPrima : String(el.defaultValue || '');
+  var puntoBattuto = !!(e && ((typeof e.data === 'string' && e.data.indexOf('.') >= 0) || e.inputType === 'insertFromPaste'));
+  var puntiUtente = prima.indexOf('.') >= 0 && !OROS_STRIKE_GRUPPI.test(prima);
+  if (v.indexOf(',') < 0 && v.indexOf('.') >= 0 && (puntoBattuto || puntiUtente)) { el._orosPrima = v; return; }
+  var pos = v.length;
+  try { if (el.selectionStart != null) pos = el.selectionStart; } catch (x) {}
+  var cifrePrima = v.slice(0, pos).replace(/[^\d,]/g, '').length;
+  var k = v.indexOf(',');
+  var intera = (k < 0 ? v : v.slice(0, k)).replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+  var out = intera.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  if (k >= 0) out += ',' + v.slice(k + 1).replace(/\D/g, '');
+  el._orosPrima = out;
+  if (out === v) return;
+  el.value = out;
+  var c = 0, p = 0;
+  while (p < out.length && c < cifrePrima) { if (/[\d,]/.test(out.charAt(p))) c++; p++; }
+  try { el.setSelectionRange(p, p); } catch (x) {}
+}
+// Va agganciato prima del listener della pagina, che legge il valore gia' formattato.
+function orosStrikeLega(input) {
+  if (!input || !input.dataset || input.dataset.field !== 'strike') return;
+  input.addEventListener('input', function (e) { orosStrikeFmt(input, e); });
+}
+
 // Sottotesto della card Premio Lordo. La distanza dallo strike si aggiunge
 // solo se il Prezzo e' stato inserito: e' il margine di sicurezza
 // dell'operazione e sta dove non aggiunge peso alla pagina.
@@ -7581,6 +7634,7 @@ function renderPanels() {
 
   // Bind inputs — update only outputs, never re-render the inputs themselves
   container.querySelectorAll('input[data-field]').forEach(input => {
+    orosStrikeLega(input);
     input.addEventListener('input', (e) => {
       const field = e.target.dataset.field;
       // Auto-format cash with thousands separators
@@ -8151,6 +8205,7 @@ function ccRenderPanel() {
 
   // Bind inputs (no re-render on typing — only update outputs)
   container.querySelectorAll('input[data-field]').forEach(input => {
+    orosStrikeLega(input);
     input.addEventListener('input', e => {
       tab.data[e.target.dataset.field] = e.target.value;
       if (e.target.dataset.field === 'ticker') { ccRenderTabs(); orosApplyLot(tab, container, '_qc', function(t){ ccUpdateOutputs(t); setTimeout(ccCalcDividendi, 0); }); }
