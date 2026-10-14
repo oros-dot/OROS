@@ -4,7 +4,7 @@
 // dispositivo continua a servire la copia salvata in precedenza.
 // ─────────────────────────────────────────────────────────────────────
 var CACHE_PREFIX  = 'oros-';
-var CACHE_VERSION = CACHE_PREFIX + 'v36';
+var CACHE_VERSION = CACHE_PREFIX + 'v37';
 
 var CORE_ASSETS = [
   './',

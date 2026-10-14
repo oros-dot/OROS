@@ -169,7 +169,8 @@ function debounce(fn, wait) {
 function goPage(p) {
   window.__orosCurPage = p;
   if (typeof orosUndoNascondi === 'function') orosUndoNascondi();
-  ['Home','Screener','CSP','CC','BOT','Portafoglio','Storia','Centro','Meteo','Costruz','Raccolta'].forEach(function(n) {
+  if (p !== 'appunti' && typeof appChiudi === 'function') appChiudi();
+  ['Home','Screener','CSP','CC','BOT','Portafoglio','Appunti','Storia','Centro','Meteo','Costruz','Raccolta'].forEach(function(n) {
     var pg = document.getElementById('page' + n);
     var nb = document.getElementById('nav'  + n);
     var mb = document.getElementById('mobNav' + n);
@@ -211,11 +212,15 @@ function goPage(p) {
   if (p === 'raccolta') {
     if (typeof raccOpenPage === 'function') raccOpenPage();
   }
+  if (p === 'appunti') {
+    if (typeof appOpenPage === 'function') appOpenPage();
+  }
 }
 
 function goHome() {
   if (!sessionValid()) return;
-  ['pageHome','pageScreener','pageCSP','pageCC','pageBOT','pagePortafoglio','pageStoria','pageCentro','pageMeteo','pageCostruz','pageRaccolta'].forEach(function(id) {
+  if (typeof appChiudi === 'function') appChiudi();
+  ['pageHome','pageScreener','pageCSP','pageCC','pageBOT','pagePortafoglio','pageAppunti','pageStoria','pageCentro','pageMeteo','pageCostruz','pageRaccolta'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -230,7 +235,7 @@ function goHome() {
 
 // ── Swipe navigation (solo mobile) ──
 (function() {
-  var ORDER = ['screener','csp','cc','centro','bot','portafoglio','meteo','costruz','storia'];
+  var ORDER = ['screener','csp','cc','centro','bot','portafoglio','meteo','costruz','appunti','storia'];
   var sx = 0, sy = 0, st = 0, tracking = false;
   document.addEventListener('touchstart', function(e) {
     if (window.innerWidth > 768) return;
@@ -260,7 +265,7 @@ function goHome() {
     var p = ORDER[next];
     goPage(p);
     // Effetto card sulla pagina entrante
-    var name = { screener:'Screener', csp:'CSP', cc:'CC', centro:'Centro', bot:'BOT', portafoglio:'Portafoglio', meteo:'Meteo', costruz:'Costruz', storia:'Storia' }[p];
+    var name = { screener:'Screener', csp:'CSP', cc:'CC', centro:'Centro', bot:'BOT', portafoglio:'Portafoglio', meteo:'Meteo', costruz:'Costruz', appunti:'Appunti', storia:'Storia' }[p];
     var el = document.getElementById('page' + name);
     if (el) {
       el.classList.remove('swipe-in-left','swipe-in-right');
@@ -1162,6 +1167,7 @@ document.addEventListener('focusin', function(e) {
   body.has-sidebar #pageStoria,
   body.has-sidebar #pageCentro,
   body.has-sidebar #pageCostruz,
+  body.has-sidebar #pageAppunti,
   body.has-sidebar #pageMeteo { position: static !important; height: auto !important; overflow: visible !important; }
   }
 
@@ -1671,6 +1677,7 @@ body.has-sidebar #pagePortafoglio,
 body.has-sidebar #pageStoria,
 body.has-sidebar #pageCentro,
 body.has-sidebar #pageCostruz,
+body.has-sidebar #pageAppunti,
 body.has-sidebar #pageMeteo {
   position: fixed;
   top: 0;
@@ -2153,6 +2160,7 @@ body.has-sidebar #pageMeteo {
 #mobNavPortafoglio:not(.mob-nav-active) { color: #00e5a0; }
 #mobNavMeteo:not(.mob-nav-active)       { color: #38bdf8; }
 #mobNavCostruz:not(.mob-nav-active)     { color: #a78bfa; }
+#mobNavAppunti:not(.mob-nav-active)     { color: #f472b6; }
 #mobNavStoria:not(.mob-nav-active)      { color: #787b86; }
 
 /* ── PAGES ── */
@@ -2821,9 +2829,10 @@ input[type="number"]:focus {
 #navBOT      { color: #7aa3ff; }
 #navMeteo    { color: #38bdf8; }
 #navCostruz  { color: #a78bfa; }
+#navAppunti  { color: #f472b6; }
 #navStoria   { color: #787b86; }
 #navScreener:hover, #navCSP:hover, #navCC:hover, #navMeteo:hover,
-#navCentro:hover, #navBOT:hover, #navCostruz:hover, #navStoria:hover { opacity: 0.85; }
+#navCentro:hover, #navBOT:hover, #navCostruz:hover, #navAppunti:hover, #navStoria:hover { opacity: 0.85; }
 
 /* ── HOME NAV HOVER DROPDOWN ── */
 .home-nav-trigger { display: inline-block; position: relative; }
@@ -3044,6 +3053,163 @@ input[type="date"]::-webkit-date-and-time-value {
 }
 #pageRaccolta .tip-box::after { left:18px; transform:none; }
 
+/* ══════════════════════════════════════════════
+   APPUNTI — note libere, una bacheca di post-it
+   ══════════════════════════════════════════════ */
+/* Stesso bottone "+" del Portafoglio, nel colore della pagina */
+.app-add {
+  padding: 6px 14px; border-radius: 6px;
+  border: 1px solid rgba(244,114,182,.3); background: rgba(244,114,182,.08);
+  color: #f472b6; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 700;
+  line-height: 1; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+
+/* Bacheca */
+.app-griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.app-card {
+  display: flex; flex-direction: column; height: 200px;
+  background: var(--tv-surf); border: 1px solid var(--tv-bord); border-radius: 10px;
+  padding: 14px 16px; overflow: hidden; cursor: pointer;
+  transition: transform .15s, box-shadow .15s, border-color .15s;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+@media (hover: hover) {
+  .app-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.25); border-color: rgba(244,114,182,.35); }
+}
+@media (hover: none) {
+  .app-card:active { transform: scale(.98); }
+}
+.app-card:focus-visible { outline: none; border-color: #f472b6; }
+.app-card-data { flex-shrink: 0; margin-bottom: 8px; font-family: 'Inter', sans-serif; font-size: 11px; color: var(--tv-muted); }
+.app-card-testo { --app-b: 13.5px; flex: 1; min-height: 0; overflow: hidden; }
+.app-card-testo.lunga {
+  -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent);
+  mask-image: linear-gradient(to bottom, #000 70%, transparent);
+}
+
+/* Testo: identico nella card chiusa e in quella aperta, cambia solo la scala */
+.app-rt { font-family: 'Inter', sans-serif; font-size: var(--app-b); line-height: 1.55; color: var(--tv-text); overflow-wrap: anywhere; word-break: break-word; }
+.app-rt div, .app-rt p { margin: 0; }
+.app-rt ul, .app-rt ol { margin: .15em 0; padding-left: 1.4em; }
+.app-rt li { margin: .1em 0; }
+.app-rt blockquote { margin: .2em 0; padding-left: .8em; border-left: 2px solid var(--tv-bord); }
+.app-rt font[size="1"] { font-size: calc(var(--app-b) * .625); }
+.app-rt font[size="2"] { font-size: calc(var(--app-b) * .8125); }
+.app-rt font[size="3"] { font-size: var(--app-b); }
+.app-rt font[size="4"] { font-size: calc(var(--app-b) * 1.25); }
+.app-rt font[size="5"] { font-size: calc(var(--app-b) * 1.5); }
+.app-rt font[size="6"] { font-size: calc(var(--app-b) * 2); }
+.app-rt font[size="7"] { font-size: calc(var(--app-b) * 2.5); }
+
+/* Card aperta: stesso fondo e stessa cornice dei dettagli di Storico e Meteo */
+.app-ovl {
+  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9990;
+  padding: 16px; align-items: center; justify-content: center;
+  background: rgba(9,11,17,.92); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+.app-ovl.ap { display: flex; }
+.app-ed {
+  position: relative; display: flex; flex-direction: column;
+  width: min(760px, 100%); height: min(80vh, 780px); max-height: 100%;
+  background: var(--tv-surf); border: 1px solid var(--tv-bord); border-radius: 12px; overflow: hidden;
+  animation: appEspandi .18s cubic-bezier(.22,.8,.3,1);
+}
+@keyframes appEspandi { from { opacity: 0; transform: scale(.965); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .app-ed { animation: none; } }
+.app-ed-head { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px 10px 20px; }
+.app-ed-data { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--tv-muted); }
+
+/* Barra di formattazione: una riga sola, scorre in orizzontale quando non ci sta */
+.app-tb {
+  flex-shrink: 0; display: flex; align-items: center; gap: 2px; padding: 5px 10px;
+  background: var(--tv-surf2); border-top: 1px solid var(--tv-bord); border-bottom: 1px solid var(--tv-bord);
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
+}
+.app-tb.fine { -webkit-mask-image: none; mask-image: none; }
+.app-tb, .app-pop { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.app-tb::-webkit-scrollbar { display: none; }
+.app-tb-b {
+  flex: 0 0 auto; min-width: 32px; height: 32px; padding: 0 7px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 3px;
+  border: none; border-radius: 6px; background: transparent; color: var(--tv-muted);
+  font-family: 'Inter', sans-serif; font-size: 14px; line-height: 1; cursor: pointer;
+  transition: color .15s, background .15s; -webkit-tap-highlight-color: transparent;
+}
+.app-tb-b:hover { color: var(--tv-text); background: rgba(255,255,255,.06); }
+[data-theme="light"] .app-tb-b:hover { background: rgba(0,0,0,.05); }
+.app-tb-b.on { color: var(--tv-text); background: rgba(41,98,255,.16); }
+.app-tb-b b, .app-tb-b i, .app-tb-b u, .app-tb-b s { font-size: 15px; }
+.app-tb-b i { font-family: Georgia, 'Times New Roman', serif; }
+.app-tb-aa { font-size: 13px; font-weight: 600; }
+.app-tb-chev { opacity: .6; }
+.app-tb-sep { flex: 0 0 1px; width: 1px; height: 18px; margin: 0 5px; background: var(--tv-bord); }
+
+/* Area di scrittura: libera, nient'altro */
+.app-testo {
+  --app-b: 16px; flex: 1; min-height: 0;
+  padding: 18px 22px 22px; overflow-y: auto; outline: none;
+  -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  -webkit-user-select: text; user-select: text;
+}
+.app-ed-foot {
+  flex-shrink: 0; min-height: 26px; padding: 6px 16px 9px; text-align: right;
+  font-family: 'Inter', sans-serif; font-size: 10px; color: var(--tv-muted);
+}
+.app-ovl.tastiera .app-ed-foot { display: none; }
+
+/* Tendine di carattere, dimensione e colore */
+.app-pop {
+  display: none; position: absolute; z-index: 5; padding: 6px;
+  background: var(--tv-surf); border: 1px solid var(--tv-bord); border-radius: 9px;
+  box-shadow: 0 12px 32px var(--tv-shadow);
+}
+.app-pop.ap { display: block; animation: fadeIn .15s ease; }
+.app-pop-opt {
+  display: block; width: 100%; padding: 8px 12px; text-align: left; white-space: nowrap;
+  border: none; border-radius: 6px; background: transparent; color: var(--tv-text);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.app-pop-opt:hover { background: rgba(255,255,255,.05); }
+[data-theme="light"] .app-pop-opt:hover { background: rgba(0,0,0,.045); }
+.app-pop-t { padding: 5px 6px 4px; font-family: 'Inter', sans-serif; font-size: 9px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--tv-muted); }
+.app-pop-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 4px 8px; max-width: 250px; }
+.app-sw {
+  width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 1px solid var(--tv-bord);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--tv-muted); cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.app-sw:hover { box-shadow: 0 0 0 2px rgba(255,255,255,.12); }
+[data-theme="light"] .app-sw:hover { box-shadow: 0 0 0 2px rgba(0,0,0,.1); }
+
+/* iPhone, e telefoni in orizzontale: la card aperta occupa lo schermo */
+@media (max-width: 768px), (max-height: 520px) {
+  .app-ovl { padding: 0; background: var(--tv-surf); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .app-ed { width: 100%; height: 100%; max-height: none; border: none; border-radius: 0; }
+  .app-ed-head {
+    padding-top: calc(10px + env(safe-area-inset-top));
+    padding-left: calc(16px + env(safe-area-inset-left));
+    padding-right: calc(12px + env(safe-area-inset-right));
+  }
+  .app-tb { padding-left: calc(10px + env(safe-area-inset-left)); padding-right: calc(10px + env(safe-area-inset-right)); }
+  .app-testo { padding: 14px calc(16px + env(safe-area-inset-right)) 18px calc(16px + env(safe-area-inset-left)); }
+  .app-ed-foot {
+    padding-left: calc(16px + env(safe-area-inset-left));
+    padding-right: calc(16px + env(safe-area-inset-right));
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+  .app-tb-b { min-width: 36px; height: 36px; }
+  .app-tb-sep { margin: 0 3px; }
+}
+@media (max-width: 768px) {
+  .app-griglia { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .app-card { height: 160px; padding: 12px 13px; }
+  .app-card-testo { --app-b: 12.5px; }
+  .app-add { padding: 8px 16px; font-size: 16px; }
+}
+
 </style>
 </head>
 <body>
@@ -3060,6 +3226,7 @@ input[type="date"]::-webkit-date-and-time-value {
   <button class="mob-nav-btn" id="mobNavPortafoglio" onclick="goPage('portafoglio')" title="Portafoglio"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="4" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2" opacity="0.85"/><path d="M4.5 4V3C4.5 1.9 5.4 1 6.5 1H7.5C8.6 1 9.5 1.9 9.5 3V4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/><line x1="1" y1="7.5" x2="13" y2="7.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.5"/></svg></button>
   <button class="mob-nav-btn" id="mobNavMeteo" onclick="goPage('meteo')" title="Outlook"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2" opacity="0.85"/><line x1="7" y1="1.5" x2="7" y2="12.5" stroke="currentColor" stroke-width="1" opacity="0.5"/><line x1="1.5" y1="7" x2="12.5" y2="7" stroke="currentColor" stroke-width="1" opacity="0.5"/><circle cx="4.1" cy="4.1" r="1.8" fill="currentColor" opacity="0.9"/></svg></button>
   <button class="mob-nav-btn" id="mobNavCostruz" onclick="goPage('costruz')" title="Allocazione"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="8.5" width="3.4" height="4.5" rx="0.7" fill="currentColor" opacity="0.75"/><rect x="5.3" y="5" width="3.4" height="8" rx="0.7" fill="currentColor" opacity="0.85"/><rect x="9.6" y="1" width="3.4" height="12" rx="0.7" fill="currentColor" opacity="0.95"/><circle cx="2.7" cy="5.4" r="1.35" stroke="currentColor" stroke-width="1.1" opacity="0.7"/></svg></button>
+  <button class="mob-nav-btn" id="mobNavAppunti" onclick="goPage('appunti')" title="Appunti"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.5 1.5h9a1 1 0 0 1 1 1v6.3l-3.7 3.7H2.5a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" opacity="0.85"/><path d="M12.5 8.8H9.8a1 1 0 0 0-1 1v2.7" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" opacity="0.7"/><line x1="4" y1="4.6" x2="10" y2="4.6" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.6"/><line x1="4" y1="7" x2="7.5" y2="7" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.6"/></svg></button>
   <button class="mob-nav-btn" id="mobNavStoria" onclick="goPage('storia')" title="Storico Simulazioni"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="5.8" stroke="currentColor" stroke-width="1.2" opacity="0.8"/><path d="M7 4V7.2L9.2 9.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/></svg></button>
 </div>
 
@@ -3090,6 +3257,9 @@ input[type="date"]::-webkit-date-and-time-value {
   </button>
   <button class="sb-btn" id="navCostruz" onclick="goPage('costruz')" data-tooltip="Allocazione">
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="8.5" width="3.4" height="4.5" rx="0.7" fill="currentColor" opacity="0.75"/><rect x="5.3" y="5" width="3.4" height="8" rx="0.7" fill="currentColor" opacity="0.85"/><rect x="9.6" y="1" width="3.4" height="12" rx="0.7" fill="currentColor" opacity="0.95"/><circle cx="2.7" cy="5.4" r="1.35" stroke="currentColor" stroke-width="1.1" opacity="0.7"/></svg>
+  </button>
+  <button class="sb-btn" id="navAppunti" onclick="goPage('appunti')" data-tooltip="Appunti">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.5 1.5h9a1 1 0 0 1 1 1v6.3l-3.7 3.7H2.5a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" opacity="0.85"/><path d="M12.5 8.8H9.8a1 1 0 0 0-1 1v2.7" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" opacity="0.7"/><line x1="4" y1="4.6" x2="10" y2="4.6" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.6"/><line x1="4" y1="7" x2="7.5" y2="7" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.6"/></svg>
   </button>
   <button class="sb-btn" id="navStoria" onclick="goPage('storia')" data-tooltip="Storico Simulazioni">
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="5.8" stroke="currentColor" stroke-width="1.2" opacity="0.8"/><path d="M7 4V7.2L9.2 9.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/></svg>
@@ -3255,6 +3425,12 @@ input[type="date"]::-webkit-date-and-time-value {
             <span>Allocazione</span>
           </div>
           <div class="home-nav-divider"></div>
+          <div class="home-nav-item" onclick="goPage('appunti')">
+            <span class="home-nav-item-icon" style="color:#f472b6;">
+              <svg width="15" height="15" viewBox="0 0 14 14" fill="none"><path d="M2.5 1.5h9a1 1 0 0 1 1 1v6.3l-3.7 3.7H2.5a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" opacity="0.9"/><path d="M12.5 8.8H9.8a1 1 0 0 0-1 1v2.7" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" opacity="0.8"/><line x1="4" y1="4.6" x2="10" y2="4.6" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.7"/><line x1="4" y1="7" x2="7.5" y2="7" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.7"/></svg>
+            </span>
+            <span>Appunti</span>
+          </div>
           <div class="home-nav-item" onclick="goPage('storia')">
             <span class="home-nav-item-icon" style="color:#787b86;">
               <svg width="15" height="15" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.8" stroke="currentColor" stroke-width="1.2" opacity="0.9"/><path d="M7 4V7.2L9.2 9.2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/></svg>
@@ -3698,6 +3874,945 @@ input[type="date"]::-webkit-date-and-time-value {
     <button onclick="pfGearSave()" style="width:100%;padding:12px;background:var(--tv-blue);border:none;border-radius:6px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">✓ Salva</button>
   </div>
 </div>
+
+<!-- ════ APPUNTI PAGE ════ -->
+<div id="pageAppunti" style="display:none;">
+<div class="sc-wrap" style="max-width:1200px;padding:32px 24px;">
+
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+    <div>
+      <h2 style="font-size:24px;font-weight:800;letter-spacing:-.5px;background:#7aa3ff;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-family:'Inter',sans-serif;">Appunti</h2>
+    </div>
+    <button class="app-add" onclick="appNuova()" title="Nuovo appunto" aria-label="Nuovo appunto">+</button>
+  </div>
+
+  <div id="appBoard"></div>
+
+</div>
+</div>
+
+<!-- ════ APPUNTI — card aperta ════ -->
+<div id="appOverlay" class="app-ovl" data-no-swipe>
+  <div class="app-ed" id="appEd" role="dialog" aria-modal="true" aria-label="Appunto">
+    <div class="app-ed-head">
+      <div class="app-ed-data" id="appEdData"></div>
+      <div class="met-hd-btns">
+        <button type="button" class="met-hd-del" onclick="appElimina()" title="Elimina questo appunto"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M2 3.5h10M5 3.5V2.5a1 1 0 011-1h2a1 1 0 011 1v1M3 3.5l.5 8a1 1 0 001 1h5a1 1 0 001-1l.5-8" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg> Elimina</button>
+        <button type="button" class="met-hd-close" onclick="appChiudi()">✕ Chiudi</button>
+      </div>
+    </div>
+    <div class="app-tb" id="appTb" role="toolbar" aria-label="Formattazione">
+      <button type="button" class="app-tb-b" data-pop="font" title="Carattere" aria-label="Carattere"><span class="app-tb-aa">Aa</span><svg class="app-tb-chev" width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button type="button" class="app-tb-b" data-pop="size" title="Dimensione" aria-label="Dimensione"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1.8 3.5h7.4M5.5 3.5V13"/><path d="M9.6 8h4.8M12 8v5"/></svg><svg class="app-tb-chev" width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <span class="app-tb-sep"></span>
+      <button type="button" class="app-tb-b" data-cmd="bold" title="Grassetto" aria-label="Grassetto"><b>B</b></button>
+      <button type="button" class="app-tb-b" data-cmd="italic" title="Corsivo" aria-label="Corsivo"><i>I</i></button>
+      <button type="button" class="app-tb-b" data-cmd="underline" title="Sottolineato" aria-label="Sottolineato"><u>U</u></button>
+      <button type="button" class="app-tb-b" data-cmd="strikeThrough" title="Barrato" aria-label="Barrato"><s>S</s></button>
+      <span class="app-tb-sep"></span>
+      <button type="button" class="app-tb-b" data-pop="colore" title="Colore" aria-label="Colore"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4.6 10.6 8 2.4l3.4 8.2M5.8 7.8h4.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect id="appColBar" x="2.5" y="12.6" width="11" height="2.4" rx="1.1" fill="#ef5350"/></svg><svg class="app-tb-chev" width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <span class="app-tb-sep"></span>
+      <button type="button" class="app-tb-b" data-cmd="allinea" title="Allineamento: sinistra, centro, destra" aria-label="Allineamento"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path id="appAllPath" d="M2.5 4h11M2.5 8h7M2.5 12h9"/></svg></button>
+      <span class="app-tb-sep"></span>
+      <button type="button" class="app-tb-b" data-cmd="insertUnorderedList" title="Elenco puntato" aria-label="Elenco puntato"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="3" cy="4.5" r="1.1" fill="currentColor"/><circle cx="3" cy="8" r="1.1" fill="currentColor"/><circle cx="3" cy="11.5" r="1.1" fill="currentColor"/><path d="M6.5 4.5h7M6.5 8h7M6.5 11.5h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+      <button type="button" class="app-tb-b" data-cmd="insertOrderedList" title="Elenco numerato" aria-label="Elenco numerato"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2.3 3.2 3.4 2.6v3.6" stroke-width="1.2"/><path d="M2.2 9.4c.2-.7 1.9-.8 1.9.1 0 .7-1.9 1.4-1.9 2.4h2" stroke-width="1.2"/><path d="M6.8 4.5h6.7M6.8 10.8h6.7" stroke-width="1.5"/></svg></button>
+      <span class="app-tb-sep"></span>
+      <button type="button" class="app-tb-b" data-cmd="removeFormat" title="Cancella formattazione" aria-label="Cancella formattazione"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2.5 3.5h8M6.5 3.5V12"/><path d="M10 9.5l4 4M14 9.5l-4 4"/></svg></button>
+    </div>
+    <div class="app-testo app-rt" id="appTesto" contenteditable="true" spellcheck="true" autocapitalize="sentences" role="textbox" aria-multiline="true" aria-label="Testo dell'appunto"></div>
+    <div class="app-ed-foot" id="appEdMod"></div>
+    <div class="app-pop" id="appPop" role="menu"></div>
+  </div>
+</div>
+
+<script id="appScript">
+// ══════════════════════════════════════════════════════════════
+//  APPUNTI
+//  Note libere su una bacheca. Ogni nota viaggia verso il cloud da
+//  sola, con le proprie date: due dispositivi possono scrivere note
+//  diverse nello stesso momento senza togliersi niente a vicenda.
+// ══════════════════════════════════════════════════════════════
+var APP_KEY        = 'oros_appunti_v1';
+var APP_RITARDO    = 700;        // ms di pausa nella scrittura dopo cui si salva
+var APP_MAX_ATTESA = 2000;       // ms: scrivendo senza pause si salva comunque
+var APP_QUIETE     = 1500;       // ms dall'ultimo tasto prima di accettare il testo di un altro dispositivo
+var APP_MARCA      = '#010203';  // colore segnaposto per tornare al colore automatico
+var APP_RE_ISO     = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
+var APP = {
+  list: [],          // note, comprese le tracce di quelle eliminate
+  bozza: null,       // nota appena creata: non si salva finche' resta vuota
+  aperta: null,      // id della nota nella card aperta
+  sporca: false,     // modifiche nel testo non ancora salvate
+  componendo: false, // composizione in corso (dettatura, accenti, suggerimenti di iOS)
+  timer: null, timerRemoto: null, primoInput: 0, ultimoInput: 0,
+  range: null, rafStato: 0,
+  rimandati: {}      // id -> versione gia' rimandata al cloud in questa sessione
+};
+
+function appEl(id) { return document.getElementById(id); }
+function appAdesso() { return new Date().toISOString(); }
+function appRaf(f) { return window.requestAnimationFrame ? window.requestAnimationFrame(f) : setTimeout(f, 16); }
+function appNuovoId() { return 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+// Ogni nuova data deve superare quella che sostituisce, anche se l'orologio
+// di questo dispositivo e' un poco indietro rispetto a quello dell'altro:
+// l'ultima azione fatta deve sempre vincere.
+function appTsDopo(prec) {
+  var ora = appAdesso();
+  if (prec && ora <= prec) {
+    var t = Date.parse(prec);
+    if (!isNaN(t)) return new Date(t + 1).toISOString();
+  }
+  return ora;
+}
+
+// ── Pulizia dell'HTML ─────────────────────────────────────────────
+// Ogni nota passa da qui prima di essere salvata, mostrata o accettata dal
+// cloud: restano solo i tag e gli stili che produce la barra di formattazione.
+var APP_TAG_OK  = { B:1, STRONG:1, I:1, EM:1, U:1, S:1, STRIKE:1, DEL:1, FONT:1, SPAN:1,
+                    DIV:1, P:1, BR:1, UL:1, OL:1, LI:1, BLOCKQUOTE:1, SUB:1, SUP:1 };
+var APP_TAG_VIA = { SCRIPT:1, STYLE:1, IFRAME:1, FRAME:1, FRAMESET:1, OBJECT:1, EMBED:1, APPLET:1,
+                    SVG:1, MATH:1, TEMPLATE:1, LINK:1, META:1, BASE:1, HEAD:1, TITLE:1, NOSCRIPT:1,
+                    IMG:1, PICTURE:1, VIDEO:1, AUDIO:1, SOURCE:1, TRACK:1, CANVAS:1, MAP:1, AREA:1,
+                    FORM:1, INPUT:1, BUTTON:1, TEXTAREA:1, SELECT:1, OPTION:1, PARAM:1 };
+var APP_RE_COL  = /^(#[0-9a-f]{3,8}|rgba?\([\d.\s,%\/]{5,60}\)|[a-z]{3,20})$/i;
+var APP_RE_DIM  = /^(\d{1,3}(\.\d{1,3})?(px|pt|em|rem|%)|xx-small|x-small|small|medium|large|x-large|xx-large|xxx-large|-webkit-xxx-large|smaller|larger)$/i;
+var APP_RE_FAM  = /^[a-z0-9 ,'"\-]{1,120}$/i;
+var APP_RE_ALL  = /^(left|center|right|justify|start|end)$/i;
+var APP_RE_DECO = /^(none|underline|line-through|overline)(\s+(underline|line-through|overline))*$/i;
+var APP_STILI = {
+  'color': APP_RE_COL,
+  'background-color': APP_RE_COL,
+  'font-size': APP_RE_DIM,
+  'font-family': APP_RE_FAM,
+  'font-weight': /^(normal|bold|bolder|lighter|[1-9]00)$/i,
+  'font-style': /^(normal|italic|oblique)$/i,
+  'text-decoration': APP_RE_DECO,
+  'text-decoration-line': APP_RE_DECO,
+  'text-align': APP_RE_ALL
+};
+
+function appStile(s) {
+  var out = [];
+  String(s || '').split(';').forEach(function (dec) {
+    var i = dec.indexOf(':');
+    if (i < 1) return;
+    var p = dec.slice(0, i).trim().toLowerCase();
+    var v = dec.slice(i + 1).trim();
+    var re = Object.prototype.hasOwnProperty.call(APP_STILI, p) ? APP_STILI[p] : null;
+    if (re && re.test(v)) out.push(p + ': ' + v);
+  });
+  return out.join('; ');
+}
+
+function appPulisciAttr(el, tag) {
+  var tieni = {};
+  if (tag === 'FONT') {
+    var c = (el.getAttribute('color') || '').trim();
+    var z = (el.getAttribute('size') || '').trim();
+    var f = (el.getAttribute('face') || '').trim();
+    if (c && APP_RE_COL.test(c)) tieni.color = c;
+    if (/^[1-7]$/.test(z)) tieni.size = z;
+    if (f && APP_RE_FAM.test(f)) tieni.face = f;
+  }
+  if (tag === 'DIV' || tag === 'P') {
+    var a = (el.getAttribute('align') || '').trim().toLowerCase();
+    if (a && APP_RE_ALL.test(a)) tieni.align = a;
+  }
+  if (el.hasAttribute('style')) {
+    var st = appStile(el.getAttribute('style'));
+    if (st) tieni.style = st;
+  }
+  for (var i = el.attributes.length - 1; i >= 0; i--) el.removeAttribute(el.attributes[i].name);
+  Object.keys(tieni).forEach(function (k) { el.setAttribute(k, tieni[k]); });
+}
+
+function appScarta(padre, n) {
+  while (n.firstChild) padre.insertBefore(n.firstChild, n);
+  padre.removeChild(n);
+}
+
+function appPulisciNodo(padre) {
+  Array.prototype.slice.call(padre.childNodes).forEach(function (n) {
+    if (n.nodeType === 3) return;
+    if (n.nodeType !== 1) { padre.removeChild(n); return; }
+    var tag = String(n.nodeName).toUpperCase();
+    if (APP_TAG_VIA[tag]) { padre.removeChild(n); return; }
+    appPulisciNodo(n);
+    if (!APP_TAG_OK[tag]) { appScarta(padre, n); return; }
+    appPulisciAttr(n, tag);
+    // Contenitori in linea rimasti senza attributi: non servono a niente
+    if ((tag === 'SPAN' || tag === 'FONT') && !n.attributes.length) appScarta(padre, n);
+  });
+}
+
+function appPulisci(html) {
+  var t = document.createElement('template');
+  t.innerHTML = String(html == null ? '' : html);
+  appPulisciNodo(t.content);
+  return t.innerHTML;
+}
+
+function appHtmlVuoto(html) {
+  var t = document.createElement('template');
+  t.innerHTML = String(html == null ? '' : html);
+  return t.content.textContent.replace(/[\s ​]/g, '') === '';
+}
+
+// ── Dati ─────────────────────────────────────────────────────────
+function appIso(v) { return (typeof v === 'string' && APP_RE_ISO.test(v)) ? v : ''; }
+
+// Forma unica di una nota, da qualunque parte arrivi (memoria locale,
+// cloud, backup). Restituisce null per le voci non valide.
+function appNorm(x, chiave) {
+  if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
+  var id = (typeof x.id === 'string') ? x.id : '';
+  if (!OROS_ID_OK.test(id)) return null;
+  if (chiave != null && chiave !== id) return null;
+  var creato = appIso(x.creato), modificato = appIso(x.modificato);
+  var n = {
+    id: id,
+    html: '',
+    creato: creato,
+    modificato: modificato,
+    eliminato: x.eliminato ? (appIso(x.eliminato) || modificato || creato || null) : null
+  };
+  if (!n.creato) n.creato = n.modificato || n.eliminato || '';
+  if (!n.modificato) n.modificato = n.eliminato || n.creato;
+  if (!n.creato) return null;
+  if (!n.eliminato) n.html = appPulisci(typeof x.html === 'string' ? x.html : '');
+  return n;
+}
+
+function appCopia(n) {
+  return { id: n.id, html: n.eliminato ? '' : (n.html || ''), creato: n.creato || '',
+           modificato: n.modificato || '', eliminato: n.eliminato || null };
+}
+
+function appCarica() {
+  var raw;
+  try { raw = JSON.parse(localStorage.getItem(APP_KEY) || '[]'); } catch (e) { raw = []; }
+  if (!Array.isArray(raw)) raw = [];
+  var visti = {};
+  APP.list = [];
+  raw.forEach(function (x) {
+    var n = appNorm(x);
+    if (n && !visti[n.id]) { visti[n.id] = 1; APP.list.push(n); }
+  });
+}
+
+function appSalvaLocale() {
+  orosLsSet(APP_KEY, JSON.stringify(APP.list.map(appCopia)));
+}
+
+// Verso il cloud vanno solo le note passate, non l'elenco intero.
+function appInvia(note) {
+  if (typeof window.fsAppCloudSave !== 'function') return;
+  var mappa = {}, quante = 0;
+  (note || []).forEach(function (n) {
+    if (n && OROS_ID_OK.test(n.id)) { mappa[n.id] = appCopia(n); quante++; }
+  });
+  if (quante) window.fsAppCloudSave(mappa);
+}
+
+// Ordine totale fra due versioni della stessa nota: vince la piu' recente.
+// A parita' di data decide il contenuto, cosi' ogni dispositivo sceglie la
+// stessa versione e i due archivi finiscono sempre uguali.
+function appTs(n) { return n.eliminato || n.modificato || n.creato || ''; }
+function appFirma(n) {
+  return (n.eliminato ? 'E' : 'V') + '|' + appTs(n) + '|' + (n.creato || '') + '|' + (n.eliminato ? '' : (n.html || ''));
+}
+function appConfronta(a, b) {
+  var ta = appTs(a), tb = appTs(b);
+  if (ta !== tb) return ta > tb ? 1 : -1;
+  var fa = appFirma(a), fb = appFirma(b);
+  return fa === fb ? 0 : (fa > fb ? 1 : -1);
+}
+
+function appTrova(id) {
+  if (APP.bozza && APP.bozza.id === id) return APP.bozza;
+  for (var i = 0; i < APP.list.length; i++) if (APP.list[i].id === id) return APP.list[i];
+  return null;
+}
+
+// Note visibili, dalla piu' recente: una nota non cambia posto quando la si modifica
+function appVive() {
+  return APP.list.filter(function (n) { return !n.eliminato; }).sort(function (a, b) {
+    if (a.creato !== b.creato) return a.creato < b.creato ? 1 : -1;
+    return a.id < b.id ? 1 : (a.id > b.id ? -1 : 0);
+  });
+}
+
+function appData(iso) {
+  if (!iso) return '';
+  if (typeof pfFmtDateTime === 'function') return pfFmtDateTime(iso);
+  var d = new Date(iso);
+  return isNaN(d.getTime()) ? '' : d.toLocaleString('it-IT');
+}
+
+// Una nota eliminata resta come traccia senza testo: e' cosi' che
+// l'eliminazione raggiunge anche gli altri dispositivi.
+function appTomba(n) {
+  n.eliminato = appTsDopo(appTs(n));
+  n.modificato = n.eliminato;
+  n.html = '';
+  return n;
+}
+
+// ── Bacheca ──────────────────────────────────────────────────────
+function appCardHtml(n) {
+  var mod = n.modificato ? 'Modificato il ' + appData(n.modificato) : '';
+  return '<div class="app-card" role="button" tabindex="0" data-app-id="' + n.id + '"' +
+      ' onclick="appApri(\'' + n.id + '\')"' +
+      ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();appApri(\'' + n.id + '\');}">' +
+    '<div class="app-card-data"' + (mod ? ' title="' + escapeAttr(mod) + '"' : '') + '>' + escapeHtml(appData(n.creato)) + '</div>' +
+    '<div class="app-card-testo app-rt">' + n.html + '</div>' +
+  '</div>';
+}
+
+// Le note che non stanno nella card sfumano in basso: quelle corte si
+// leggono intere, quelle lunghe mostrano l'inizio.
+function appMarcaLunghe() {
+  var c = appEl('appBoard');
+  if (!c) return;
+  Array.prototype.forEach.call(c.querySelectorAll('.app-card-testo'), function (t) {
+    t.classList.toggle('lunga', t.scrollHeight > t.clientHeight + 2);
+  });
+}
+
+function appRender() {
+  var c = appEl('appBoard');
+  if (!c) return;
+  var vive = appVive();
+  if (!vive.length) {
+    c.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--tv-muted);font-family:\'Inter\',sans-serif;font-size:13px;">' +
+      '<div style="font-size:40px;margin-bottom:16px;">📭</div>' +
+      '<div style="font-weight:600;">Nessun appunto</div></div>';
+    return;
+  }
+  c.innerHTML = '<div class="app-griglia">' + vive.map(appCardHtml).join('') + '</div>';
+  appRaf(appMarcaLunghe);
+}
+
+function appOpenPage() { appRender(); }
+
+// ── Card aperta ──────────────────────────────────────────────────
+function appNuova() {
+  var ora = appAdesso();
+  appMostra({ id: appNuovoId(), html: '', creato: ora, modificato: ora, eliminato: null }, true);
+}
+
+function appApri(id) {
+  var n = appTrova(id);
+  if (!n || n.eliminato) return;
+  appMostra(n, false);
+}
+
+function appMostra(n, nuova) {
+  if (APP.aperta) appChiudi();
+  var o = appEl('appOverlay'), ed = appEl('appTesto');
+  if (!o || !ed) return;
+  clearTimeout(APP.timerRemoto);
+  APP.timerRemoto = null;
+  APP.bozza = nuova ? n : null;
+  APP.aperta = n.id;
+  APP.sporca = false; APP.componendo = false;
+  APP.primoInput = 0; APP.ultimoInput = 0; APP.range = null;
+  ed.innerHTML = n.html || '';
+  var d = appEl('appEdData');
+  if (d) d.textContent = appData(n.creato);
+  appPiede();
+  o.classList.add('ap');
+  appVvOn();
+  appEsegui('styleWithCSS', false);
+  appEsegui('defaultParagraphSeparator', 'div');
+  // Il fuoco si da' qui, dentro il tocco: su iPhone la tastiera si apre
+  // solo se la richiesta arriva direttamente dal gesto dell'utente.
+  appFocusFine(ed);
+  appTbFine();
+  appTbStato();
+}
+
+// Data di ultima modifica, in piccolo in fondo alla card aperta
+function appPiede() {
+  var f = appEl('appEdMod');
+  if (!f) return;
+  var n = APP.aperta ? appTrova(APP.aperta) : null;
+  var bozza = n && APP.bozza && APP.bozza.id === n.id;
+  f.textContent = (n && !bozza && n.modificato) ? 'Modificato il ' + appData(n.modificato) : '';
+}
+
+// Ultima posizione utile del cursore: in fondo all'ultima riga, anche
+// quando l'ultima riga e' vuota o e' una voce di elenco.
+function appUltimaPosizione(ed) {
+  var nodo = ed;
+  while (nodo.lastChild) nodo = nodo.lastChild;
+  var r = document.createRange();
+  if (nodo === ed) { r.selectNodeContents(ed); r.collapse(false); }
+  else if (nodo.nodeType === 3) { r.setStart(nodo, nodo.length); r.collapse(true); }
+  else if (nodo.nodeName === 'BR') { r.setStartBefore(nodo); r.collapse(true); }
+  else { r.selectNodeContents(nodo); r.collapse(false); }
+  return r;
+}
+
+function appFocus(ed) {
+  try { ed.focus({ preventScroll: true }); } catch (e) { try { ed.focus(); } catch (e2) {} }
+}
+
+function appFocusFine(ed) {
+  appFocus(ed);
+  try {
+    var sel = window.getSelection();
+    var r = appUltimaPosizione(ed);
+    sel.removeAllRanges();
+    sel.addRange(r);
+    APP.range = r.cloneRange();
+  } catch (e) {}
+  ed.scrollTop = ed.scrollHeight;
+}
+
+// Posizione del cursore come numero di caratteri: sopravvive alla
+// sostituzione del contenuto quando arriva il testo dell'altro dispositivo.
+function appCaretOffset(ed) {
+  try {
+    var sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return -1;
+    var r = sel.getRangeAt(0);
+    if (!ed.contains(r.endContainer)) return -1;
+    var pre = document.createRange();
+    pre.selectNodeContents(ed);
+    pre.setEnd(r.endContainer, r.endOffset);
+    return pre.toString().length;
+  } catch (e) { return -1; }
+}
+
+function appCaretAOffset(ed, off) {
+  if (off < 0) return;
+  try {
+    var w = document.createTreeWalker(ed, NodeFilter.SHOW_TEXT, null);
+    var n, resto = off, r = null;
+    while ((n = w.nextNode())) {
+      if (resto <= n.length) { r = document.createRange(); r.setStart(n, resto); r.collapse(true); break; }
+      resto -= n.length;
+    }
+    if (!r) r = appUltimaPosizione(ed);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(r);
+    APP.range = r.cloneRange();
+  } catch (e) {}
+}
+
+function appSuInput() {
+  if (!APP.aperta) return;
+  var ora = Date.now();
+  APP.ultimoInput = ora;
+  APP.sporca = true;
+  appPopChiudi();
+  if (!APP.primoInput) APP.primoInput = ora;
+  clearTimeout(APP.timer);
+  var attesa = Math.max(0, Math.min(APP_RITARDO, APP_MAX_ATTESA - (ora - APP.primoInput)));
+  APP.timer = setTimeout(appSalva, attesa);
+}
+
+function appSalva() {
+  clearTimeout(APP.timer);
+  APP.timer = null; APP.primoInput = 0;
+  APP.sporca = false;
+  var id = APP.aperta, ed = appEl('appTesto');
+  if (!id || !ed) return;
+  var html = appPulisci(ed.innerHTML);
+  var bozza = (APP.bozza && APP.bozza.id === id) ? APP.bozza : null;
+  var n = bozza || appTrova(id);
+  if (!n) return;
+  if (bozza) {
+    if (appHtmlVuoto(html)) return;          // niente da conservare, per ora
+    APP.list.push(bozza);
+    APP.bozza = null;
+  } else if (n.eliminato) {
+    if (appHtmlVuoto(html)) return;          // eliminata altrove e vuota qui: resta eliminata
+  } else if (html === n.html) {
+    return;                                   // nessuna modifica reale
+  }
+  n.html = html;
+  n.modificato = appTsDopo(appTs(n));
+  n.eliminato = null;
+  appSalvaLocale();
+  appInvia([n]);
+  appPiede();
+}
+
+function appChiudi() {
+  if (!APP.aperta) return;
+  if (APP.sporca) appSalva();
+  var id = APP.aperta;
+  var bozza = APP.bozza && APP.bozza.id === id;
+  var ed = appEl('appTesto');
+  // Una nota svuotata non resta in bacheca come foglietto bianco
+  if (!bozza && ed && appHtmlVuoto(ed.innerHTML)) {
+    var n = appTrova(id);
+    if (n && !n.eliminato) { appTomba(n); appSalvaLocale(); appInvia([n]); }
+  }
+  appChiudiVista();
+}
+
+function appChiudiVista() {
+  clearTimeout(APP.timer);
+  clearTimeout(APP.timerRemoto);
+  APP.timer = null; APP.timerRemoto = null;
+  APP.primoInput = 0; APP.sporca = false; APP.componendo = false;
+  APP.aperta = null; APP.bozza = null; APP.range = null;
+  appPopChiudi();
+  appVvOff();
+  var o = appEl('appOverlay'), ed = appEl('appTesto');
+  if (ed) {
+    try { if (document.activeElement === ed) ed.blur(); } catch (e) {}
+    ed.innerHTML = '';
+  }
+  if (o) {
+    o.classList.remove('ap', 'tastiera');
+    o.style.top = ''; o.style.left = ''; o.style.width = ''; o.style.height = '';
+  }
+  appRender();
+}
+
+function appElimina() {
+  var id = APP.aperta;
+  if (!id) return;
+  orosConfirm('Eliminare questo appunto?', function () {
+    if (APP.aperta !== id) return;
+    if (APP.sporca) appSalva();
+    if (!(APP.bozza && APP.bozza.id === id)) {
+      var n = appTrova(id);
+      if (n && !n.eliminato) { appTomba(n); appSalvaLocale(); appInvia([n]); }
+    }
+    appChiudiVista();
+  });
+}
+
+// ── Sincronizzazione ─────────────────────────────────────────────
+// Unione nota per nota con quanto arriva dal cloud: dove vince la versione
+// remota la si adotta; dove questo dispositivo ha qualcosa di piu' recente,
+// o che il cloud non ha, lo si rimanda.
+function appRicevi(mappa) {
+  var remoti = [];
+  if (mappa && typeof mappa === 'object' && !Array.isArray(mappa)) {
+    Object.keys(mappa).forEach(function (k) {
+      var n = appNorm(mappa[k], k);
+      if (n) remoti.push(n);
+    });
+  }
+  var indice = {}, ordine = [];
+  APP.list.forEach(function (n) {
+    if (!indice[n.id]) { indice[n.id] = n; ordine.push(n.id); }
+  });
+  var visti = {}, cambiati = {}, nCambi = 0, daInviare = [];
+  remoti.forEach(function (r) {
+    visti[r.id] = 1;
+    var l = indice[r.id];
+    var c = l ? appConfronta(l, r) : -1;
+    if (c < 0) {
+      if (!l) ordine.push(r.id);
+      indice[r.id] = r; cambiati[r.id] = 1; nCambi++;
+    } else if (c > 0) {
+      daInviare.push(l);
+    }
+  });
+  ordine.forEach(function (id) { if (!visti[id]) daInviare.push(indice[id]); });
+  if (nCambi) {
+    APP.list = ordine.map(function (id) { return indice[id]; });
+    appSalvaLocale();
+    appAllineaAperta(cambiati);
+    appRender();
+  }
+  // Ogni versione si rimanda una volta sola: se il cloud la rifiuta
+  // (regole di accesso, dimensione) non si entra in un giro di scritture.
+  daInviare = daInviare.filter(function (n) {
+    var f = appFirma(n);
+    if (APP.rimandati[n.id] === f) return false;
+    APP.rimandati[n.id] = f;
+    return true;
+  });
+  if (daInviare.length) appInvia(daInviare);
+}
+
+function appOccupato() {
+  return APP.sporca || APP.componendo || (Date.now() - APP.ultimoInput < APP_QUIETE);
+}
+
+// La card aperta segue il testo scritto sull'altro dispositivo, ma solo
+// quando qui non si sta scrivendo: in quel caso si riprova appena ci si
+// ferma, e se nel frattempo si e' salvato vince l'ultimo salvataggio.
+function appAllineaAperta(cambiati) {
+  var id = APP.aperta;
+  if (!id || (APP.bozza && APP.bozza.id === id)) return;
+  if (cambiati && !cambiati[id]) return;
+  clearTimeout(APP.timerRemoto);
+  APP.timerRemoto = null;
+  if (appOccupato()) {
+    APP.timerRemoto = setTimeout(function () { appAllineaAperta(null); }, APP_QUIETE);
+    return;
+  }
+  var n = appTrova(id), ed = appEl('appTesto');
+  if (!n || !ed) return;
+  if (n.eliminato) {
+    appChiudiVista();
+    orosAlert('Questo appunto è stato eliminato su un altro dispositivo.');
+    return;
+  }
+  if (appPulisci(ed.innerHTML) !== n.html) {
+    var attivo = document.activeElement === ed;
+    var off = attivo ? appCaretOffset(ed) : -1;
+    ed.innerHTML = n.html;
+    if (attivo) appCaretAOffset(ed, off);
+  }
+  appPiede();
+}
+
+// Ripristino da backup: sostituisce davvero. Le note del backup tornano
+// come versioni piu' recenti, quelle che il backup non conteneva diventano
+// eliminate; tutto va anche al cloud, cosi' gli altri dispositivi seguono.
+function appDaBackup(lista) {
+  if (APP.aperta) appChiudi();
+  var attuali = {}, prese = {}, nuova = [], cambiate = [];
+  APP.list.forEach(function (n) { attuali[n.id] = n; });
+  (Array.isArray(lista) ? lista : []).forEach(function (x) {
+    var n = appNorm(x);
+    if (!n || n.eliminato || prese[n.id]) return;
+    prese[n.id] = 1;
+    var prima = attuali[n.id];
+    n.modificato = appTsDopo(prima ? appTs(prima) : n.modificato);
+    nuova.push(n);
+    cambiate.push(n);
+  });
+  APP.list.forEach(function (n) {
+    if (prese[n.id]) return;
+    if (!n.eliminato) { appTomba(n); cambiate.push(n); }
+    nuova.push(n);
+  });
+  APP.list = nuova;
+  appSalvaLocale();
+  appRender();
+  appInvia(cambiate);
+}
+
+// ── Barra di formattazione ───────────────────────────────────────
+var APP_STATI = ['bold', 'italic', 'underline', 'strikeThrough', 'insertUnorderedList', 'insertOrderedList'];
+// Allineamento in un solo tasto, che mostra quello in uso: su iPhone la
+// barra resta corta abbastanza da stare quasi tutta nello schermo.
+var APP_ALLINEA = { justifyLeft: 'M2.5 4h11M2.5 8h7M2.5 12h9',
+                    justifyCenter: 'M2.5 4h11M4.5 8h7M3.5 12h9',
+                    justifyRight: 'M2.5 4h11M6.5 8h7M4.5 12h9' };
+var APP_ALL_DOPO = { justifyLeft: 'justifyCenter', justifyCenter: 'justifyRight', justifyRight: 'justifyLeft' };
+var APP_FONT  = [['Standard', 'Inter, sans-serif'],
+                 ['Serif', "Georgia, 'Times New Roman', serif"],
+                 ['Monospazio', 'Menlo, Consolas, monospace'],
+                 ['A mano', "Noteworthy, 'Marker Felt', 'Bradley Hand', cursive"]];
+var APP_DIM   = [['Piccolo', '2', 12], ['Normale', '3', 14], ['Grande', '4', 17], ['Titolo', '5', 20], ['Enorme', '6', 25]];
+var APP_TESTO = [['Automatico', 'auto'], ['Rosso', '#ef5350'], ['Arancio', '#f0965c'], ['Oro', '#f0b429'],
+                 ['Verde', '#26a69a'], ['Azzurro', '#7aa3ff'], ['Viola', '#a78bfa'], ['Rosa', '#f472b6'], ['Grigio', '#787b86']];
+var APP_EVID  = [['Nessuno', 'transparent'], ['Oro', 'rgba(240, 180, 41, 0.35)'], ['Verde', 'rgba(38, 166, 154, 0.35)'],
+                 ['Rosso', 'rgba(239, 83, 80, 0.32)'], ['Azzurro', 'rgba(122, 163, 255, 0.32)'],
+                 ['Viola', 'rgba(167, 139, 250, 0.32)'], ['Rosa', 'rgba(244, 114, 182, 0.32)']];
+var APP_SW_NO = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 11 11 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
+
+function appEsegui(cmd, val) {
+  try { return document.execCommand(cmd, false, val == null ? null : val); } catch (e) { return false; }
+}
+
+function appAllineamento() {
+  try {
+    if (document.queryCommandState('justifyCenter')) return 'justifyCenter';
+    if (document.queryCommandState('justifyRight')) return 'justifyRight';
+  } catch (e) {}
+  return 'justifyLeft';
+}
+
+function appTbStato() {
+  var tb = appEl('appTb');
+  if (!tb) return;
+  APP_STATI.forEach(function (c) {
+    var b = tb.querySelector('[data-cmd="' + c + '"]');
+    if (!b) return;
+    var on = false;
+    try { on = !!document.queryCommandState(c); } catch (e) {}
+    b.classList.toggle('on', on);
+  });
+  var all = appAllineamento(), p = appEl('appAllPath'), ba = tb.querySelector('[data-cmd="allinea"]');
+  if (p) p.setAttribute('d', APP_ALLINEA[all]);
+  if (ba) ba.classList.toggle('on', all !== 'justifyLeft');
+}
+
+// Sfumatura a destra finche' la barra ha ancora strumenti da scorrere
+function appTbFine() {
+  var tb = appEl('appTb');
+  if (tb) tb.classList.toggle('fine', tb.scrollLeft + tb.clientWidth >= tb.scrollWidth - 2);
+}
+
+// Prima di ogni comando il testo deve avere il fuoco e la selezione giusta:
+// se un tocco sulla barra l'ha tolta, si rimette quella salvata.
+function appPrepara() {
+  var ed = appEl('appTesto');
+  if (!ed) return false;
+  if (document.activeElement !== ed) appFocus(ed);
+  try {
+    var sel = window.getSelection();
+    var dentro = sel.rangeCount && ed.contains(sel.getRangeAt(0).commonAncestorContainer);
+    if (!dentro) {
+      var r = (APP.range && ed.contains(APP.range.commonAncestorContainer)) ? APP.range : appUltimaPosizione(ed);
+      sel.removeAllRanges();
+      sel.addRange(r);
+    }
+  } catch (e) {}
+  return true;
+}
+
+function appCmd(cmd, val) {
+  if (!APP.aperta || !appPrepara()) return;
+  if (cmd === 'allinea') appEsegui(APP_ALL_DOPO[appAllineamento()]);
+  else if (cmd === 'foreColor' && val === 'auto') appColoreAuto();
+  else if (cmd === 'hiliteColor') { if (!appEsegui('hiliteColor', val)) appEsegui('backColor', val); }
+  else appEsegui(cmd, val);
+  if (cmd === 'foreColor') appBarraColore(val);
+  appSuInput();
+  appTbStato();
+}
+
+function appColHex(c) {
+  c = String(c || '').trim().toLowerCase();
+  if (/^#[0-9a-f]{6}$/.test(c)) return c.slice(1);
+  var m = c.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (!m) return '';
+  return [m[1], m[2], m[3]].map(function (x) { return ('0' + (+x).toString(16)).slice(-2); }).join('');
+}
+
+// "Automatico": si applica un colore segnaposto e poi lo si toglie, cosi'
+// il testo torna a seguire il tema invece di restare con un colore fisso.
+function appColoreAuto() {
+  var ed = appEl('appTesto');
+  if (!ed) return;
+  appEsegui('foreColor', APP_MARCA);
+  var marca = APP_MARCA.slice(1);
+  Array.prototype.forEach.call(ed.querySelectorAll('font[color]'), function (f) {
+    if (appColHex(f.getAttribute('color')) === marca) f.removeAttribute('color');
+  });
+  Array.prototype.forEach.call(ed.querySelectorAll('[style]'), function (el) {
+    if (el.style && appColHex(el.style.color) === marca) {
+      el.style.color = '';
+      if (!el.getAttribute('style')) el.removeAttribute('style');
+    }
+  });
+}
+
+function appBarraColore(v) {
+  var b = appEl('appColBar');
+  if (b) b.setAttribute('fill', (v && v !== 'auto') ? v : 'currentColor');
+}
+
+function appPopHtml(tipo) {
+  if (tipo === 'font') {
+    return APP_FONT.map(function (f) {
+      return '<button type="button" class="app-pop-opt" data-cmd="fontName" data-val="' + escapeAttr(f[1]) + '"' +
+             ' style="font-family:' + escapeAttr(f[1]) + ';font-size:14px;">' + escapeHtml(f[0]) + '</button>';
+    }).join('');
+  }
+  if (tipo === 'size') {
+    return APP_DIM.map(function (s) {
+      return '<button type="button" class="app-pop-opt" data-cmd="fontSize" data-val="' + s[1] + '"' +
+             ' style="font-family:Inter,sans-serif;font-size:' + s[2] + 'px;">' + escapeHtml(s[0]) + '</button>';
+    }).join('');
+  }
+  var riga = function (titolo, cmd, lista) {
+    return '<div class="app-pop-t">' + titolo + '</div><div class="app-pop-row">' +
+      lista.map(function (c) {
+        var nessuno = (c[1] === 'auto' || c[1] === 'transparent');
+        return '<button type="button" class="app-sw" data-cmd="' + cmd + '" data-val="' + escapeAttr(c[1]) + '"' +
+               ' title="' + escapeAttr(c[0]) + '" aria-label="' + escapeAttr(c[0]) + '"' +
+               (nessuno ? '>' + APP_SW_NO : ' style="background:' + escapeAttr(c[1]) + ';">') + '</button>';
+      }).join('') + '</div>';
+  };
+  return riga('Testo', 'foreColor', APP_TESTO) + riga('Evidenzia', 'hiliteColor', APP_EVID);
+}
+
+function appPopApri(tipo, btn) {
+  var pop = appEl('appPop'), card = appEl('appEd');
+  if (!pop || !card || !btn) return;
+  if (pop.classList.contains('ap') && pop.getAttribute('data-tipo') === tipo) { appPopChiudi(); return; }
+  pop.innerHTML = appPopHtml(tipo);
+  pop.setAttribute('data-tipo', tipo);
+  pop.classList.add('ap');
+  var rb = btn.getBoundingClientRect(), rc = card.getBoundingClientRect();
+  var w = pop.offsetWidth || 200;
+  var x = Math.max(8, Math.min(rb.left - rc.left, rc.width - w - 8));
+  pop.style.left = Math.round(x) + 'px';
+  pop.style.top = Math.round(rb.bottom - rc.top + 6) + 'px';
+}
+
+function appPopChiudi() {
+  var pop = appEl('appPop');
+  if (!pop || !pop.classList.contains('ap')) return;
+  pop.classList.remove('ap');
+  pop.removeAttribute('data-tipo');
+}
+
+// Incolla solo testo: niente colori o immagini presi da altre pagine,
+// che sul tema scuro diventerebbero illeggibili.
+function appInserisciTesto(t) {
+  var sel = window.getSelection();
+  if (!sel || !sel.rangeCount) return;
+  var r = sel.getRangeAt(0);
+  r.deleteContents();
+  var fr = document.createDocumentFragment(), ultimo = null;
+  String(t).split(/\r\n|\r|\n/).forEach(function (riga, i) {
+    if (i) { ultimo = document.createElement('br'); fr.appendChild(ultimo); }
+    if (riga) { ultimo = document.createTextNode(riga); fr.appendChild(ultimo); }
+  });
+  if (!ultimo) return;
+  r.insertNode(fr);
+  r.setStartAfter(ultimo);
+  r.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(r);
+}
+
+function appIncolla(e) {
+  var cd = e.clipboardData || window.clipboardData;
+  if (!cd) return;
+  e.preventDefault();
+  var t = '';
+  try { t = cd.getData('text/plain') || ''; } catch (er) {}
+  if (!t) return;
+  if (!appEsegui('insertText', t)) appInserisciTesto(t);
+  appSuInput();
+}
+
+// ── Tastiera di iPhone ───────────────────────────────────────────
+// La card aperta segue l'area visibile: con la tastiera aperta si accorcia
+// invece di finirci sotto, e barra e testo restano sempre a portata.
+function appVv() {
+  var o = appEl('appOverlay');
+  if (!o || !o.classList.contains('ap')) return;
+  appTbFine();
+  var vv = window.visualViewport;
+  if (!vv) return;
+  o.style.top = Math.round(vv.offsetTop) + 'px';
+  o.style.left = Math.round(vv.offsetLeft) + 'px';
+  o.style.width = Math.round(vv.width) + 'px';
+  o.style.height = Math.round(vv.height) + 'px';
+  o.classList.toggle('tastiera', (window.innerHeight - vv.height) > 120);
+  appCaretInVista();
+}
+
+function appVvOn() {
+  var vv = window.visualViewport;
+  if (vv) { vv.addEventListener('resize', appVv); vv.addEventListener('scroll', appVv); }
+  window.addEventListener('resize', appVv);
+  appVv();
+}
+
+function appVvOff() {
+  var vv = window.visualViewport;
+  if (vv) { vv.removeEventListener('resize', appVv); vv.removeEventListener('scroll', appVv); }
+  window.removeEventListener('resize', appVv);
+}
+
+function appCaretInVista() {
+  var ed = appEl('appTesto');
+  if (!ed || document.activeElement !== ed) return;
+  try {
+    var sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    var rr = sel.getRangeAt(0).getClientRects();
+    var rc = rr.length ? rr[rr.length - 1] : null;
+    if (!rc || !rc.height) return;
+    var box = ed.getBoundingClientRect();
+    if (rc.bottom > box.bottom - 12) ed.scrollTop += rc.bottom - box.bottom + 24;
+    else if (rc.top < box.top + 8) ed.scrollTop -= box.top + 8 - rc.top;
+  } catch (e) {}
+}
+
+// ── Eventi ───────────────────────────────────────────────────────
+function appSuSelezione() {
+  if (!APP.aperta) return;
+  var ed = appEl('appTesto');
+  try {
+    var sel = window.getSelection();
+    if (!ed || !sel || !sel.rangeCount) return;
+    var r = sel.getRangeAt(0);
+    if (!ed.contains(r.commonAncestorContainer)) return;
+    APP.range = r.cloneRange();
+  } catch (e) { return; }
+  if (APP.rafStato) return;
+  APP.rafStato = appRaf(function () { APP.rafStato = 0; appTbStato(); });
+}
+
+function appSuTasto(e) {
+  if (!APP.aperta || e.key !== 'Escape') return;
+  var conf = appEl('orosConfirmOverlay');
+  if (conf && conf.style.display === 'block') return;
+  var pop = appEl('appPop');
+  if (pop && pop.classList.contains('ap')) { appPopChiudi(); return; }
+  appChiudi();
+}
+
+(function () {
+  var tb = appEl('appTb'), pop = appEl('appPop'), ed = appEl('appTesto'), o = appEl('appOverlay');
+  if (!tb || !pop || !ed || !o) return;
+  function bottone(e) { return (e.target && e.target.closest) ? e.target.closest('button') : null; }
+  // La barra non deve togliere il fuoco al testo: la selezione si
+  // perderebbe e su iPhone la tastiera si chiuderebbe a ogni tocco.
+  tb.addEventListener('mousedown', function (e) { if (bottone(e)) e.preventDefault(); });
+  pop.addEventListener('mousedown', function (e) { if (bottone(e)) e.preventDefault(); });
+  tb.addEventListener('click', function (e) {
+    var b = bottone(e);
+    if (!b) return;
+    var p = b.getAttribute('data-pop');
+    if (p) { appPopApri(p, b); return; }
+    appPopChiudi();
+    var c = b.getAttribute('data-cmd');
+    if (c) appCmd(c);
+  });
+  pop.addEventListener('click', function (e) {
+    var b = bottone(e);
+    if (!b) return;
+    var c = b.getAttribute('data-cmd'), v = b.getAttribute('data-val');
+    appPopChiudi();
+    if (c) appCmd(c, v);
+  });
+  tb.addEventListener('scroll', function () { appPopChiudi(); appTbFine(); }, { passive: true });
+  ed.addEventListener('input', appSuInput);
+  ed.addEventListener('compositionstart', function () { APP.componendo = true; });
+  ed.addEventListener('compositionend', function () { APP.componendo = false; appSuInput(); });
+  ed.addEventListener('paste', appIncolla);
+  ed.addEventListener('drop', function (e) { e.preventDefault(); });
+  ed.addEventListener('blur', function () { if (APP.sporca) appSalva(); });
+  // Chiude solo un clic iniziato e finito sul fondo: una selezione del
+  // testo che termina fuori dalla card non deve chiuderla.
+  var giuSulFondo = false;
+  o.addEventListener('mousedown', function (e) { giuSulFondo = (e.target === o); });
+  o.addEventListener('click', function (e) {
+    if (e.target === o && giuSulFondo) appChiudi();
+    giuSulFondo = false;
+  });
+  document.addEventListener('click', function (e) {
+    if (!pop.classList.contains('ap')) return;
+    if (pop.contains(e.target) || tb.contains(e.target)) return;
+    appPopChiudi();
+  }, true);
+  document.addEventListener('selectionchange', appSuSelezione);
+  document.addEventListener('keydown', appSuTasto);
+  // L'app che passa in secondo piano su iPhone puo' essere chiusa dal
+  // sistema: quello che e' gia' scritto si salva subito.
+  document.addEventListener('visibilitychange', function () { if (document.hidden && APP.sporca) appSalva(); });
+  window.addEventListener('pagehide', function () { if (APP.sporca) appSalva(); });
+  window.addEventListener('resize', debounce(function () {
+    if (window.__orosCurPage === 'appunti') appMarcaLunghe();
+  }, 200));
+})();
+
+appCarica();
+</script>
 
 <!-- ════ STORIA PAGE ════ -->
 <div id="pageStoria" style="display:none;">
@@ -4823,7 +5938,7 @@ function orosCfgModaleSync() {
 // Deve coincidere con CACHE_VERSION in sw.js: e' lo stesso deploy.
 // Se i due numeri divergono, l'indicatore non e' piu' in grado di
 // dire se un dispositivo ha il file aggiornato.
-var OROS_BUILD = '36';
+var OROS_BUILD = '37';
 
 function orosTsLabel(iso) {
   var d = new Date(iso);
@@ -4854,6 +5969,7 @@ var OROS_DOC_ETICHETTE = {
   meteo:         'Meteo',
   meteo_inputs:  'Dati macro',
   costruz:       'Costruz',
+  appunti:       'Appunti',
   impostazioni:  'Impostazioni'
 };
 
@@ -9987,6 +11103,7 @@ function meteoTipLato(t) {
   window.fsMeteoCloudSave = function() {};
   window.fsMeteoInCloudSave = function() {};
   window.fsPbCloudSave = function() {};
+  window.fsAppCloudSave = function() {};
   window.fsCfgCloudSave = function() { return Promise.resolve({ ok: false, err: 'Firestore non disponibile' }); };
   window.fsSyncOnLogin = function() {};
   window.fsInboxSave   = function() { return Promise.reject(new Error('Firestore non disponibile')); };
@@ -10041,6 +11158,30 @@ function meteoTipLato(t) {
   window.fsMeteoCloudSave = function(list) { _cloudSave('meteo', list); };
   window.fsMeteoInCloudSave = function(list) { _cloudSave('meteo_inputs', list); };
   window.fsPbCloudSave = function(list) { _cloudSave('costruz', list); };
+
+  // ── Appunti ───────────────────────────────────────────────────────
+  // Documento a mappa { id: nota }, non a lista: ogni salvataggio manda solo
+  // le note cambiate e le fonde nel documento. Due dispositivi che scrivono
+  // note diverse nello stesso momento non si sovrascrivono a vicenda.
+  var OROS_APP_DOC = 'appunti';
+  window.fsAppCloudSave = function(mappa) {
+    if (!window._orosUserId) {
+      orosDocSyncSet(OROS_APP_DOC, false, 'Non connesso');
+      return;
+    }
+    if (!mappa || typeof mappa !== 'object') return;
+    _db.collection('users').doc(window._orosUserId)
+      .collection('data').doc(OROS_APP_DOC)
+      .set({ notes: mappa, updatedAt: new Date().toISOString() }, { merge: true })
+      .then(function() {
+        orosDocSyncSet(OROS_APP_DOC, true);
+      })
+      .catch(function(e) {
+        var m = (e && e.message) ? e.message : String(e);
+        console.warn('Firestore save error (appunti):', e);
+        orosDocSyncSet(OROS_APP_DOC, false, m);
+      });
+  };
 
   // ── Impostazioni ──────────────────────────────────────────────────
   // Documento a oggetto singolo, non una lista: non passa da _cloudSave,
@@ -10148,6 +11289,29 @@ function meteoTipLato(t) {
         console.warn('Firestore listener error (impostazioni):', e);
         window.__orosCfgSync = { ok: false, err: 'lettura negata o non riuscita' };
         if (typeof orosSyncStatoRender === 'function') orosSyncStatoRender();
+      });
+  }
+
+  // Appunti: ogni istantanea si unisce nota per nota, mai sostituita intera.
+  // Si leggono anche quelle con scritture locali in sospeso: alla conferma
+  // del server il listener non scatta una seconda volta, e scartarle farebbe
+  // perdere cio' che nel frattempo e' arrivato dall'altro dispositivo.
+  function _attachAppListener() {
+    if (_unsub[OROS_APP_DOC]) return;
+    _unsub[OROS_APP_DOC] = _db.collection('users').doc(window._orosUserId)
+      .collection('data').doc(OROS_APP_DOC)
+      .onSnapshot(function(snap) {
+        if (typeof window.appRicevi !== 'function') return;
+        if (!snap.exists) {
+          // Documento ancora assente: alla prima risposta del server si
+          // caricano le note di questo dispositivo. La cache non decide.
+          if (!(snap.metadata && snap.metadata.fromCache)) window.appRicevi({});
+          return;
+        }
+        window.appRicevi((snap.data() || {}).notes);
+      }, function(e) {
+        console.warn('Firestore listener error (appunti):', e);
+        orosDocSyncSet(OROS_APP_DOC, false, 'lettura non riuscita');
       });
   }
 
@@ -10309,6 +11473,9 @@ function meteoTipLato(t) {
         console.warn('Firestore sync error (impostazioni):', e);
         _attachCfgListener();
       });
+
+    // ── Appunti: la prima istantanea fa anche da allineamento iniziale ──
+    _attachAppListener();
   };
 })();
 </script>
@@ -12298,6 +13465,7 @@ var OROS_BACKUP_SEZIONI = [
   { k: 'costruz',      ls: 'oros_pb_v4',            nome: 'Costruz / Allocazione' },
   { k: 'meteo',        ls: 'oros_meteo_v1',         nome: 'Meteo' },
   { k: 'meteo_inputs', ls: 'oros_meteo_inputs_v1',  nome: 'Dati macro' },
+  { k: 'appunti',      ls: 'oros_appunti_v1',       nome: 'Appunti' },
   { k: 'impostazioni', ls: 'oros_impostazioni_v1',  nome: 'Impostazioni' }
 ];
 
@@ -12378,6 +13546,10 @@ function orosBackupRipristina(sezioni, presenti) {
   ['renderStoria','portafoglioRender','meteoRender','renderAll','ccRenderAll','botRenderAll'].forEach(function(f) {
     try { if (typeof window[f] === 'function') window[f](); } catch (e) {}
   });
+  // Appunti: l'unione nota per nota terrebbe le versioni piu' recenti e il
+  // ripristino resterebbe senza effetto. appDaBackup sostituisce davvero e
+  // manda il risultato anche al cloud.
+  try { if (Array.isArray(puliti.appunti) && typeof appDaBackup === 'function') appDaBackup(puliti.appunti); } catch (e) {}
   // Rimando al cloud quello che e' sincronizzato, cosi' il ripristino non
   // resta confinato a questo dispositivo.
   try {
