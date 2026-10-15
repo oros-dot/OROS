@@ -756,6 +756,15 @@ document.addEventListener('focusin', function(e) {
     box-shadow: 0 10px 26px rgba(0,0,0,.45); opacity: .95;
   }
   body.oros-tab-trascina, body.oros-tab-trascina * { cursor: grabbing !important; }
+  /* Card del confronto trascinabili: stesso gesto delle schede */
+  .compare-cards .cmp-card { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  #pageCSP .output-card.cmp-card.oros-card-segnaposto,
+  #pageCC .output-card.cmp-card.oros-card-segnaposto { opacity: .3; }
+  .oros-card-ghost {
+    position: fixed; top: 0; left: 0; margin: 0; z-index: 5000; pointer-events: none;
+    background: var(--tv-surf) !important;
+    box-shadow: 0 14px 34px rgba(0,0,0,.5); opacity: .95;
+  }
 
   /* PANEL */
   .panel {
@@ -6027,7 +6036,7 @@ function orosCfgModaleSync() {
 // Deve coincidere con CACHE_VERSION in sw.js: e' lo stesso deploy.
 // Se i due numeri divergono, l'indicatore non e' piu' in grado di
 // dire se un dispositivo ha il file aggiornato.
-var OROS_BUILD = '53';
+var OROS_BUILD = '54';
 
 function orosTsLabel(iso) {
   var d = new Date(iso);
@@ -7164,7 +7173,7 @@ function cmpCardsHtml(results, bestIdx, pagina) {
     var isBest = (i === bestIdx);
     var bordo = isBest ? 'border-color:rgba(38,166,154,.55);box-shadow:0 0 0 1px rgba(38,166,154,.18);' : '';
     var spenta = !!CMP_SPENTE[pagina][r.tab.id];
-    return '<div class="output-card primary cmp-card' + (spenta ? ' cmp-spenta' : '') + '" style="padding:16px;' + bordo + '" ' +
+    return '<div class="output-card primary cmp-card' + (spenta ? ' cmp-spenta' : '') + '" data-tab-id="' + r.tab.id + '" style="padding:16px;' + bordo + '" ' +
            'onclick="cmpCardTgl(this,\'' + pagina + '\',\'' + r.tab.id + '\')">' +
       '<div class="cmp-card-head">' +
         '<span class="ticker-badge">' + escapeHtml(String(r.ticker).toUpperCase()) + '</span>' +
@@ -7958,7 +7967,13 @@ function orosSenzaAnim(id, fn) {
 
 // rerender ridisegna solo cio' che dipende dall'ordine: bandierine e confronto.
 // Il pannello della scheda attiva non cambia e non va toccato.
-function orosTabsDrag(rowId, getList, rerender) {
+// opz (facoltativo) serve alle card del confronto: selettore degli elementi,
+// classi di fantasma e segnaposto, griglia a due assi.
+function orosTabsDrag(rowId, getList, rerender, opz) {
+  opz = opz || {};
+  var SEL   = opz.sel || '.tab';
+  var GHOST = opz.ghost || 'oros-tab-ghost';
+  var PH    = opz.segnaposto || 'oros-tab-segnaposto';
   var row = document.getElementById(rowId);
   if (!row || row._orosDrag) return;
   row._orosDrag = true;
@@ -7966,32 +7981,38 @@ function orosTabsDrag(rowId, getList, rerender) {
 
   function tabDa(t) {
     if (!t || !t.closest || t.closest('.close-btn')) return null;
-    var el = t.closest('.tab');
+    var el = t.closest(SEL);
     return (el && row.contains(el) && el.dataset.tabId) ? el : null;
   }
   function inizia() {
     var r = st.el.getBoundingClientRect();
     st.dx = st.sx - r.left; st.dy = st.sy - r.top;
     var g = st.el.cloneNode(true);
-    g.classList.add('oros-tab-ghost');
+    g.classList.add(GHOST);
     g.style.width = r.width + 'px'; g.style.height = r.height + 'px';
     document.body.appendChild(g);
     st.ghost = g; st.attivo = true;
-    st.el.classList.add('oros-tab-segnaposto');
+    st.el.classList.add(PH);
     document.body.classList.add('oros-tab-trascina');
     if (navigator.vibrate) { try { navigator.vibrate(10); } catch (e) {} }
     sposta(st.x, st.y);
   }
   function sposta(x, y) {
     st.ghost.style.transform = 'translate(' + (x - st.dx) + 'px,' + (y - st.dy) + 'px) scale(1.04)';
-    var altri = row.querySelectorAll('.tab');
+    // Il contenitore e' quello che ospita l'elemento: per le card e' la
+    // griglia, ridisegnata a ogni render, non la sezione che ascolta.
+    var box = st.el.parentNode;
+    var altri = box.querySelectorAll(SEL);
     for (var i = 0; i < altri.length; i++) {
       var o = altri[i];
       if (o === st.el) continue;
       var r = o.getBoundingClientRect();
       if (x < r.left || x > r.right || y < r.top || y > r.bottom) continue;
-      if (x < r.left + r.width / 2) { if (o.previousSibling !== st.el) row.insertBefore(st.el, o); }
-      else if (o.nextSibling !== st.el) row.insertBefore(st.el, o.nextSibling);
+      // Griglia a una colonna (iPhone): conta l'altezza; altrimenti la larghezza.
+      var unaColonna = opz.griglia && r.width > box.clientWidth * 0.7;
+      var prima = unaColonna ? (y < r.top + r.height / 2) : (x < r.left + r.width / 2);
+      if (prima) { if (o.previousSibling !== st.el) box.insertBefore(st.el, o); }
+      else if (o.nextSibling !== st.el) box.insertBefore(st.el, o.nextSibling);
       break;
     }
   }
@@ -8001,12 +8022,12 @@ function orosTabsDrag(rowId, getList, rerender) {
     clearTimeout(s.timer);
     if (!s.attivo) return false;
     if (s.ghost && s.ghost.parentNode) s.ghost.parentNode.removeChild(s.ghost);
-    s.el.classList.remove('oros-tab-segnaposto');
+    s.el.classList.remove(PH);
     document.body.classList.remove('oros-tab-trascina');
     var lista = getList();
     var mappa = {};
     lista.forEach(function (t) { mappa[t.id] = t; });
-    var nuova = Array.prototype.map.call(row.querySelectorAll('.tab'), function (e) { return mappa[e.dataset.tabId]; })
+    var nuova = Array.prototype.map.call(s.el.parentNode.querySelectorAll(SEL), function (e) { return mappa[e.dataset.tabId]; })
       .filter(Boolean);
     if (!annulla && nuova.length === lista.length) lista.splice.apply(lista, [0, lista.length].concat(nuova));
     rerender();
@@ -8076,6 +8097,10 @@ orosTabsDrag('tabsRow', function () { return tabs; }, function () {
   renderTabs();
   if (compareVisible) orosSenzaAnim('compareSection', renderCompare);
 });
+orosTabsDrag('compareSection', function () { return tabs; }, function () {
+  renderTabs();
+  if (compareVisible) orosSenzaAnim('compareSection', renderCompare);
+}, { sel: '.cmp-card', ghost: 'oros-card-ghost', segnaposto: 'oros-card-segnaposto', griglia: true });
 </script>
 
 
@@ -8574,6 +8599,10 @@ orosTabsDrag('ccTabsRow', function () { return ccTabs; }, function () {
   ccRenderTabs();
   if (ccCompareVisible) orosSenzaAnim('ccCompareSection', ccRenderCompare);
 });
+orosTabsDrag('ccCompareSection', function () { return ccTabs; }, function () {
+  ccRenderTabs();
+  if (ccCompareVisible) orosSenzaAnim('ccCompareSection', ccRenderCompare);
+}, { sel: '.cmp-card', ghost: 'oros-card-ghost', segnaposto: 'oros-card-segnaposto', griglia: true });
 
 
 function ccToggleDividendi(btn) {
@@ -13981,9 +14010,17 @@ function pfPrivToggle() {
   orosLsSet(PF_PRIV_KEY, pfPriv ? '1' : '0');
   portafoglioRender({skipChart: true});
 }
+var PF_ICO_OCCHIO = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block"><path d="M2 12s3.5-8 10-8 10 8 10 8-3.5 8-10 8S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+var PF_ICO_OCCHIO_NO = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block"><path d="M9.9 4.2A10.4 10.4 0 0 1 12 4c6.5 0 10 8 10 8a17.7 17.7 0 0 1-3.2 4.3"/><path d="M6.6 6.6C3.6 8.6 2 12 2 12s3.5 8 10 8a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="M2 2l20 20"/></svg>';
 function pfPrivBtnSync() {
   var b = document.getElementById('pfPrivBtn');
   if (!b) return;
+  // Sbarra sull'occhio = valori nascosti. Si riscrive solo se cambia.
+  var ico = pfPriv ? PF_ICO_OCCHIO_NO : PF_ICO_OCCHIO;
+  if (b.getAttribute('data-ico') !== (pfPriv ? 'no' : 'si')) {
+    b.innerHTML = ico;
+    b.setAttribute('data-ico', pfPriv ? 'no' : 'si');
+  }
   b.style.color       = pfPriv ? '#3d9bff' : 'var(--tv-muted)';
   b.style.borderColor = pfPriv ? 'rgba(61,155,255,0.5)' : 'var(--tv-bord)';
   b.title = pfPriv ? 'Mostra i valori' : 'Nascondi i valori';
