@@ -6000,7 +6000,7 @@ function orosCfgModaleSync() {
 // Deve coincidere con CACHE_VERSION in sw.js: e' lo stesso deploy.
 // Se i due numeri divergono, l'indicatore non e' piu' in grado di
 // dire se un dispositivo ha il file aggiornato.
-var OROS_BUILD = '48';
+var OROS_BUILD = '49';
 
 function orosTsLabel(iso) {
   var d = new Date(iso);
@@ -12976,6 +12976,8 @@ function pfRenderChart(closedList) {
     options: {
       responsive: true,
       maintainAspectRatio: true,
+      // iPhone: il rapporto 300x90 del canvas lo schiacciava a ~100px di altezza
+      aspectRatio: window.innerWidth <= 768 ? 1.8 : undefined,
       interaction: { mode: 'index', intersect: false },
       onClick: function(evt, elements) {
         if (!elements || elements.length === 0) return;
