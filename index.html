@@ -6027,7 +6027,7 @@ function orosCfgModaleSync() {
 // Deve coincidere con CACHE_VERSION in sw.js: e' lo stesso deploy.
 // Se i due numeri divergono, l'indicatore non e' piu' in grado di
 // dire se un dispositivo ha il file aggiornato.
-var OROS_BUILD = '52';
+var OROS_BUILD = '53';
 
 function orosTsLabel(iso) {
   var d = new Date(iso);
@@ -8769,6 +8769,9 @@ function ccDividendiCorrenti(tab) {
       { nome: 'avamposto', navi: 4, pianeti: 1, stazione: true, ritmo: 0.95, cadenti: 1,
         peso: { passaggio: 2, looping: 2, slalom: 2, arco: 1, convoglio: 2, disco: 2, cometa: 1, stazione: 0, pianeta: 1 } }
     ];
+    // Navi da lavoro e asteroidi: un peso per scenario, come per gli altri eventi
+    var PESI_NUOVI = { quiete: [2, 1], flotta: [3, 1], pianeti: [2, 2], comete: [2, 1], avamposto: [3, 2] };
+    SCENARI.forEach(function (s) { var w = PESI_NUOVI[s.nome] || [2, 1]; s.peso.lavoro = w[0]; s.peso.asteroide = w[1]; });
     var scen = pick(SCENARI);
     function mescola(a) { a = a.slice(); for (var j = a.length - 1; j > 0; j--) { var q = Math.floor(R() * (j + 1)), t = a[j]; a[j] = a[q]; a[q] = t; } return a; }
     var angoliLiberi = mescola(ANGOLI);
@@ -8788,6 +8791,12 @@ function ccDividendiCorrenti(tab) {
                 tipo: tipo, incl: rnd(-0.45, 0.45), alpha: rnd(0.55, 0.8), z: rnd(0.3, 0.6), ph: R() * TAU,
                 bande: [rnd(-0.55, -0.25), rnd(-0.1, 0.15), rnd(0.3, 0.6)], crateri: [] };
       for (var j = 0; j < 5; j++) p.crateri.push([rnd(-0.55, 0.45), rnd(-0.5, 0.45), rnd(0.08, 0.2)]);
+      p.lune = [];
+      var nl = R() < 0.6 ? (R() < 0.4 ? 2 : 1) : 0;
+      for (j = 0; j < nl; j++) {
+        p.lune.push({ d: rnd(2.05, 2.5) + j * 0.55, r: rnd(0.12, 0.2), v: rnd(0.035, 0.07) * (R() < 0.5 ? -1 : 1),
+                      ph: R() * TAU, col: pick(['#b0bec5', '#bcaaa4', '#cfd8dc', '#d7ccc8']) });
+      }
       return p;
     }
     var pianeti = [];
@@ -8800,7 +8809,7 @@ function ccDividendiCorrenti(tab) {
     if (scen.stazione) {
       var sa = angoliLiberi.shift();
       stazioniFisse.push({ fx: sa[0] < 0.5 ? 0.13 : 0.87, fy: sa[1] < 0.5 ? 0.17 : 0.83, k: rnd(0.75, 1), rot: 0,
-                           tilt: rnd(-0.3, 0.3), ph: R() * TAU, nasce: rnd(1, 3), mod: R() < 0.5 ? 'modulare' : 'anello' });
+                           tilt: rnd(-0.3, 0.3), ph: R() * TAU, nasce: rnd(1, 3), mod: pick(['modulare', 'anello', 'fuso']) });
     }
 
     // ── Puntatore
@@ -8881,8 +8890,9 @@ function ccDividendiCorrenti(tab) {
       Object.keys(scen.peso).forEach(function (k) {
         var w = scen.peso[k];
         if (!w || recenti.indexOf(k) >= 0) return;
-        if ((k === 'stazione' || k === 'pianeta') && eventi.some(function (e) { return e.tipo === k; })) return;
+        if ((k === 'stazione' || k === 'pianeta' || k === 'asteroide') && eventi.some(function (e) { return e.tipo === k; })) return;
         if (k === 'pianeta' && (pianeti.length >= 2 || !angoliLiberi.length)) return;
+        if (k === 'asteroide' && !angoliLiberi.length) return;
         cand.push([k, w]); tot += w;
       });
       if (!cand.length) return 'passaggio';
@@ -8891,6 +8901,9 @@ function ccDividendiCorrenti(tab) {
       return cand[cand.length - 1][0];
     }
     var SCIA_N = 22;
+    // I modelli da lavoro si alternano a giro: nessuno torna prima che siano passati tutti
+    var MODELLI_LAVORO = mescola(['cargo', 'rimorchiatore', 'incrociatore', 'navetta']), contaLavoro = 0;
+    var CASSONI = ['#c97b5a', '#6f9fb8', '#c9a84e', '#7aa08a', '#a07fb5', '#b56f6f', '#8d9bb0'];
     function lancia(tipo) {
       recenti.push(tipo);
       if (recenti.length > 2) recenti.shift();
@@ -8921,13 +8934,32 @@ function ccDividendiCorrenti(tab) {
         var l2r = R() < 0.5, sy = R() < 0.5 ? rnd(0.08, 0.2) : rnd(0.8, 0.92);
         e.f = function (u) { return [(l2r ? -0.12 + 1.24 * u : 1.12 - 1.24 * u) * W, sy * H + Math.sin(u * TAU) * 10]; };
         e.dur = e.fine = rnd(55, 75); e.k = rnd(0.6, 0.9); e.tilt = rnd(-0.3, 0.3); e.rot = 0;
-        e.mod = R() < 0.5 ? 'modulare' : 'anello';
+        e.mod = pick(['modulare', 'anello', 'fuso']);
         contatori[e.mod] = (contatori[e.mod] || 0) + 1;
       } else if (tipo === 'pianeta') {
         var pa = angoliLiberi.shift() || [0.93, 0.86];
         e.pian = nuovoPianeta(pa); e.angolo = pa;
         e.da = [pa[0] + (pa[0] > 0.5 ? 0.04 : -0.04), pa[1]]; e.a = [pa[0] - (pa[0] > 0.5 ? 0.04 : -0.04), pa[1] + rnd(-0.03, 0.03)];
         e.dur = e.fine = rnd(60, 80);
+      } else if (tipo === 'lavoro') {
+        // Passaggio lento e orizzontale, di profilo: niente scia, niente scintille
+        var lz = lato(), yl = lz.y0, fase = R() * TAU;
+        var xa = lz.x0 - lz.dir * 150, xb = lz.x1 + lz.dir * 150;
+        e.f = function (u) { return [xa + (xb - xa) * u, yl + Math.sin(u * TAU * 1.5 + fase) * 8]; };
+        e.dur = e.fine = Math.abs(xb - xa) / rnd(30, 46);
+        e.dir = lz.dir; e.k = rnd(0.6, 0.85) * clamp(W / 900, 0.62, 1);
+        e.col = colori(pick(COLORI)); e.ph = R() * TAU; e.tinta = pick(CASSONI);
+        e.cassoni = [];
+        var vuoto = R() < 0.5 ? Math.floor(R() * 6) : -1;
+        for (var ci = 0; ci < 6; ci++) e.cassoni.push(ci === vuoto ? null : pick(CASSONI));
+        e.mod = MODELLI_LAVORO[contaLavoro++ % MODELLI_LAVORO.length];
+        contatori[e.mod] = (contatori[e.mod] || 0) + 1;
+      } else if (tipo === 'asteroide') {
+        var aa = angoliLiberi.shift() || [0.07, 0.12];
+        e.ast = nuovoAsteroide(); e.angolo = aa;
+        var sp = aa[0] > 0.5 ? 0.05 : -0.05;
+        e.da = [aa[0] + sp, aa[1] - 0.02]; e.a = [aa[0] - sp, aa[1] + 0.02];
+        e.dur = e.fine = rnd(60, 85);
       }
       eventi.push(e);
     }
@@ -9315,6 +9347,7 @@ function ccDividendiCorrenti(tab) {
       h.addColorStop(1, rgba(p.col, 0));
       c.fillStyle = h;
       c.beginPath(); c.arc(x, y, r * 1.5, 0, TAU); c.fill();
+      lune(c, p, x, y, r, false);
       var anelli = p.tipo === 'anelli';
       function anello(da, a) {
         c.strokeStyle = rgba(p.col, 0.55); c.lineWidth = r * 0.16;
@@ -9357,8 +9390,505 @@ function ccDividendiCorrenti(tab) {
       c.strokeStyle = 'rgba(255,255,255,0.16)'; c.lineWidth = Math.max(0.6, r * 0.025);
       c.beginPath(); c.arc(x, y, r, Math.PI * 1.05, Math.PI * 1.65); c.stroke();
       if (anelli) anello(0, Math.PI);
+      lune(c, p, x, y, r, true);
       c.restore();
     }
+    // ── Navi da lavoro, asteroide con base, stazione a fuso, lune ──
+    // Disegni originali, di profilo, rivolti verso +x: chi viaggia da destra
+    // a sinistra viene specchiato. Tutto si muove piano: fiamme morbide,
+    // nessuna scintilla, luci che si accendono e si spengono sfumando.
+    function scafoTre(col, chiave, y0, y1) {
+      return sfum(col, chiave, function () {
+        return lineare(0, y0, 0, y1, [[0, col.lt], [0.3, col.lt], [0.31, col.c], [0.72, col.c], [0.73, col.dk], [1, col.dk]]);
+      });
+    }
+    function bordo(c, w) { c.strokeStyle = INCHIOSTRO; c.lineWidth = w || 1; c.stroke(); }
+    function rivetti(c, x0, x1, y, passo) {
+      c.fillStyle = 'rgba(0,0,0,0.28)';
+      for (var x = x0; x <= x1; x += passo) { c.beginPath(); c.arc(x, y, 0.55, 0, TAU); c.fill(); }
+    }
+    function oblo(c, x, y, r, acceso) {
+      c.fillStyle = '#90a4ae'; c.beginPath(); c.arc(x, y, r + 0.9, 0, TAU); c.fill();
+      c.fillStyle = acceso ? 'rgba(255,224,140,0.95)' : 'rgba(40,70,110,0.9)';
+      c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+      c.fillStyle = 'rgba(255,255,255,0.55)';
+      c.beginPath(); c.arc(x - r * 0.35, y - r * 0.35, r * 0.35, 0, TAU); c.fill();
+    }
+    function vetro(col, chiave, x0, y0, x1, y1) {
+      return sfum(col, chiave, function () {
+        return lineare(x0, y0, x1, y1, [[0, '#d6f7ff'], [0.6, '#4fa8d8'], [1, '#1f5f8f']]);
+      });
+    }
+    function ugelloLat(c, x, y, h, l) {
+      c.fillStyle = sfum(UGELLO_COL, 'lat' + h, function () {
+        return lineare(0, -h, 0, h, [[0, '#cfd8dc'], [0.4, '#90a4ae'], [0.41, '#607d8b'], [1, '#37474f']]);
+      });
+      c.save(); c.translate(x, y);
+      c.beginPath(); c.moveTo(0, -h * 0.7); c.lineTo(-l, -h); c.lineTo(-l, h); c.lineTo(0, h * 0.7); c.closePath(); c.fill();
+      bordo(c, 0.8);
+      c.strokeStyle = 'rgba(255,255,255,0.35)'; c.lineWidth = 0.6;
+      c.beginPath(); c.moveTo(-l * 0.4, -h * 0.85); c.lineTo(-l * 0.4, h * 0.85); c.stroke();
+      c.fillStyle = 'rgba(255,170,60,0.8)';
+      c.beginPath(); c.ellipse(-l, 0, 1.1, h * 0.8, 0, 0, TAU); c.fill();
+      c.restore();
+    }
+    // Fiamma orizzontale, verso -x: respira piano, non tremola
+    function scarico(c, x, y, h, L, ph) {
+      c.save(); c.translate(x, y);
+      var tr = 0.93 + 0.07 * Math.sin(T * 4 + ph * 7);
+      var g = c.createRadialGradient(-L * 0.4, 0, 0, -L * 0.4, 0, L * 1.3);
+      g.addColorStop(0, 'rgba(150,205,255,0.32)');
+      g.addColorStop(1, 'rgba(150,205,255,0)');
+      c.fillStyle = g;
+      c.beginPath(); c.ellipse(-L * 0.4, 0, L * 1.3, h * 1.8, 0, 0, TAU); c.fill();
+      function lingua(w, l, colore) {
+        c.fillStyle = colore;
+        c.beginPath(); c.moveTo(0, -w);
+        c.quadraticCurveTo(-l * 0.55, -w * 0.9, -l, 0);
+        c.quadraticCurveTo(-l * 0.55, w * 0.9, 0, w);
+        c.closePath(); c.fill();
+      }
+      lingua(h, L * tr, 'rgba(255,160,70,0.5)');
+      lingua(h * 0.66, L * 0.7 * tr, 'rgba(255,220,140,0.8)');
+      lingua(h * 0.36, L * 0.38, 'rgba(255,255,255,0.92)');
+      lingua(h * 0.22, L * 0.16, 'rgba(160,215,255,0.95)');
+      c.restore();
+    }
+    function lampeggio(ph, vel) { return morbido(Math.sin(T * (vel || 1.2) + ph), 0.35); }
+    function pannelloSolare(c, x0, y0, w, h) {
+      c.fillStyle = '#26357a'; c.fillRect(x0, y0, w, h);
+      c.strokeStyle = 'rgba(121,134,203,0.85)'; c.lineWidth = 0.6; c.beginPath();
+      for (var q = 1; q < Math.round(w / 4); q++) { c.moveTo(x0 + q * 4, y0); c.lineTo(x0 + q * 4, y0 + h); }
+      c.moveTo(x0, y0 + h / 2); c.lineTo(x0 + w, y0 + h / 2);
+      c.stroke();
+      c.fillStyle = 'rgba(255,255,255,0.08)'; c.fillRect(x0, y0, w * 0.4, h);
+      c.strokeStyle = 'rgba(200,210,240,0.5)'; c.lineWidth = 0.7; c.strokeRect(x0, y0, w, h);
+    }
+
+    // Cargo portacontainer: cabina avanti, traliccio con sei cassoni, motori dietro
+    function cargo(c, n) {
+      var col = n.col, ph = n.ph, i;
+      scarico(c, -70, -8, 4.5, 20, ph); scarico(c, -70, 8, 4.5, 20, ph + 1);
+      ugelloLat(c, -62, -8, 4.5, 8); ugelloLat(c, -62, 8, 4.5, 8);
+      c.beginPath(); c.moveTo(-62, -15); c.lineTo(-46, -17); c.lineTo(-46, 17); c.lineTo(-62, 15); c.closePath();
+      c.fillStyle = scafoTre(col, 'cgMot', -17, 17); c.fill(); bordo(c);
+      c.fillStyle = col.dk2; c.fillRect(-58, -2, 10, 4);
+      c.fillStyle = 'rgba(255,255,255,0.3)'; c.fillRect(-58, -2, 10, 0.8);
+      rivetti(c, -59, -49, -11, 3); rivetti(c, -59, -49, 11, 3);
+      c.fillStyle = '#78909c'; c.fillRect(-46, -2.4, 78, 4.8);
+      c.strokeStyle = 'rgba(207,216,220,0.7)'; c.lineWidth = 0.6; c.beginPath();
+      for (var tx = -46; tx < 32; tx += 5) { c.moveTo(tx, -2.4); c.lineTo(tx + 5, 2.4); }
+      c.stroke();
+      c.strokeStyle = INCHIOSTRO; c.lineWidth = 0.7; c.strokeRect(-46, -2.4, 78, 4.8);
+      for (i = 0; i < 6; i++) {
+        var tinta = n.cassoni[i];
+        var cx = -43 + (i % 3) * 24, cy = i < 3 ? -19.5 : 3.6, cw = 22, ch = 15.9;
+        c.save(); c.translate(cx, cy);
+        if (!tinta) {
+          // posto vuoto: si vedono gli agganci
+          c.fillStyle = '#546e7a';
+          c.fillRect(1, i < 3 ? ch - 2 : 0, 3, 2); c.fillRect(cw - 4, i < 3 ? ch - 2 : 0, 3, 2);
+          c.restore();
+          continue;
+        }
+        c.fillStyle = sfum(UGELLO_COL, 'cas' + tinta, function () {
+          return lineare(0, 0, 0, 16, [[0, tono(tinta, 0.25)], [0.35, tinta], [1, tono(tinta, -0.35)]]);
+        });
+        c.fillRect(0, 0, cw, ch);
+        c.strokeStyle = 'rgba(0,0,0,0.2)'; c.lineWidth = 0.6; c.beginPath();
+        for (var q = 2.5; q < cw; q += 2.5) { c.moveTo(q, 1.4); c.lineTo(q, ch - 1.4); }
+        c.stroke();
+        c.fillStyle = 'rgba(255,255,255,0.2)'; c.fillRect(0, 0, cw, 1.4);
+        c.fillStyle = 'rgba(0,0,0,0.22)'; c.fillRect(0, ch - 1.4, cw, 1.4);
+        c.fillStyle = 'rgba(236,239,241,0.85)'; c.fillRect(3, 4, 6, 3);
+        c.fillStyle = 'rgba(0,0,0,0.3)'; c.fillRect(3.8, 5, 4.4, 0.5); c.fillRect(3.8, 6, 3, 0.5);
+        c.strokeStyle = INCHIOSTRO; c.lineWidth = 0.8; c.strokeRect(0, 0, cw, ch);
+        c.restore();
+      }
+      c.beginPath();
+      c.moveTo(32, -15); c.lineTo(48, -15);
+      c.bezierCurveTo(58, -15, 64, -6, 64, 1);
+      c.bezierCurveTo(64, 8, 58, 13, 48, 13);
+      c.lineTo(32, 13); c.closePath();
+      c.fillStyle = scafoTre(col, 'cgCab', -15, 13); c.fill(); bordo(c);
+      c.beginPath(); c.moveTo(47, -12); c.bezierCurveTo(55, -12, 60, -7, 61.5, -2); c.lineTo(47, -2); c.closePath();
+      c.fillStyle = vetro(col, 'cgVetro', 47, -12, 61, -2); c.fill();
+      c.strokeStyle = 'rgba(207,216,220,0.9)'; c.lineWidth = 0.8; c.stroke();
+      c.fillStyle = 'rgba(255,255,255,0.6)'; c.beginPath(); c.ellipse(51, -9, 2.4, 1, -0.3, 0, TAU); c.fill();
+      c.fillStyle = rgba(col.acc, 0.9); c.fillRect(32, 4, 28, 2.6);
+      c.fillStyle = 'rgba(255,255,255,0.3)'; c.fillRect(32, 4, 28, 0.6);
+      c.strokeStyle = 'rgba(0,0,0,0.22)'; c.lineWidth = 0.6;
+      c.beginPath(); c.moveTo(41, -15); c.lineTo(41, 13); c.stroke();
+      oblo(c, 36, -6, 1.8, true); oblo(c, 44.5, 9.2, 1.3, true);
+      rivetti(c, 34, 58, 10.5, 3);
+      c.strokeStyle = 'rgba(200,210,225,0.8)'; c.lineWidth = 0.8;
+      c.beginPath(); c.moveTo(37, -15); c.lineTo(37, -23); c.moveTo(34, -20.5); c.lineTo(40, -20.5); c.stroke();
+      luceNav(c, 37, -23.6, '#ff8a80', lampeggio(ph, 1.1));
+      luceNav(c, 64, 1, '#ffffff', 0.85);
+      luceNav(c, -62, -15.6, '#ff5252', lampeggio(ph + 2, 0.9));
+      luceNav(c, -62, 15.6, '#69f0ae', 1 - lampeggio(ph + 2, 0.9));
+    }
+
+    // Rimorchiatore: scafo tozzo con paraurti a strisce, traina una cisterna a cavo
+    function rimorchiatore(c, n) {
+      var col = n.col, ph = n.ph;
+      c.save(); c.translate(-56, 0);
+      function cisterna() {
+        c.beginPath(); c.moveTo(-22, -11); c.lineTo(18, -11);
+        c.arc(18, 0, 11, -Math.PI / 2, Math.PI / 2); c.lineTo(-22, 11);
+        c.arc(-22, 0, 11, Math.PI / 2, Math.PI * 1.5); c.closePath();
+      }
+      cisterna();
+      c.fillStyle = sfum(UGELLO_COL, 'cisterna', function () {
+        return lineare(0, -11, 0, 11, [[0, '#eceff1'], [0.3, '#eceff1'], [0.31, '#b0bec5'], [0.72, '#b0bec5'], [0.73, '#78909c'], [1, '#78909c']]);
+      });
+      c.fill();
+      c.save(); cisterna(); c.clip();
+      c.fillStyle = rgba(n.tinta, 0.95); c.fillRect(-14, -12, 5, 24); c.fillRect(4, -12, 5, 24);
+      c.fillStyle = 'rgba(0,0,0,0.2)'; c.fillRect(-34, 6, 64, 6);
+      c.restore();
+      cisterna(); bordo(c);
+      c.strokeStyle = 'rgba(0,0,0,0.25)'; c.lineWidth = 0.6;
+      c.beginPath(); c.moveTo(-22, -1); c.lineTo(18, -1); c.stroke();
+      c.fillStyle = '#607d8b'; c.fillRect(-6, -14, 4, 3); c.fillRect(10, -14, 4, 3);
+      c.strokeStyle = INCHIOSTRO; c.lineWidth = 0.6; c.strokeRect(-6, -14, 4, 3); c.strokeRect(10, -14, 4, 3);
+      rivetti(c, -18, 14, -8, 4);
+      c.restore();
+      c.strokeStyle = 'rgba(207,216,220,0.75)'; c.lineWidth = 1.1;
+      c.beginPath(); c.moveTo(-26, 0); c.quadraticCurveTo(-9, 5 + Math.sin(T * 0.7 + ph) * 1.5, 8, 1); c.stroke();
+      c.fillStyle = '#90a4ae'; c.beginPath(); c.arc(-26, 0, 1.6, 0, TAU); c.fill();
+      scarico(c, 6, -7, 3.5, 14, ph); scarico(c, 6, 7, 3.5, 14, ph + 1);
+      ugelloLat(c, 12, -7, 3.5, 6); ugelloLat(c, 12, 7, 3.5, 6);
+      function scafo() {
+        c.beginPath(); c.moveTo(12, -13); c.lineTo(36, -13);
+        c.quadraticCurveTo(48, -13, 48, -1); c.quadraticCurveTo(48, 13, 36, 13);
+        c.lineTo(12, 13); c.closePath();
+      }
+      // cupola della cabina, dietro lo scafo
+      c.beginPath(); c.moveTo(20, -12); c.quadraticCurveTo(21, -24, 30, -24); c.quadraticCurveTo(39, -24, 40, -12); c.closePath();
+      c.fillStyle = vetro(col, 'rmCup', 20, -24, 40, -12); c.fill();
+      c.strokeStyle = 'rgba(207,216,220,0.9)'; c.lineWidth = 1; c.stroke();
+      c.strokeStyle = 'rgba(207,216,220,0.6)'; c.lineWidth = 0.7;
+      c.beginPath(); c.moveTo(30, -24); c.lineTo(30, -13); c.stroke();
+      c.fillStyle = 'rgba(8,20,40,0.35)'; c.beginPath(); c.arc(31.5, -15, 3, Math.PI, TAU); c.fill();
+      c.fillStyle = 'rgba(255,255,255,0.6)'; c.beginPath(); c.ellipse(25, -20, 2.2, 1, -0.5, 0, TAU); c.fill();
+      scafo(); c.fillStyle = scafoTre(col, 'rmScafo', -13, 13); c.fill();
+      c.save(); scafo(); c.clip();
+      c.fillStyle = '#ffca28'; c.fillRect(43, -14, 6, 28);
+      c.fillStyle = '#263238';
+      for (var sy = -16; sy < 14; sy += 6) {
+        c.beginPath(); c.moveTo(43, sy); c.lineTo(49, sy + 3); c.lineTo(49, sy + 6); c.lineTo(43, sy + 3); c.closePath(); c.fill();
+      }
+      c.fillStyle = rgba(col.acc, 0.9); c.fillRect(12, 3, 31, 2.4);
+      c.fillStyle = 'rgba(0,0,0,0.2)'; c.fillRect(12, 9.5, 37, 4);
+      c.restore();
+      scafo(); bordo(c);
+      c.strokeStyle = 'rgba(0,0,0,0.25)'; c.lineWidth = 0.6;
+      c.beginPath(); c.moveTo(43, -11); c.lineTo(43, 11); c.stroke();
+      oblo(c, 18, -5, 1.7, true); oblo(c, 25, -5, 1.7, true);
+      rivetti(c, 15, 40, 8, 3.5);
+      c.fillStyle = '#455a64'; c.fillRect(15, -16, 4, 3);
+      luceNav(c, 17, -17, '#ffb300', lampeggio(ph, 1.4));
+      // braccio meccanico ripiegato sotto lo scafo
+      c.lineCap = 'round';
+      c.strokeStyle = '#90a4ae'; c.lineWidth = 2.2;
+      c.beginPath(); c.moveTo(24, 13); c.lineTo(32, 19); c.lineTo(42, 17); c.stroke();
+      c.strokeStyle = '#cfd8dc'; c.lineWidth = 1.2;
+      c.beginPath(); c.moveTo(42, 17); c.lineTo(46, 15); c.moveTo(42, 17); c.lineTo(46, 19.5); c.stroke();
+      c.fillStyle = '#607d8b';
+      c.beginPath(); c.arc(24, 13, 1.8, 0, TAU); c.fill();
+      c.beginPath(); c.arc(32, 19, 1.5, 0, TAU); c.fill();
+      luceNav(c, 12, -13.6, '#ff5252', lampeggio(ph + 2, 0.9));
+      luceNav(c, 12, 13.6, '#69f0ae', 1 - lampeggio(ph + 2, 0.9));
+    }
+
+    // Incrociatore: lungo, ponte di comando, fila di oblò, tre motori
+    function incrociatore(c, n) {
+      var col = n.col, ph = n.ph;
+      [-9, 0, 9].forEach(function (yy, i) { scarico(c, -86, yy, 3.6, 18, ph + i); ugelloLat(c, -78, yy, 3.6, 8); });
+      c.beginPath(); c.moveTo(-74, -12); c.lineTo(-84, -28); c.lineTo(-70, -28); c.lineTo(-52, -12); c.closePath();
+      c.fillStyle = col.dk; c.fill(); bordo(c, 0.9);
+      c.strokeStyle = rgba(col.c, 0.9); c.lineWidth = 1;
+      c.beginPath(); c.moveTo(-83, -27.4); c.lineTo(-70.5, -27.4); c.stroke();
+      c.fillStyle = col.acc; c.beginPath(); c.moveTo(-79, -24); c.lineTo(-70, -24); c.lineTo(-67, -21); c.lineTo(-77, -21); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(-74, 11); c.lineTo(-80, 22); c.lineTo(-68, 22); c.lineTo(-56, 11); c.closePath();
+      c.fillStyle = col.dk2; c.fill(); bordo(c, 0.9);
+      function scafo() {
+        c.beginPath(); c.moveTo(-78, -12); c.lineTo(58, -12);
+        c.bezierCurveTo(78, -12, 92, -5, 96, 0); c.bezierCurveTo(92, 6, 78, 11, 58, 11);
+        c.lineTo(-78, 11); c.closePath();
+      }
+      scafo(); c.fillStyle = scafoTre(col, 'icScafo', -12, 11); c.fill();
+      c.save(); scafo(); c.clip();
+      c.fillStyle = sfum(col, 'icOgiva', function () {
+        return lineare(0, -12, 0, 11, [[0, '#ffffff'], [0.3, col.acc], [0.72, col.acc], [0.73, tono(col.acc, -0.3)], [1, tono(col.acc, -0.3)]]);
+      });
+      c.fillRect(74, -13, 24, 26);
+      c.fillStyle = 'rgba(255,255,255,0.7)'; c.fillRect(73, -13, 1.1, 26);
+      c.strokeStyle = 'rgba(0,0,0,0.2)'; c.lineWidth = 0.6; c.beginPath();
+      for (var px = -60; px < 70; px += 18) { c.moveTo(px, -12); c.lineTo(px, 11); }
+      c.stroke();
+      c.fillStyle = col.dk2; c.fillRect(-78, 6.5, 152, 2.2);
+      c.fillStyle = 'rgba(255,255,255,0.25)'; c.fillRect(-78, -10.6, 152, 1);
+      c.restore();
+      scafo(); bordo(c);
+      for (var ox = -64; ox <= 62; ox += 7) oblo(c, ox, -3, 1.35, Math.round((ox + 64) / 7) % 5 !== 2);
+      rivetti(c, -72, 70, 9.4, 4);
+      c.beginPath(); c.moveTo(-40, -12); c.lineTo(-34, -18); c.lineTo(28, -18); c.lineTo(28, -12); c.closePath();
+      c.fillStyle = scafoTre(col, 'icSovr', -18, -12); c.fill(); bordo(c, 0.9);
+      c.fillStyle = 'rgba(255,224,140,0.9)';
+      for (var sx = -30; sx <= 20; sx += 5) c.fillRect(sx, -16.2, 2.6, 2);
+      c.beginPath(); c.moveTo(22, -12); c.lineTo(26, -28); c.lineTo(46, -28);
+      c.quadraticCurveTo(54, -28, 54, -20); c.lineTo(50, -12); c.closePath();
+      c.fillStyle = scafoTre(col, 'icPonte', -28, -12); c.fill(); bordo(c, 0.9);
+      c.beginPath(); c.moveTo(32, -25.5); c.lineTo(46, -25.5); c.quadraticCurveTo(51.5, -25.5, 52, -21); c.lineTo(31, -21); c.closePath();
+      c.fillStyle = vetro(col, 'icVetro', 31, -26, 52, -20); c.fill();
+      c.strokeStyle = 'rgba(207,216,220,0.9)'; c.lineWidth = 0.7; c.stroke();
+      c.strokeStyle = 'rgba(207,216,220,0.6)';
+      c.beginPath(); for (var wx = 37; wx < 50; wx += 4) { c.moveTo(wx, -25.5); c.lineTo(wx, -21); } c.stroke();
+      c.strokeStyle = 'rgba(200,210,225,0.85)'; c.lineWidth = 0.8; c.beginPath();
+      c.moveTo(30, -28); c.lineTo(30, -38); c.moveTo(27, -35); c.lineTo(33, -35);
+      c.moveTo(40, -28); c.lineTo(40, -33); c.stroke();
+      c.save(); c.translate(40, -34); c.scale(0.3 + 0.7 * Math.abs(Math.sin(T * 0.5 + ph)), 1);
+      c.fillStyle = '#cfd8dc'; c.beginPath(); c.ellipse(0, -1, 4.2, 2.4, 0, Math.PI, TAU); c.fill();
+      c.strokeStyle = INCHIOSTRO; c.lineWidth = 0.6; c.stroke();
+      c.restore();
+      luceNav(c, 30, -38.6, '#ff8a80', lampeggio(ph, 1));
+      luceNav(c, -84, -28.6, '#ff5252', lampeggio(ph + 2, 0.8));
+      luceNav(c, -80, 22.6, '#69f0ae', 1 - lampeggio(ph + 2, 0.8));
+      luceNav(c, 96, 0, '#ffffff', 0.85);
+    }
+
+    // Navetta passeggeri: corpo arrotondato, fila di finestrini, deriva e alette
+    function navetta(c, n) {
+      var col = n.col, ph = n.ph;
+      scarico(c, -44, 0, 5, 18, ph);
+      ugelloLat(c, -36, 0, 5, 8);
+      c.beginPath(); c.moveTo(-32, -11); c.lineTo(-38, -26); c.lineTo(-27, -26); c.lineTo(-16, -11); c.closePath();
+      c.fillStyle = sfum(col, 'nvDer', function () {
+        return lineare(-38, 0, -16, 0, [[0, col.dk], [0.5, col.dk], [0.5, col.dk2], [1, col.dk2]]);
+      });
+      c.fill(); bordo(c, 0.9);
+      c.fillStyle = col.acc;
+      c.beginPath(); c.moveTo(-36.6, -23); c.lineTo(-28, -23); c.lineTo(-26.4, -20); c.lineTo(-35.4, -20); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(-14, 8); c.lineTo(-26, 19); c.lineTo(-2, 19); c.lineTo(8, 8); c.closePath();
+      c.fillStyle = col.dk; c.fill(); bordo(c, 0.9);
+      c.strokeStyle = rgba(col.c, 0.9); c.lineWidth = 1;
+      c.beginPath(); c.moveTo(-25, 18.4); c.lineTo(-2.5, 18.4); c.stroke();
+      function corpoNv() {
+        c.beginPath(); c.moveTo(-30, -12); c.lineTo(24, -12);
+        c.bezierCurveTo(38, -12, 46, -4, 46, 2); c.bezierCurveTo(46, 9, 38, 13, 26, 13);
+        c.lineTo(-30, 13); c.quadraticCurveTo(-37, 13, -37, 0.5); c.quadraticCurveTo(-37, -12, -30, -12); c.closePath();
+      }
+      corpoNv(); c.fillStyle = scafoTre(col, 'nvCorpo', -12, 13); c.fill();
+      c.save(); corpoNv(); c.clip();
+      c.fillStyle = rgba(col.acc, 0.92); c.fillRect(-40, 3.5, 90, 3);
+      c.fillStyle = 'rgba(255,255,255,0.75)'; c.fillRect(-40, 7.2, 90, 0.9);
+      c.fillStyle = 'rgba(255,255,255,0.28)'; c.fillRect(-40, -10.5, 90, 1.2);
+      c.restore();
+      corpoNv(); bordo(c);
+      for (var wx = -18; wx <= 18; wx += 7) {
+        c.fillStyle = '#90a4ae'; c.beginPath(); c.ellipse(wx, -4, 2.6, 3.4, 0, 0, TAU); c.fill();
+        c.fillStyle = 'rgba(255,224,140,0.95)'; c.beginPath(); c.ellipse(wx, -4, 1.8, 2.6, 0, 0, TAU); c.fill();
+        c.fillStyle = 'rgba(255,255,255,0.55)'; c.beginPath(); c.ellipse(wx - 0.6, -5.2, 0.6, 0.9, 0, 0, TAU); c.fill();
+      }
+      c.strokeStyle = 'rgba(0,0,0,0.3)'; c.lineWidth = 0.7;
+      c.beginPath(); c.moveTo(-31, -9); c.lineTo(-31, 10); c.lineTo(-25, 10); c.lineTo(-25, -9); c.closePath(); c.stroke();
+      c.fillStyle = 'rgba(0,0,0,0.3)'; c.fillRect(-26.6, 0, 1, 2.4);
+      c.beginPath(); c.moveTo(28, -10); c.bezierCurveTo(37, -10, 42, -5, 43.5, -1); c.lineTo(28, -1); c.closePath();
+      c.fillStyle = vetro(col, 'nvVetro', 28, -10, 44, 0); c.fill();
+      c.strokeStyle = 'rgba(207,216,220,0.9)'; c.lineWidth = 0.8; c.stroke();
+      c.fillStyle = 'rgba(255,255,255,0.6)'; c.beginPath(); c.ellipse(32, -7.4, 2.2, 0.9, -0.3, 0, TAU); c.fill();
+      c.strokeStyle = '#90a4ae'; c.lineWidth = 1.2; c.beginPath();
+      c.moveTo(-18, 13); c.lineTo(-20, 17); c.moveTo(16, 13); c.lineTo(18, 17);
+      c.moveTo(-24, 17); c.lineTo(-15, 17); c.moveTo(13, 17); c.lineTo(22, 17); c.stroke();
+      rivetti(c, -18, 22, 10.6, 4);
+      luceNav(c, -38, -26.6, '#ff5252', lampeggio(ph, 1));
+      luceNav(c, 46, 2, '#ffffff', 0.85);
+      luceNav(c, -26, 19.6, '#69f0ae', 1 - lampeggio(ph, 1));
+    }
+    var NAVI_LAVORO = { cargo: cargo, rimorchiatore: rimorchiatore, incrociatore: incrociatore, navetta: navetta };
+
+    // Asteroide con base mineraria: 16 vertici, il dodicesimo è la cima
+    // piatta su cui poggia la base, cosi' nessun edificio resta sospeso.
+    function nuovoAsteroide() {
+      var v = [], j;
+      for (j = 0; j < 16; j++) v.push(rnd(0.78, 1.08));
+      v[11] = v[12] = v[13] = rnd(0.92, 0.98);
+      var cr = [];
+      for (j = 0; j < 6; j++) cr.push([rnd(-0.55, 0.5), rnd(-0.3, 0.55), rnd(0.08, 0.18)]);
+      return { v: v, cr: cr, ph: R() * TAU, rf: rnd(0.045, 0.07) };
+    }
+    function asteroide(c, a, x, y, r, rot, alpha) {
+      if (!(r > 0) || !(alpha > 0)) return;
+      c.save(); c.globalAlpha = alpha; c.translate(x, y); c.rotate(rot);
+      var N = a.v.length, j;
+      function contorno() {
+        c.beginPath();
+        for (var q = 0; q <= N; q++) {
+          var k2 = q % N, ang = k2 / N * TAU, rr = a.v[k2] * r;
+          var px = Math.cos(ang) * rr, py = Math.sin(ang) * rr * 0.86;
+          if (!q) { c.moveTo(px, py); continue; }
+          var k1 = (q - 1) % N, am = (q - 0.5) / N * TAU, rm = (a.v[k1] + a.v[k2]) / 2 * r * 1.03;
+          c.quadraticCurveTo(Math.cos(am) * rm, Math.sin(am) * rm * 0.86, px, py);
+        }
+        c.closePath();
+      }
+      contorno();
+      var g = c.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.1, 0, 0, r * 1.15);
+      g.addColorStop(0, '#a1887f'); g.addColorStop(0.55, '#6d5a52'); g.addColorStop(1, '#3e322d');
+      c.fillStyle = g; c.fill();
+      c.save(); contorno(); c.clip();
+      for (j = 0; j < a.cr.length; j++) {
+        var q2 = a.cr[j];
+        c.fillStyle = 'rgba(0,0,0,0.2)';
+        c.beginPath(); c.ellipse(q2[0] * r, q2[1] * r, q2[2] * r, q2[2] * r * 0.8, 0, 0, TAU); c.fill();
+        c.strokeStyle = 'rgba(255,255,255,0.14)'; c.lineWidth = Math.max(0.5, r * 0.015);
+        c.beginPath(); c.ellipse(q2[0] * r, q2[1] * r, q2[2] * r, q2[2] * r * 0.8, 0, Math.PI, TAU); c.stroke();
+      }
+      c.strokeStyle = 'rgba(0,0,0,0.12)'; c.lineWidth = Math.max(0.5, r * 0.012);
+      c.beginPath(); c.moveTo(-r * 0.7, r * 0.1); c.quadraticCurveTo(-r * 0.2, r * 0.25, r * 0.3, r * 0.05);
+      c.moveTo(-r * 0.4, r * 0.55); c.quadraticCurveTo(0, r * 0.45, r * 0.5, r * 0.6); c.stroke();
+      c.fillStyle = 'rgba(5,8,20,0.45)';
+      c.beginPath(); c.arc(r * 0.55, r * 0.45, r * 1.05, 0, TAU); c.fill();
+      c.restore();
+      contorno(); c.strokeStyle = INCHIOSTRO; c.lineWidth = Math.max(0.8, r * 0.02); c.stroke();
+
+      // base: unita' di disegno proporzionali al raggio, piano d'appoggio a y = 0
+      var sb = r / 50, cima = -a.v[12] * r * 0.86 + r * 0.03;
+      c.save(); c.translate(0, cima); c.scale(sb, sb);
+      c.fillStyle = '#546e7a'; c.beginPath(); c.ellipse(17, 0, 9, 2.4, 0, 0, TAU); c.fill(); bordo(c, 0.7);
+      c.strokeStyle = '#ffca28'; c.lineWidth = 0.8;
+      c.beginPath(); c.moveTo(14.5, 0); c.lineTo(19.5, 0); c.stroke();
+      luceNav(c, 8.5, -0.5, '#80cbc4', lampeggio(a.ph, 1.3));
+      luceNav(c, 25.5, -0.5, '#80cbc4', lampeggio(a.ph + 1.5, 1.3));
+      c.fillStyle = sfum(UGELLO_COL, 'astMod', function () {
+        return lineare(0, -8, 0, 0, [[0, '#eceff1'], [0.4, '#b0bec5'], [1, '#78909c']]);
+      });
+      c.fillRect(-25, -8, 11, 8);
+      c.strokeStyle = INCHIOSTRO; c.lineWidth = 0.7; c.strokeRect(-25, -8, 11, 8);
+      c.fillStyle = 'rgba(255,224,140,0.95)'; c.fillRect(-23, -5.6, 2, 2); c.fillRect(-19, -5.6, 2, 2);
+      c.strokeStyle = '#90a4ae'; c.lineWidth = 0.8;
+      c.beginPath(); c.moveTo(-21, -8); c.lineTo(-21, -15); c.stroke();
+      c.save(); c.translate(-21, -15.5); c.rotate(-0.5 + Math.sin(T * 0.3 + a.ph) * 0.3);
+      c.fillStyle = '#cfd8dc'; c.beginPath(); c.ellipse(0, 0, 3.4, 1.6, 0, Math.PI, TAU); c.fill();
+      c.strokeStyle = INCHIOSTRO; c.lineWidth = 0.5; c.stroke();
+      c.restore();
+      var gd = c.createRadialGradient(-7.5, -6.5, 1, -5, -2, 9);
+      gd.addColorStop(0, '#d6f7ff'); gd.addColorStop(0.6, '#4fa8d8'); gd.addColorStop(1, '#1f5f8f');
+      c.fillStyle = gd;
+      c.beginPath(); c.arc(-5, 0, 9, Math.PI, TAU); c.closePath(); c.fill();
+      c.strokeStyle = 'rgba(207,216,220,0.9)'; c.lineWidth = 0.9; c.stroke();
+      c.strokeStyle = 'rgba(207,216,220,0.5)'; c.lineWidth = 0.6;
+      c.beginPath(); c.arc(-5, 0, 9, Math.PI * 1.25, Math.PI * 1.75); c.moveTo(-5, -9); c.lineTo(-5, 0); c.stroke();
+      c.fillStyle = 'rgba(255,224,140,0.9)';
+      for (j = 0; j < 5; j++) { c.beginPath(); c.arc(-11 + j * 3, -1.6, 0.7, 0, TAU); c.fill(); }
+      c.fillStyle = 'rgba(255,255,255,0.6)'; c.beginPath(); c.ellipse(-8.5, -5.5, 2, 1, -0.6, 0, TAU); c.fill();
+      c.strokeStyle = '#b0bec5'; c.lineWidth = 0.9; c.beginPath();
+      c.moveTo(1, 0); c.lineTo(4, -24); c.lineTo(7, 0);
+      for (j = 0; j < 4; j++) { var y1 = -j * 6, y2 = -(j + 1) * 6; c.moveTo(1 + j * 0.75, y1); c.lineTo(7 - (j + 1) * 0.75, y2); }
+      c.stroke();
+      c.strokeStyle = '#78909c'; c.lineWidth = 1.4; c.beginPath(); c.moveTo(7, -2); c.lineTo(12, -2); c.stroke();
+      luceNav(c, 4, -25, '#ff5252', lampeggio(a.ph, 0.9));
+      c.restore();
+      c.restore();
+    }
+
+    // Stazione a fuso: corpo affusolato verticale, anello che ruota attorno
+    // al mozzo, pannelli alle estremita' e porti d'attracco alle punte
+    function stazioneFuso(c, x, y, k, rot, tilt, alpha) {
+      c.save();
+      c.globalAlpha = alpha;
+      c.translate(x, y); c.rotate(tilt * 0.5); c.scale(k, k);
+      var RX = 44, RY = 11;
+      function anelloMezzo(da, a) {
+        c.strokeStyle = '#78909c'; c.lineWidth = 6;
+        c.beginPath(); c.ellipse(0, 0, RX, RY, 0, da, a); c.stroke();
+        c.strokeStyle = '#cfd8dc'; c.lineWidth = 1.3;
+        c.beginPath(); c.ellipse(0, -1.6, RX, RY, 0, da, a); c.stroke();
+        c.strokeStyle = INCHIOSTRO; c.lineWidth = 0.7;
+        c.beginPath(); c.ellipse(0, 0, RX + 3, RY + 3, 0, da, a); c.stroke();
+        c.beginPath(); c.ellipse(0, 0, RX - 3, RY - 3, 0, da, a); c.stroke();
+      }
+      function raggiELuci(davanti) {
+        var i;
+        for (i = 0; i < 4; i++) {
+          var a = rot + i * Math.PI / 2, s = Math.sin(a);
+          if ((s > 0) !== davanti) continue;
+          c.strokeStyle = davanti ? '#90a4ae' : '#607d8b'; c.lineWidth = 1.6;
+          c.beginPath(); c.moveTo(Math.cos(a) * 12, s * 3); c.lineTo(Math.cos(a) * (RX - 3), s * (RY - 3)); c.stroke();
+        }
+        for (i = 0; i < 10; i++) {
+          var b = rot + i * TAU / 10, sb = Math.sin(b);
+          if ((sb > 0) !== davanti) continue;
+          luceNav(c, Math.cos(b) * RX, sb * RY, i % 2 ? '#80cbc4' : '#ffcc02',
+                  (davanti ? 0.9 : 0.35) * (0.6 + 0.4 * morbido(Math.sin(T * 1.1 + i), 0.2)));
+        }
+      }
+      anelloMezzo(Math.PI, TAU);
+      raggiELuci(false);
+      [-46, 46].forEach(function (py) {
+        c.strokeStyle = '#90a4ae'; c.lineWidth = 1.2;
+        c.beginPath(); c.moveTo(-40, py); c.lineTo(40, py); c.stroke();
+        pannelloSolare(c, -40, py - 5, 30, 10);
+        pannelloSolare(c, 10, py - 5, 30, 10);
+      });
+      function fuso() {
+        c.beginPath(); c.moveTo(0, -64);
+        c.bezierCurveTo(9, -40, 14, -14, 14, 0); c.bezierCurveTo(14, 14, 9, 40, 0, 64);
+        c.bezierCurveTo(-9, 40, -14, 14, -14, 0); c.bezierCurveTo(-14, -14, -9, -40, 0, -64);
+        c.closePath();
+      }
+      fuso();
+      c.fillStyle = sfum(UGELLO_COL, 'fusoCorpo', function () {
+        return lineare(-14, 0, 14, 0, [[0, '#ffffff'], [0.3, '#ffffff'], [0.31, '#cfd8dc'], [0.72, '#cfd8dc'], [0.73, '#90a4ae'], [1, '#90a4ae']]);
+      });
+      c.fill();
+      c.save(); fuso(); c.clip();
+      c.fillStyle = 'rgba(96,125,139,0.9)';
+      [-34, -18, 18, 34].forEach(function (by) { c.fillRect(-15, by - 1.2, 30, 2.4); });
+      c.fillStyle = '#5c6bc0'; c.fillRect(-15, -4, 30, 8);
+      c.fillStyle = 'rgba(255,255,255,0.3)'; c.fillRect(-15, -4, 30, 1);
+      c.fillStyle = 'rgba(255,224,130,0.9)';
+      for (var wy = -28; wy <= 28; wy += 7) {
+        if (Math.abs(wy) < 8) continue;
+        var hw = 12 * (1 - Math.abs(wy) / 64);
+        for (var wx = -hw + 2; wx < hw - 1; wx += 3.5) c.fillRect(wx, wy - 0.8, 1.6, 1.6);
+      }
+      c.strokeStyle = 'rgba(0,0,0,0.15)'; c.lineWidth = 0.6;
+      c.beginPath(); c.moveTo(0, -64); c.lineTo(0, 64); c.stroke();
+      c.restore();
+      fuso(); c.strokeStyle = INCHIOSTRO; c.lineWidth = 1; c.stroke();
+      c.fillStyle = '#455a64'; c.fillRect(-2.5, -68, 5, 5); c.fillRect(-2.5, 63, 5, 5);
+      c.strokeStyle = INCHIOSTRO; c.lineWidth = 0.6; c.strokeRect(-2.5, -68, 5, 5); c.strokeRect(-2.5, 63, 5, 5);
+      luceNav(c, 0, -69, '#ff8a80', morbido(Math.sin(T * 1.2), 0.3));
+      luceNav(c, 0, 69, '#80cbc4', morbido(Math.sin(T * 1.2 + 2), 0.3));
+      anelloMezzo(0, Math.PI);
+      raggiELuci(true);
+      c.restore();
+    }
+    var STAZIONI = { anello: stazione, modulare: stazioneModulare, fuso: stazioneFuso };
+
+    // Lune: orbitano piano, dietro al pianeta per meta' del giro
+    function lune(c, p, x, y, r, davanti) {
+      if (!p.lune || !p.lune.length) return;
+      var ci = Math.cos(p.incl), si = Math.sin(p.incl);
+      for (var j = 0; j < p.lune.length; j++) {
+        var l = p.lune[j], a = T * l.v + l.ph, s = Math.sin(a);
+        if ((s > 0) !== davanti) continue;
+        var ox = Math.cos(a) * l.d * r, oy = s * l.d * r * 0.3;
+        var mx = x + ox * ci - oy * si, my = y + ox * si + oy * ci, mr = l.r * r * (davanti ? 1.08 : 0.92);
+        var g = c.createRadialGradient(mx - mr * 0.4, my - mr * 0.4, mr * 0.1, mx, my, mr);
+        g.addColorStop(0, tono(l.col, 0.3)); g.addColorStop(1, tono(l.col, -0.45));
+        c.fillStyle = g; c.beginPath(); c.arc(mx, my, mr, 0, TAU); c.fill();
+        c.fillStyle = 'rgba(0,0,0,0.18)';
+        c.beginPath(); c.arc(mx + mr * 0.25, my - mr * 0.1, mr * 0.22, 0, TAU); c.fill();
+        c.beginPath(); c.arc(mx - mr * 0.3, my + mr * 0.3, mr * 0.14, 0, TAU); c.fill();
+        c.strokeStyle = INCHIOSTRO; c.lineWidth = 0.8;
+        c.beginPath(); c.arc(mx, my, mr, 0, TAU); c.stroke();
+      }
+    }
+
     function stellina(c, x, y, r, col, a) {
       c.strokeStyle = col + a + ')';
       c.lineWidth = Math.max(0.5, r * 0.45);
@@ -9423,7 +9953,7 @@ function ccDividendiCorrenti(tab) {
         }
         if (e.tipo === 'stazione') e.rot += dt * 0.25;
         if (e.t >= e.fine) {
-          if (e.tipo === 'pianeta') angoliLiberi.push(e.angolo);
+          if (e.tipo === 'pianeta' || e.tipo === 'asteroide') angoliLiberi.push(e.angolo);
           eventi.splice(j, 1);
         }
       }
@@ -9489,15 +10019,25 @@ function ccDividendiCorrenti(tab) {
         pianeta(c, p, px, py, p.rf * mn, al);
       });
 
+      // Asteroidi con base mineraria
+      eventi.forEach(function (e) {
+        if (e.tipo !== 'asteroide') return;
+        var u = e.t / e.dur, ast = e.ast;
+        var al = 0.85 * liscio(u / 0.15) * liscio((1 - u) / 0.15);
+        var ax = (e.da[0] + (e.a[0] - e.da[0]) * u) * W - par.x * 18;
+        var ay = (e.da[1] + (e.a[1] - e.da[1]) * u) * H - par.y * 12;
+        asteroide(c, ast, ax, ay, ast.rf * mn, Math.sin(T * 0.05 + ast.ph) * 0.22, al);
+      });
+
       // Stazioni
       stazioniFisse.forEach(function (s) {
-        (s.mod === 'modulare' ? stazioneModulare : stazione)(c, s.fx * W - par.x * 16, s.fy * H + Math.sin(T * 0.5 + s.ph) * 6 - par.y * 11,
+        (STAZIONI[s.mod] || stazione)(c, s.fx * W - par.x * 16, s.fy * H + Math.sin(T * 0.5 + s.ph) * 6 - par.y * 11,
                  s.k, s.rot, s.tilt, 0.9 * liscio((T - s.nasce) / 4));
       });
       eventi.forEach(function (e) {
         if (e.tipo !== 'stazione') return;
         var q = e.f(e.t / e.dur);
-        (e.mod === 'modulare' ? stazioneModulare : stazione)(c, q[0], q[1], e.k, e.rot, e.tilt, 0.9);
+        (STAZIONI[e.mod] || stazione)(c, q[0], q[1], e.k, e.rot, e.tilt, 0.9);
       });
 
       // Comete
@@ -9560,6 +10100,21 @@ function ccDividendiCorrenti(tab) {
         if (e.tipo !== 'disco') return;
         var q = e.f(e.t / e.dur);
         disco(c, q[0], q[1], e.k, 0.08 * Math.sin(T * 2.2) + 0.06 * e.dir);
+      });
+
+      // Navi da lavoro: passano lente, di profilo
+      eventi.forEach(function (e) {
+        if (e.tipo !== 'lavoro') return;
+        var u = e.t / e.dur, q = e.f(u), q2 = e.f(Math.min(1, u + 0.003));
+        var al = liscio(u / 0.05) * liscio((1 - u) / 0.05);
+        if (!(al > 0.01)) return;
+        c.save();
+        c.globalAlpha = al;
+        c.translate(q[0], q[1]);
+        c.rotate(clamp(Math.atan2(q2[1] - q[1], Math.abs(q2[0] - q[0]) || 1), -0.12, 0.12) * e.dir);
+        c.scale(e.k * e.dir, e.k);
+        NAVI_LAVORO[e.mod](c, e);
+        c.restore();
       });
 
       // Navicelle
