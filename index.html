@@ -1663,6 +1663,26 @@ body.sb-touch .sb-btn.sb-tip::after { opacity: 1 !important; visibility: visible
 
 /* theme-btn touch handled by same #sb-tooltip JS logic */
 
+/* ── VETRINA: in Home restano solo sfondo e logo ──
+   Gli elementi diventano invisibili ma tengono il loro spazio: cosi' OROS
+   resta esattamente dov'e'. ASSET MANAGEMENT si appoggia sotto senza
+   occupare spazio proprio. */
+#appHome .vt-sparisce { transition: opacity .6s ease, visibility .6s, color .2s !important; }
+#appHome.vetrina .vt-sparisce { opacity: 0; visibility: hidden; pointer-events: none; }
+#homeAM {
+  position: absolute; top: calc(100% + 12px); left: 0;
+  white-space: nowrap; line-height: 1; letter-spacing: 0;
+  font-family: 'Inter', sans-serif; font-weight: 600; font-size: clamp(12px, 2.2vw, 20px);
+  background: linear-gradient(135deg, #f0b429 0%, #ffd700 40%, #f0b429 60%, #c8860a 100%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity .9s ease .25s, visibility .9s;
+}
+#appHome.vetrina #homeAM { opacity: 1; visibility: visible; }
+#homeVetrinaBtn { transition: color .2s, opacity .8s ease !important; }
+#appHome.vt-quieto #homeVetrinaBtn { opacity: 0; }
+#appHome.vt-quieto, #appHome.vt-quieto * { cursor: none !important; }
+
 /* ── HOME PAGE: always fixed, full viewport, no body scroll ── */
 #pageHome {
   position: fixed;
@@ -3391,23 +3411,23 @@ input[type="date"]::-webkit-date-and-time-value {
   <div style="position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;"></div>
 
   <div style="position:relative;z-index:2;max-width:760px;">
-    <div style="font-size:11px;letter-spacing:6px;color:#787b86;text-transform:uppercase;margin-bottom:24px;font-family:'Inter',sans-serif;">
+    <div class="vt-sparisce" style="font-size:11px;letter-spacing:6px;color:#787b86;text-transform:uppercase;margin-bottom:24px;font-family:'Inter',sans-serif;">
       Options Analytics Platform
     </div>
 
-    <div style="font-size:clamp(80px,15vw,140px);font-weight:900;letter-spacing:12px;line-height:1;
+    <div id="homeLogo" style="position:relative;font-size:clamp(80px,15vw,140px);font-weight:900;letter-spacing:12px;line-height:1;
                 background:linear-gradient(135deg,#f0b429 0%,#ffd700 40%,#f0b429 60%,#c8860a 100%);
                 -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
                 filter:drop-shadow(0 0 40px rgba(240,180,41,0.3));
                 margin-bottom:32px;font-family:'Inter',sans-serif;">
-      OROS
+      <span id="homeLogoTxt">OROS</span><span id="homeAM" aria-hidden="true">ASSET MANAGEMENT</span>
     </div>
 
-    <div style="font-size:clamp(13px,2vw,16px);color:#d1d4dc;line-height:1.6;margin-bottom:48px;font-family:'Inter',sans-serif;font-weight:400;letter-spacing:0.3px;text-align:center;">
+    <div class="vt-sparisce" style="font-size:clamp(13px,2vw,16px);color:#d1d4dc;line-height:1.6;margin-bottom:48px;font-family:'Inter',sans-serif;font-weight:400;letter-spacing:0.3px;text-align:center;">
       Analisi integrata di <span style="color:#f0b429;font-weight:600;">opzioni</span>, <span style="color:#f0b429;font-weight:600;">titoli di stato</span> e <span style="color:#f0b429;font-weight:600;">struttura del mercato</span> su un'unica piattaforma privata.
     </div>
 
-    <div style="display:flex;justify-content:center;margin-top:8px;">
+    <div class="vt-sparisce" style="display:flex;justify-content:center;margin-top:8px;">
       <div class="home-nav-trigger" style="position:relative;display:inline-block;">
 
         <!-- Trigger symbol -->
@@ -3497,20 +3517,27 @@ input[type="date"]::-webkit-date-and-time-value {
   </div>
 
   <!-- Versione e sincronizzazione: stessa discrezione del logout -->
-  <button id="homeSyncBtn" onclick="orosSyncApri()"
+  <!-- Vetrina: lascia solo sfondo e logo, per uno schermo in riunione -->
+  <button id="homeVetrinaBtn" onclick="orosVetrina()"
+    style="position:fixed;top:16px;left:16px;background:none;border:none;cursor:pointer;font-size:18px;color:rgba(255,255,255,0.25);transition:color 0.2s;z-index:10;padding:6px;"
+    onmouseover="this.style.color='rgba(255,255,255,0.7)'"
+    onmouseout="this.style.color='rgba(255,255,255,0.25)'"
+    title="Modalità vetrina" aria-label="Modalità vetrina" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="display:block"><rect x="3" y="4" width="18" height="12" rx="1.8"/><path d="M8.5 20h7M12 16v4"/><path d="M10.6 8.2v3.6l3.1-1.8z" fill="currentColor"/></svg></button>
+
+  <button id="homeSyncBtn" class="vt-sparisce" onclick="orosSyncApri()"
     style="position:fixed;top:16px;right:16px;background:none;border:none;cursor:pointer;font-size:18px;color:rgba(255,255,255,0.25);transition:color 0.2s;z-index:10;padding:6px;"
     onmouseover="this.style.color='rgba(255,255,255,0.7)'"
     onmouseout="this.style.color=(window.__orosSyncKo?'rgba(239,83,80,0.75)':'rgba(255,255,255,0.25)')"
     title="Versione e sincronizzazione"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="display:block"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
 
   <!-- Logout nascosto in basso -->
-  <button onclick="orosConfirm('Vuoi uscire dalla sessione?', function(){sessionClear();location.reload();}, {okLabel:'\u238B Esci', danger:false})"
+  <button class="vt-sparisce" onclick="orosConfirm('Vuoi uscire dalla sessione?', function(){sessionClear();location.reload();}, {okLabel:'\u238B Esci', danger:false})"
     style="position:fixed;bottom:16px;right:16px;background:none;border:none;cursor:pointer;font-size:18px;color:rgba(239,83,80,0.25);transition:color 0.2s;z-index:10;padding:6px;"
     onmouseover="this.style.color='rgba(239,83,80,0.7)'"
     onmouseout="this.style.color='rgba(239,83,80,0.25)'"
     title="Esci">⎋</button>
 
-  <button id="homeThemeBtn" onclick="toggleTheme()"
+  <button id="homeThemeBtn" class="vt-sparisce" onclick="toggleTheme()"
     style="position:fixed;bottom:16px;left:16px;background:none;border:none;cursor:pointer;font-size:18px;color:rgba(255,255,255,0.25);transition:color 0.2s;z-index:10;padding:6px;"
     onmouseover="this.style.color='rgba(255,255,255,0.7)'"
     onmouseout="this.style.color='rgba(255,255,255,0.25)'"
@@ -6000,7 +6027,7 @@ function orosCfgModaleSync() {
 // Deve coincidere con CACHE_VERSION in sw.js: e' lo stesso deploy.
 // Se i due numeri divergono, l'indicatore non e' piu' in grado di
 // dire se un dispositivo ha il file aggiornato.
-var OROS_BUILD = '49';
+var OROS_BUILD = '52';
 
 function orosTsLabel(iso) {
   var d = new Date(iso);
@@ -6011,6 +6038,70 @@ function orosTsLabel(iso) {
 
 // Un errore di scrittura su Firestore finiva solo in console: da fuori il
 // difetto era indistinguibile da "il dato non e' cambiato". Qui diventa visibile.
+// ══ VETRINA ══
+// Un tocco sul bottone in alto a sinistra lascia solo sfondo e logo, con
+// ASSET MANAGEMENT sotto, largo quanto OROS. Un altro tocco, o Esc, torna
+// alla Home. Senza movimenti il bottone e il cursore spariscono dopo pochi
+// secondi, per lo schermo grande; muovendo il mouse o toccando ricompaiono.
+var VETRINA_QUIETE_MS = 3000;
+var _vetrinaTimer = null;
+function orosVetrinaAttiva() {
+  var h = document.getElementById('appHome');
+  return !!h && h.classList.contains('vetrina');
+}
+function orosVetrina(on) {
+  var h = document.getElementById('appHome');
+  if (!h) return;
+  var attiva = (on === undefined) ? !h.classList.contains('vetrina') : !!on;
+  h.classList.toggle('vetrina', attiva);
+  var b = document.getElementById('homeVetrinaBtn');
+  if (b) {
+    b.title = attiva ? 'Torna alla Home' : 'Modalità vetrina';
+    b.setAttribute('aria-label', b.title);
+    b.setAttribute('aria-pressed', attiva ? 'true' : 'false');
+  }
+  if (attiva) {
+    orosVetrinaMisura();
+    orosVetrinaSveglia();
+  } else {
+    clearTimeout(_vetrinaTimer);
+    h.classList.remove('vt-quieto');
+  }
+}
+function orosVetrinaSveglia() {
+  if (!orosVetrinaAttiva()) return;
+  var h = document.getElementById('appHome');
+  h.classList.remove('vt-quieto');
+  clearTimeout(_vetrinaTimer);
+  _vetrinaTimer = setTimeout(function () {
+    if (orosVetrinaAttiva()) h.classList.add('vt-quieto');
+  }, VETRINA_QUIETE_MS);
+}
+// ASSET MANAGEMENT largo esattamente quanto le lettere di OROS: si allarga
+// la spaziatura, non il carattere. La spaziatura di OROS dopo l'ultima S
+// non e' una lettera, quindi si toglie dalla misura.
+function orosVetrinaMisura() {
+  var logo = document.getElementById('homeLogo');
+  var txt = document.getElementById('homeLogoTxt');
+  var am = document.getElementById('homeAM');
+  if (!logo || !txt || !am) return;
+  var rl = logo.getBoundingClientRect(), rt = txt.getBoundingClientRect();
+  var ls = parseFloat(getComputedStyle(logo).letterSpacing) || 0;
+  var larga = rt.width - ls;
+  if (!(larga > 0)) return;
+  am.style.letterSpacing = '0px';
+  var w0 = am.getBoundingClientRect().width, n = am.textContent.length;
+  var L = n > 1 ? Math.max(0, (larga - w0) / (n - 1)) : 0;
+  am.style.letterSpacing = L + 'px';
+  am.style.left = (rt.left - rl.left) + 'px';
+}
+document.addEventListener('mousemove', orosVetrinaSveglia, { passive: true });
+document.addEventListener('touchstart', orosVetrinaSveglia, { passive: true });
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && orosVetrinaAttiva()) orosVetrina(false);
+});
+window.addEventListener('resize', function () { if (orosVetrinaAttiva()) orosVetrinaMisura(); });
+
 function orosSyncApri() {
   orosSyncStatoRender();
   var m = document.getElementById('orosSyncOverlay');
@@ -8565,200 +8656,963 @@ function ccDividendiCorrenti(tab) {
 
 <script>
 // ══ OROS SPACE ANIMATION ══
-(function() {
+// Sfondo animato di login e Home: lo stesso canvas copre entrambe.
+// Fondo, nebulose, stelle e bagliori sono quelli di sempre. A ogni apertura
+// si sceglie uno scenario a caso (quiete, flotta, pianeti, comete, avamposto)
+// e da li' gli eventi si alternano senza ripetersi a breve: passaggi con
+// scia di fuoco, looping, slalom, curve ampie, convogli, dischi volanti,
+// comete, stazioni orbitali e pianeti che entrano in scena.
+// Le navicelle ferme si scostano dal puntatore; un tocco manda un'onda.
+(function () {
   function initSpace() {
-    const canvas = document.getElementById('spaceCanvas');
+    var canvas = document.getElementById('spaceCanvas');
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    var ctx = canvas.getContext('2d');
     // Senza guardia il loop requestAnimationFrame solleverebbe un'eccezione
     // a ogni singolo frame per tutta la vita della pagina.
     if (!ctx) return;
-    let W, H, stars = [], shooters = [];
 
+    var TAU = Math.PI * 2;
+    var R = Math.random;
+    function rnd(a, b) { return a + R() * (b - a); }
+    function pick(a) { return a[Math.floor(R() * a.length)]; }
+    function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+    function liscio(u) { u = clamp(u, 0, 1); return u * u * (3 - 2 * u); }
+    // Ciclo di una stella: si accende piano, resta accesa, si spegne piano,
+    // resta spenta. Ogni fase sfuma nella successiva, senza scatti.
+    function respiro(t) {
+      var u = t - Math.floor(t);
+      if (u < 0.3) return liscio(u / 0.3);
+      if (u < 0.55) return 1;
+      if (u < 0.88) return 1 - liscio((u - 0.55) / 0.33);
+      return 0;
+    }
+    // Da un'onda a una luce che si accende e si spegne sfumando
+    function morbido(v, soglia) { return liscio((v - soglia + 0.3) / 0.6); }
+    function rgbDi(h) { var n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+    function rgba(h, a) { var c = rgbDi(h); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
+    function tono(h, k) {
+      var c = rgbDi(h), t = k > 0 ? 255 : 0, m = Math.abs(k);
+      return 'rgb(' + Math.round(c[0] + (t - c[0]) * m) + ',' + Math.round(c[1] + (t - c[1]) * m) + ',' +
+             Math.round(c[2] + (t - c[2]) * m) + ')';
+    }
+    function colori(h) {
+      var altri = COLORI.filter(function (x) { return x !== h; });
+      return { c: h, dk: tono(h, -0.32), dk2: tono(h, -0.58), lt: tono(h, 0.4), acc: pick(altri) };
+    }
+
+    var calmo = false;
+    try { calmo = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) {}
+
+    var _pageHome = document.getElementById('pageHome');
+
+    // ── Tela nitida sugli schermi retina; il fondo fisso si dipinge una volta
+    var W = 0, H = 0, DPR = 1, fondo = null;
+    function dipingiFondo(c) {
+      var bg = c.createRadialGradient(W * 0.5, H * 0.4, 0, W * 0.5, H * 0.4, Math.max(W, H) * 0.8);
+      bg.addColorStop(0, '#0d1424');
+      bg.addColorStop(0.4, '#090d18');
+      bg.addColorStop(1, '#050810');
+      c.fillStyle = bg;
+      c.fillRect(0, 0, W, H);
+      var neb = c.createRadialGradient(W * 0.2, H * 0.3, 0, W * 0.2, H * 0.3, W * 0.35);
+      neb.addColorStop(0, 'rgba(41,98,255,0.04)');
+      neb.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = neb;
+      c.fillRect(0, 0, W, H);
+      var neb2 = c.createRadialGradient(W * 0.8, H * 0.7, 0, W * 0.8, H * 0.7, W * 0.3);
+      neb2.addColorStop(0, 'rgba(206,147,216,0.04)');
+      neb2.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = neb2;
+      c.fillRect(0, 0, W, H);
+    }
     function resize() {
-      W = canvas.width  = window.innerWidth;
-      H = canvas.height = window.innerHeight;
+      W = Math.max(1, window.innerWidth || 1);
+      H = Math.max(1, window.innerHeight || 1);
+      DPR = Math.min(2, window.devicePixelRatio || 1);
+      canvas.width = Math.round(W * DPR);
+      canvas.height = Math.round(H * DPR);
+      fondo = null;
+      try {
+        var f = document.createElement('canvas');
+        f.width = canvas.width;
+        f.height = canvas.height;
+        var fc = f.getContext('2d');
+        if (fc) { fc.setTransform(DPR, 0, 0, DPR, 0, 0); dipingiFondo(fc); fondo = f; }
+      } catch (e) { fondo = null; }
     }
     resize();
     window.addEventListener('resize', resize);
 
-    // Generate stars
-    function makeStars() {
-      stars = [];
-      for (let i = 0; i < 280; i++) {
-        stars.push({
-          x: Math.random() * W,
-          y: Math.random() * H,
-          r: Math.random() * 1.5 + 0.2,
-          a: Math.random(),
-          speed: Math.random() * 0.008 + 0.003,
-          phase: Math.random() * Math.PI * 2
-        });
+    // ── Stelle: stesso colore e stesso scintillio, in tre profondità
+    var stelle = [];
+    for (var i = 0; i < 280; i++) {
+      stelle.push({ x: R(), y: R(), r: R() * 1.5 + 0.2, a: R(), per: rnd(5, 10), ph: R(),
+                    z: R(), oro: R() < 0.06, croce: R() < 0.05 });
+    }
+
+    // ── Scenari
+    var COLORI = ['#4fc3f7', '#ce93d8', '#80cbc4', '#ffcc02', '#f48fb1', '#9fa8da', '#ffab91'];
+    var TINTE_PIANETI = ['#7e57c2', '#26a69a', '#e0a63a', '#4fc3f7', '#ef8f86', '#5c6bc0', '#8d6e63'];
+    var POSTI = [[0.15, 0.35], [0.80, 0.55], [0.45, 0.78], [0.68, 0.2], [0.25, 0.65],
+                 [0.88, 0.26], [0.1, 0.84], [0.9, 0.84], [0.56, 0.1], [0.08, 0.14]];
+    var ANGOLI = [[0.93, 0.86], [0.07, 0.12], [0.92, 0.1], [0.08, 0.88], [0.96, 0.5], [0.04, 0.46]];
+    var SCENARI = [
+      { nome: 'quiete', navi: 3, pianeti: 1, stazione: false, ritmo: 1.35, cadenti: 1.2,
+        peso: { passaggio: 3, looping: 1, slalom: 2, arco: 2, convoglio: 0, disco: 1, cometa: 2, stazione: 1, pianeta: 1 } },
+      { nome: 'flotta', navi: 6, pianeti: 0, stazione: false, ritmo: 0.8, cadenti: 1,
+        peso: { passaggio: 3, looping: 3, slalom: 2, arco: 2, convoglio: 3, disco: 1, cometa: 1, stazione: 1, pianeta: 1 } },
+      { nome: 'pianeti', navi: 4, pianeti: 2, stazione: false, ritmo: 1.05, cadenti: 1,
+        peso: { passaggio: 2, looping: 1, slalom: 1, arco: 2, convoglio: 1, disco: 1, cometa: 1, stazione: 2, pianeta: 2 } },
+      { nome: 'comete', navi: 4, pianeti: 1, stazione: false, ritmo: 1, cadenti: 0.55,
+        peso: { passaggio: 2, looping: 1, slalom: 1, arco: 1, convoglio: 1, disco: 1, cometa: 4, stazione: 1, pianeta: 1 } },
+      { nome: 'avamposto', navi: 4, pianeti: 1, stazione: true, ritmo: 0.95, cadenti: 1,
+        peso: { passaggio: 2, looping: 2, slalom: 2, arco: 1, convoglio: 2, disco: 2, cometa: 1, stazione: 0, pianeta: 1 } }
+    ];
+    var scen = pick(SCENARI);
+    function mescola(a) { a = a.slice(); for (var j = a.length - 1; j > 0; j--) { var q = Math.floor(R() * (j + 1)), t = a[j]; a[j] = a[q]; a[q] = t; } return a; }
+    var angoliLiberi = mescola(ANGOLI);
+
+    // Navicelle che galleggiano
+    var posti = mescola(POSTI), navi = [];
+    for (i = 0; i < scen.navi; i++) {
+      navi.push({ bx: posti[i][0], by: posti[i][1], k: rnd(0.5, 1.15), col: colori(pick(COLORI)),
+                  sp: rnd(0.6, 1.2) * (calmo ? 0.4 : 1), ph: R() * TAU, amp: rnd(18, 46), giro: R() < 0.5 ? -1 : 1,
+                  z: rnd(0.5, 1), ox: 0, oy: 0, vx: 0, vy: 0, spinta: 0, sx: 0, sy: 0, ang: 0 });
+    }
+
+    // Pianeti di scena: compaiono piano nei primi secondi
+    function nuovoPianeta(posto) {
+      var tipo = pick(['anelli', 'gas', 'roccia', 'gas', 'anelli']);
+      var p = { fx: posto[0], fy: posto[1], rf: rnd(0.07, 0.14) * (tipo === 'roccia' ? 0.7 : 1), col: pick(TINTE_PIANETI),
+                tipo: tipo, incl: rnd(-0.45, 0.45), alpha: rnd(0.55, 0.8), z: rnd(0.3, 0.6), ph: R() * TAU,
+                bande: [rnd(-0.55, -0.25), rnd(-0.1, 0.15), rnd(0.3, 0.6)], crateri: [] };
+      for (var j = 0; j < 5; j++) p.crateri.push([rnd(-0.55, 0.45), rnd(-0.5, 0.45), rnd(0.08, 0.2)]);
+      return p;
+    }
+    var pianeti = [];
+    for (i = 0; i < scen.pianeti; i++) {
+      var pp = nuovoPianeta(angoliLiberi.shift());
+      pp.nasce = rnd(0.5, 3.5);
+      pianeti.push(pp);
+    }
+    var stazioniFisse = [];
+    if (scen.stazione) {
+      var sa = angoliLiberi.shift();
+      stazioniFisse.push({ fx: sa[0] < 0.5 ? 0.13 : 0.87, fy: sa[1] < 0.5 ? 0.17 : 0.83, k: rnd(0.75, 1), rot: 0,
+                           tilt: rnd(-0.3, 0.3), ph: R() * TAU, nasce: rnd(1, 3), mod: R() < 0.5 ? 'modulare' : 'anello' });
+    }
+
+    // ── Puntatore
+    var P = { x: -9999, y: -9999, on: false }, par = { x: 0, y: 0 };
+    var onde = [], polvere = [], scintille = [], cadenti = [], eventi = [];
+    var ultimaPolvere = { x: -9999, y: -9999 };
+    function visibile() { return !!_pageHome && _pageHome.style.display !== 'none'; }
+    function puntatore(x, y) {
+      P.on = true; P.x = x; P.y = y;
+      if (calmo || !visibile()) return;
+      if (Math.abs(x - ultimaPolvere.x) + Math.abs(y - ultimaPolvere.y) > 14 && polvere.length < 40) {
+        ultimaPolvere.x = x; ultimaPolvere.y = y;
+        polvere.push({ x: x, y: y, vx: rnd(-14, 14), vy: rnd(-20, 4), t: 0, dur: rnd(0.7, 1.1), r: rnd(1, 2.2), oro: R() < 0.3 });
       }
     }
-    makeStars();
+    window.addEventListener('mousemove', function (e) { puntatore(e.clientX, e.clientY); }, { passive: true });
+    window.addEventListener('mouseout', function (e) { if (!e.relatedTarget) P.on = false; }, { passive: true });
+    window.addEventListener('touchmove', function (e) {
+      if (e.touches && e.touches[0]) puntatore(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+    window.addEventListener('touchend', function () { P.on = false; }, { passive: true });
+    window.addEventListener('pointerdown', function (e) {
+      if (!visibile() || calmo) return;
+      onde.push({ x: e.clientX, y: e.clientY, t: 0 });
+      if (onde.length > 4) onde.shift();
+      navi.forEach(function (n) {
+        var dx = n.sx - e.clientX, dy = n.sy - e.clientY, d = Math.hypot(dx, dy) || 1;
+        if (d < 260) { var f = 380 * (1 - d / 260); n.vx += dx / d * f; n.vy += dy / d * f; }
+      });
+    }, { passive: true });
 
-    // Spaceship SVG paths (simple rocket shapes drawn on canvas)
-    const SHIPS = [
-      { x: 0.15, y: 0.35, scale: 0.9, speed: 0.0008, phase: 0,      amp: 35, color: '#4fc3f7' },
-      { x: 0.80, y: 0.55, scale: 1.2, speed: 0.0006, phase: 1.5,    amp: 50, color: '#ce93d8' },
-      { x: 0.45, y: 0.75, scale: 0.7, speed: 0.0010, phase: 0.8,    amp: 25, color: '#80cbc4' },
-      { x: 0.68, y: 0.20, scale: 0.6, speed: 0.0012, phase: 2.2,    amp: 20, color: '#ffcc02' },
-      { x: 0.25, y: 0.65, scale: 0.5, speed: 0.0009, phase: 3.1,    amp: 18, color: '#f48fb1' },
-    ];
-
-    function drawShip(ctx, x, y, scale, color, angle) {
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(angle);
-      ctx.scale(scale, scale);
-
-      // Engine glow
-      const grd = ctx.createRadialGradient(0, 18, 0, 0, 18, 22);
-      // I colori delle navicelle sono tutti esadecimali a 6 cifre: 'cc' è
-      // il canale alfa. La catena di replace precedente calcolava sempre
-      // questo stesso valore passando per tre sostituzioni a vuoto.
-      grd.addColorStop(0, color + 'cc');
-      grd.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = grd;
-      ctx.beginPath();
-      ctx.ellipse(0, 20, 12, 18, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Main body
-      ctx.fillStyle = color;
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 8;
-      ctx.beginPath();
-      ctx.moveTo(0, -24);
-      ctx.lineTo(10, 8);
-      ctx.lineTo(6, 14);
-      ctx.lineTo(-6, 14);
-      ctx.lineTo(-10, 8);
-      ctx.closePath();
-      ctx.fill();
-
-      // Cockpit
-      ctx.fillStyle = 'rgba(200,230,255,0.8)';
-      ctx.shadowBlur = 4;
-      ctx.beginPath();
-      ctx.ellipse(0, -8, 4, 6, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Wings
-      ctx.fillStyle = color + '99';
-      ctx.shadowBlur = 3;
-      ctx.beginPath();
-      ctx.moveTo(6, 4); ctx.lineTo(20, 14); ctx.lineTo(16, 14); ctx.lineTo(6, 8);
-      ctx.closePath(); ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(-6, 4); ctx.lineTo(-20, 14); ctx.lineTo(-16, 14); ctx.lineTo(-6, 8);
-      ctx.closePath(); ctx.fill();
-
-      // Exhaust flame
-      ctx.shadowBlur = 12;
-      const flame = ctx.createLinearGradient(0, 14, 0, 28);
-      flame.addColorStop(0, '#ffffff');
-      flame.addColorStop(0.3, '#f0b429');
-      flame.addColorStop(1, 'rgba(240,100,20,0)');
-      ctx.fillStyle = flame;
-      ctx.beginPath();
-      ctx.moveTo(-5, 14);
-      ctx.lineTo(5, 14);
-      ctx.quadraticCurveTo(3, 22, 0, 28 + Math.sin(Date.now()*0.015)*6);
-      ctx.quadraticCurveTo(-3, 22, -5, 14);
-      ctx.fill();
-
-      ctx.restore();
+    // ── Percorsi degli eventi (coordinate di schermo)
+    function quotaY() {
+      // tre volte su quattro fuori dalla fascia centrale, dove ci sono logo e campi
+      return R() < 0.75 ? (R() < 0.5 ? rnd(0.06, 0.32) : rnd(0.68, 0.94)) * H : rnd(0.1, 0.9) * H;
+    }
+    function lato() {
+      var ltr = R() < 0.5, y0 = quotaY(), y1 = clamp(y0 + rnd(-0.3, 0.3) * H, H * 0.05, H * 0.95);
+      return { x0: ltr ? -90 : W + 90, x1: ltr ? W + 90 : -90, y0: y0, y1: y1, dir: ltr ? 1 : -1 };
+    }
+    function dist(s) { return Math.hypot(s.x1 - s.x0, s.y1 - s.y0); }
+    var PERCORSI = {
+      passaggio: function () {
+        var s = lato(), arc = rnd(-0.14, 0.14) * H, v = rnd(230, 360), L = dist(s);
+        return { f: function (u) { return [s.x0 + (s.x1 - s.x0) * u, s.y0 + (s.y1 - s.y0) * u + Math.sin(Math.PI * u) * arc]; },
+                 dur: L / v, lung: L };
+      },
+      looping: function () {
+        var s = lato(), rl = rnd(0.07, 0.1) * Math.min(W, H), v = rnd(150, 210), L = dist(s) + TAU * rl;
+        return { f: function (u) {
+                   var q = liscio((u - 0.36) / 0.28) * TAU;
+                   return [s.x0 + (s.x1 - s.x0) * u + s.dir * rl * Math.sin(q), s.y0 + (s.y1 - s.y0) * u - rl * (1 - Math.cos(q))];
+                 }, dur: L / v, lung: L };
+      },
+      slalom: function () {
+        var s = lato(), a = rnd(0.05, 0.08) * H, n = rnd(2, 3.5), v = rnd(170, 240), L = dist(s) * 1.25;
+        return { f: function (u) { return [s.x0 + (s.x1 - s.x0) * u, s.y0 + (s.y1 - s.y0) * u + a * Math.sin(u * Math.PI * n * 2)]; },
+                 dur: L / v, lung: L };
+      },
+      arco: function () {
+        var ltr = R() < 0.5, p0 = [ltr ? -90 : W + 90, H * rnd(0.6, 0.98)], p2 = [ltr ? W + 90 : -90, H * rnd(0.02, 0.4)];
+        var p1 = [W * rnd(0.3, 0.7), H * rnd(0, 1)], v = rnd(200, 300), L = Math.hypot(p2[0] - p0[0], p2[1] - p0[1]) * 1.2;
+        return { f: function (u) {
+                   var a = (1 - u) * (1 - u), b = 2 * (1 - u) * u, c = u * u;
+                   return [a * p0[0] + b * p1[0] + c * p2[0], a * p0[1] + b * p1[1] + c * p2[1]];
+                 }, dur: L / v, lung: L };
+      }
+    };
+    function punto(f, u, lat) {
+      var a = f(u), b = f(u + 0.002), dx = b[0] - a[0], dy = b[1] - a[1], d = Math.hypot(dx, dy) || 1;
+      return { x: a[0] - dy / d * lat, y: a[1] + dx / d * lat, dx: dx / d, dy: dy / d };
     }
 
-    // Shooting stars
-    function makeShooter() {
-      return {
-        x: Math.random() * W * 0.6 + W * 0.4,
-        y: Math.random() * H * 0.4,
-        len: Math.random() * 120 + 60,
-        speed: Math.random() * 4 + 3,
-        a: 1,
-        active: true
-      };
+    // ── Programma degli eventi: pesati dallo scenario, mai lo stesso a ruota
+    var recenti = [], contatori = {};
+    function prossimoTipo() {
+      var cand = [], tot = 0;
+      Object.keys(scen.peso).forEach(function (k) {
+        var w = scen.peso[k];
+        if (!w || recenti.indexOf(k) >= 0) return;
+        if ((k === 'stazione' || k === 'pianeta') && eventi.some(function (e) { return e.tipo === k; })) return;
+        if (k === 'pianeta' && (pianeti.length >= 2 || !angoliLiberi.length)) return;
+        cand.push([k, w]); tot += w;
+      });
+      if (!cand.length) return 'passaggio';
+      var x = R() * tot;
+      for (var j = 0; j < cand.length; j++) { x -= cand[j][1]; if (x <= 0) return cand[j][0]; }
+      return cand[cand.length - 1][0];
+    }
+    var SCIA_N = 22;
+    function lancia(tipo) {
+      recenti.push(tipo);
+      if (recenti.length > 2) recenti.shift();
+      contatori[tipo] = (contatori[tipo] || 0) + 1;
+      var e = { tipo: tipo, t: 0 };
+      if (PERCORSI[tipo] || tipo === 'convoglio') {
+        var p = PERCORSI[tipo === 'convoglio' ? 'passaggio' : tipo]();
+        var k = rnd(0.42, 0.78), col = colori(pick(COLORI));
+        e.f = p.f; e.dur = p.dur * (tipo === 'convoglio' ? 1.5 : 1); e.passo = 5 / Math.max(200, p.lung);
+        e.navi = tipo === 'convoglio'
+          ? [{ k: k, col: col, rit: 0, lat: 0, ph: R() * TAU },
+             { k: k * 0.82, col: colori(pick(COLORI)), rit: 0.035, lat: -32 * k, ph: R() * TAU },
+             { k: k * 0.82, col: colori(pick(COLORI)), rit: 0.035, lat: 32 * k, ph: R() * TAU }]
+          : [{ k: k, col: col, rit: 0, lat: 0, ph: R() * TAU }];
+        e.fine = e.dur * (1.04 + SCIA_N * e.passo) + 0.3;
+        e.mod = R() < 0.35 ? 'caccia' : 'razzo';
+        contatori[e.mod] = (contatori[e.mod] || 0) + 1;
+      } else if (tipo === 'disco') {
+        var s = lato(), y0 = s.y0;
+        e.f = function (u) { return [s.x0 + (s.x1 - s.x0) * (u + 0.05 * Math.sin(u * TAU * 2)), y0 + 14 * Math.sin(u * TAU * 3)]; };
+        e.dur = e.fine = rnd(16, 22); e.k = rnd(0.55, 0.85); e.dir = s.dir;
+      } else if (tipo === 'cometa') {
+        var ltr = R() < 0.5, x0 = ltr ? W * rnd(-0.1, 0.45) : W * rnd(0.55, 1.1);
+        var x1 = x0 + (ltr ? 1 : -1) * W * rnd(0.5, 0.9), cv = rnd(-60, 60), L = Math.hypot(x1 - x0, H + 220);
+        e.f = function (u) { return [x0 + (x1 - x0) * u + Math.sin(Math.PI * u) * cv, -60 + (H + 220) * u]; };
+        e.dur = L / rnd(110, 170); e.fine = e.dur * 1.12; e.k = rnd(0.7, 1.15); e.coda = 140 / L;
+      } else if (tipo === 'stazione') {
+        var l2r = R() < 0.5, sy = R() < 0.5 ? rnd(0.08, 0.2) : rnd(0.8, 0.92);
+        e.f = function (u) { return [(l2r ? -0.12 + 1.24 * u : 1.12 - 1.24 * u) * W, sy * H + Math.sin(u * TAU) * 10]; };
+        e.dur = e.fine = rnd(55, 75); e.k = rnd(0.6, 0.9); e.tilt = rnd(-0.3, 0.3); e.rot = 0;
+        e.mod = R() < 0.5 ? 'modulare' : 'anello';
+        contatori[e.mod] = (contatori[e.mod] || 0) + 1;
+      } else if (tipo === 'pianeta') {
+        var pa = angoliLiberi.shift() || [0.93, 0.86];
+        e.pian = nuovoPianeta(pa); e.angolo = pa;
+        e.da = [pa[0] + (pa[0] > 0.5 ? 0.04 : -0.04), pa[1]]; e.a = [pa[0] - (pa[0] > 0.5 ? 0.04 : -0.04), pa[1] + rnd(-0.03, 0.03)];
+        e.dur = e.fine = rnd(60, 80);
+      }
+      eventi.push(e);
+    }
+    var prossimo = calmo ? Infinity : rnd(2.5, 4.5);
+    var prossimaCadente = calmo ? Infinity : 3;
+
+    // ── Disegno
+    function corpo(c) {
+      c.beginPath();
+      c.moveTo(0, -28);
+      c.bezierCurveTo(9, -22, 12, -6, 10, 8);
+      c.quadraticCurveTo(9, 13, 6, 14);
+      c.lineTo(-6, 14);
+      c.quadraticCurveTo(-9, 13, -10, 8);
+      c.bezierCurveTo(-12, -6, -9, -22, 0, -28);
+      c.closePath();
+    }
+    function fiamma(c, w, len, col) {
+      c.fillStyle = col;
+      c.beginPath();
+      c.moveTo(-w, 14);
+      c.quadraticCurveTo(-w * 0.9, 14 + len * 0.55, 0, 14 + len);
+      c.quadraticCurveTo(w * 0.9, 14 + len * 0.55, w, 14);
+      c.closePath();
+      c.fill();
+    }
+    // Le sfumature si definiscono una volta nelle coordinate della navicella
+    // e si riusano a ogni fotogramma: la trasformazione le porta al posto giusto.
+    function sfum(col, chiave, crea) { if (!col[chiave]) col[chiave] = crea(); return col[chiave]; }
+    function lineare(x0, y0, x1, y1, stop) {
+      var g = ctx.createLinearGradient(x0, y0, x1, y1);
+      for (var j = 0; j < stop.length; j++) g.addColorStop(stop[j][0], stop[j][1]);
+      return g;
+    }
+    var INCHIOSTRO = 'rgba(6,10,24,0.55)';
+    function luceNav(c, x, y, colore, accesa) {
+      var lu = accesa === true ? 1 : (accesa === false ? 0 : accesa);
+      if (!(lu > 0.01)) return;
+      var ga = c.globalAlpha >= 0 ? c.globalAlpha : 1;
+      c.globalAlpha = ga * lu;
+      c.shadowColor = colore; c.shadowBlur = 6; c.fillStyle = colore;
+      c.beginPath(); c.arc(x, y, 1.15, 0, TAU); c.fill();
+      c.shadowBlur = 0;
+      c.globalAlpha = ga;
+    }
+    function ugello(c, x, y, w, h) {
+      c.fillStyle = sfum(UGELLO_COL, 'g' + w, function () {
+        return lineare(-w, 0, w, 0, [[0, '#cfd8dc'], [0.45, '#90a4ae'], [0.46, '#607d8b'], [1, '#37474f']]);
+      });
+      c.save(); c.translate(x, y);
+      c.beginPath(); c.moveTo(-w, 0); c.lineTo(w, 0); c.lineTo(w * 0.74, h); c.lineTo(-w * 0.74, h); c.closePath(); c.fill();
+      c.strokeStyle = INCHIOSTRO; c.lineWidth = 0.8; c.stroke();
+      c.strokeStyle = 'rgba(255,255,255,0.35)'; c.lineWidth = 0.6;
+      c.beginPath(); c.moveTo(-w * 0.92, h * 0.35); c.lineTo(w * 0.92, h * 0.35); c.stroke();
+      c.fillStyle = 'rgba(255,170,60,0.85)';
+      c.beginPath(); c.ellipse(0, h, w * 0.62, 1.2, 0, 0, TAU); c.fill();
+      c.restore();
+    }
+    var UGELLO_COL = {};
+    // Fiamma realistica in stile cartone: nucleo azzurro alla base, poi bianco,
+    // oro e arancio, ciascuno con un suo tremolio.
+    function getto(c, x, y, w, L, ph) {
+      c.save(); c.translate(x, y - 14);
+      var a = Math.sin(T * 27 + ph * 9) * 0.5 + 0.5, b = Math.sin(T * 19 + ph * 5) * 0.5 + 0.5;
+      c.shadowColor = '#ff6b00'; c.shadowBlur = 14;
+      fiamma(c, w, L * (0.92 + 0.12 * a), 'rgba(255,107,0,0.6)');
+      fiamma(c, w * 0.66, L * (0.68 + 0.1 * b), 'rgba(255,215,0,0.9)');
+      c.shadowBlur = 0;
+      fiamma(c, w * 0.34, L * (0.38 + 0.08 * a), '#ffffff');
+      fiamma(c, w * 0.22, L * 0.16, 'rgba(150,210,255,0.95)');
+      c.restore();
+    }
+    function nave(c, x, y, k, ang, col, spinta, ph) {
+      c.save();
+      c.translate(x, y);
+      c.rotate(ang);
+      c.scale(k, k);
+      var fl = 1 + spinta * 0.9;
+      // bagliore del motore
+      var g = c.createRadialGradient(0, 22, 0, 0, 22, 22 * fl);
+      g.addColorStop(0, rgba(col.c, 0.5));
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = g;
+      c.beginPath(); c.ellipse(0, 24, 14, 22 * fl, 0, 0, TAU); c.fill();
+      getto(c, 0, 17, 6.6, (16 + Math.sin(T * 24 + ph * 9) * 3) * fl, ph);
+      ugello(c, 0, 12, 6.6, 5.6);
+      // alette: chiaroscuro netto, filo di luce sul bordo d'attacco, luci di via
+      c.fillStyle = sfum(col, 'gAla', function () {
+        return lineare(-22, 0, 22, 0, [[0, col.dk], [0.5, col.dk], [0.5, col.dk2], [1, col.dk2]]);
+      });
+      for (var s = -1; s <= 1; s += 2) {
+        c.beginPath();
+        c.moveTo(9 * s, -1);
+        c.quadraticCurveTo(22 * s, 5, 21 * s, 18);
+        c.lineTo(14 * s, 15.5);
+        c.quadraticCurveTo(11 * s, 10, 8 * s, 9.5);
+        c.closePath();
+        c.fill();
+        c.strokeStyle = INCHIOSTRO; c.lineWidth = 0.9; c.stroke();
+        c.strokeStyle = rgba(col.c, 0.9); c.lineWidth = 1.1;
+        c.beginPath(); c.moveTo(9.6 * s, 0.2); c.quadraticCurveTo(21 * s, 5.8, 20.6 * s, 16.5); c.stroke();
+        c.fillStyle = col.acc;
+        c.beginPath(); c.moveTo(14 * s, 6); c.lineTo(17.2 * s, 10.5); c.lineTo(15.8 * s, 11.6); c.lineTo(12.8 * s, 7.4); c.closePath(); c.fill();
+        c.fillStyle = sfum(col, 'gAla', function () { return col.dk; });
+      }
+      var lampo = morbido(Math.sin(T * 1.6 + ph * 3), 0);
+      luceNav(c, -20.6, 17.6, '#ff5252', lampo);
+      luceNav(c, 20.6, 17.6, '#69f0ae', 1 - lampo);
+      // scafo con tre toni di colore
+      c.shadowColor = col.c; c.shadowBlur = 8;
+      corpo(c);
+      c.fillStyle = sfum(col, 'gCorpo', function () {
+        return lineare(-12, 0, 12, 0, [[0, col.lt], [0.26, col.lt], [0.27, col.c], [0.7, col.c], [0.71, col.dk], [1, col.dk]]);
+      });
+      c.fill();
+      c.shadowBlur = 0;
+      c.save();
+      corpo(c); c.clip();
+      // ogiva nel colore d'accento, con anello cromato
+      c.fillStyle = sfum(col, 'gOgiva', function () {
+        return lineare(-12, 0, 12, 0, [[0, '#ffffff'], [0.27, col.acc], [0.7, col.acc], [0.71, tono(col.acc, -0.3)], [1, tono(col.acc, -0.3)]]);
+      });
+      c.fillRect(-13, -30, 26, 11);
+      c.fillStyle = 'rgba(255,255,255,0.75)'; c.fillRect(-13, -19.8, 26, 1.1);
+      c.fillStyle = 'rgba(0,0,0,0.25)'; c.fillRect(-13, -18.7, 26, 0.7);
+      // banda in vita e fascia d'accento verticale
+      c.fillStyle = col.dk2; c.fillRect(-13, 6, 26, 3.4);
+      c.fillStyle = 'rgba(255,255,255,0.28)'; c.fillRect(-13, 6, 26, 0.7);
+      c.fillStyle = rgba(col.acc, 0.85); c.fillRect(-1.3, -17, 2.6, 23);
+      // pannellature, portello e rivetti
+      c.strokeStyle = 'rgba(0,0,0,0.2)'; c.lineWidth = 0.7;
+      c.beginPath();
+      c.moveTo(-10, 1); c.quadraticCurveTo(0, 3, 10, 1);
+      c.moveTo(-9.5, -12.5); c.quadraticCurveTo(0, -11, 9.5, -12.5);
+      c.moveTo(-6.2, -12); c.lineTo(-6.4, 6); c.moveTo(6.2, -12); c.lineTo(6.4, 6);
+      c.stroke();
+      c.strokeStyle = 'rgba(0,0,0,0.3)'; c.lineWidth = 0.6;
+      c.strokeRect(3.4, -9.5, 2.6, 4.2);
+      c.fillStyle = 'rgba(255,255,255,0.4)'; c.fillRect(3.6, -9.3, 2.2, 0.6);
+      c.fillStyle = 'rgba(0,0,0,0.28)';
+      for (var rv = -6; rv <= 6; rv += 3) { c.beginPath(); c.arc(rv, 11, 0.55, 0, TAU); c.fill(); }
+      for (rv = -8; rv <= 8; rv += 16) { c.beginPath(); c.arc(rv, -3, 0.5, 0, TAU); c.arc(rv, 3.6, 0.5, 0, TAU); c.fill(); }
+      // riflesso speculare lungo il fianco illuminato
+      c.fillStyle = 'rgba(255,255,255,0.32)';
+      c.beginPath(); c.ellipse(-6.2, -4, 1.5, 12.5, 0.06, 0, TAU); c.fill();
+      c.strokeStyle = 'rgba(255,255,255,0.45)'; c.lineWidth = 1.2;
+      c.beginPath(); c.moveTo(-10, 8); c.bezierCurveTo(-12, -6, -9, -22, 0, -28); c.stroke();
+      c.restore();
+      // contorno a inchiostro, come nei cartoni
+      corpo(c); c.strokeStyle = INCHIOSTRO; c.lineWidth = 1; c.stroke();
+      // oblò con cornice cromata, vetro, riflessi e la sagoma del pilota
+      c.fillStyle = sfum(col, 'gCornice', function () {
+        return lineare(-6, -14, 6, -2, [[0, '#eceff1'], [0.5, '#90a4ae'], [1, '#455a64']]);
+      });
+      c.beginPath(); c.arc(0, -8, 6, 0, TAU); c.fill();
+      c.strokeStyle = INCHIOSTRO; c.lineWidth = 0.8; c.stroke();
+      c.fillStyle = sfum(col, 'gVetro', function () {
+        var v = ctx.createRadialGradient(-1.5, -9.5, 0.5, 0, -8, 4.5);
+        v.addColorStop(0, '#d6f7ff'); v.addColorStop(0.6, '#4fa8d8'); v.addColorStop(1, '#1f5f8f');
+        return v;
+      });
+      c.beginPath(); c.arc(0, -8, 4.5, 0, TAU); c.fill();
+      c.fillStyle = 'rgba(8,20,40,0.38)';
+      c.beginPath(); c.arc(0.4, -6, 2.3, Math.PI, TAU); c.fill();
+      c.fillRect(-2.2, -6, 5.2, 2.4);
+      c.fillStyle = 'rgba(255,255,255,0.8)';
+      c.beginPath(); c.ellipse(-1.8, -10, 1.7, 1.1, -0.5, 0, TAU); c.fill();
+      c.fillStyle = 'rgba(255,255,255,0.45)';
+      c.beginPath(); c.arc(2, -6.2, 0.6, 0, TAU); c.fill();
+      // antenna con luce in cima
+      c.strokeStyle = 'rgba(200,210,225,0.8)'; c.lineWidth = 0.7;
+      c.beginPath(); c.moveTo(0, -28); c.lineTo(0, -32); c.stroke();
+      luceNav(c, 0, -32.6, '#ff8a80', morbido(Math.sin(T * 1.8 + ph * 5), 0.4));
+      c.restore();
+    }
+    // Caccia ad ala a delta, doppio motore: compare solo negli eventi
+    function caccia(c, x, y, k, ang, col, spinta, ph) {
+      c.save();
+      c.translate(x, y); c.rotate(ang); c.scale(k, k);
+      var fl = 1 + spinta * 0.9;
+      var g = c.createRadialGradient(0, 22, 0, 0, 22, 20 * fl);
+      g.addColorStop(0, rgba(col.c, 0.45));
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = g;
+      c.beginPath(); c.ellipse(0, 24, 13, 20 * fl, 0, 0, TAU); c.fill();
+      for (var s = -1; s <= 1; s += 2) getto(c, 4.2 * s, 19, 3.4, 12 * fl, ph + s);
+      for (s = -1; s <= 1; s += 2) ugello(c, 4.2 * s, 14.5, 3.4, 4);
+      // ali a delta
+      c.fillStyle = sfum(col, 'gAlaC', function () {
+        return lineare(-24, 0, 24, 0, [[0, col.dk], [0.5, col.dk], [0.5, col.dk2], [1, col.dk2]]);
+      });
+      for (s = -1; s <= 1; s += 2) {
+        c.beginPath();
+        c.moveTo(4.5 * s, -8); c.lineTo(25 * s, 12); c.lineTo(23 * s, 16); c.lineTo(6 * s, 12.5); c.closePath();
+        c.fill();
+        c.strokeStyle = INCHIOSTRO; c.lineWidth = 0.9; c.stroke();
+        c.strokeStyle = rgba(col.c, 0.95); c.lineWidth = 1.1;
+        c.beginPath(); c.moveTo(5 * s, -7); c.lineTo(24.4 * s, 12.2); c.stroke();
+        c.fillStyle = col.acc;
+        c.beginPath(); c.moveTo(14 * s, 4.6); c.lineTo(20.5 * s, 11); c.lineTo(18.5 * s, 12.2); c.lineTo(12.5 * s, 6.4); c.closePath(); c.fill();
+        c.fillStyle = sfum(col, 'gAlaC', function () { return col.dk; });
+      }
+      var lampo = morbido(Math.sin(T * 1.6 + ph * 3), 0);
+      luceNav(c, -24, 14.6, '#ff5252', lampo);
+      luceNav(c, 24, 14.6, '#69f0ae', 1 - lampo);
+      // fusoliera
+      c.shadowColor = col.c; c.shadowBlur = 8;
+      c.beginPath();
+      c.moveTo(0, -31);
+      c.bezierCurveTo(5, -24, 6.5, -8, 7, 6);
+      c.lineTo(7.4, 15); c.lineTo(-7.4, 15); c.lineTo(-7, 6);
+      c.bezierCurveTo(-6.5, -8, -5, -24, 0, -31);
+      c.closePath();
+      c.fillStyle = sfum(col, 'gFus', function () {
+        return lineare(-8, 0, 8, 0, [[0, col.lt], [0.28, col.lt], [0.29, col.c], [0.7, col.c], [0.71, col.dk], [1, col.dk]]);
+      });
+      c.fill();
+      c.shadowBlur = 0;
+      c.strokeStyle = INCHIOSTRO; c.lineWidth = 1; c.stroke();
+      c.fillStyle = rgba(col.acc, 0.9); c.fillRect(-0.9, -2, 1.8, 15);
+      c.strokeStyle = 'rgba(0,0,0,0.2)'; c.lineWidth = 0.6;
+      c.beginPath(); c.moveTo(-6.6, 4); c.lineTo(6.6, 4); c.moveTo(-5.4, -18); c.lineTo(5.4, -18); c.stroke();
+      // cupola allungata
+      c.fillStyle = sfum(col, 'gCup', function () {
+        return lineare(-3, -20, 3, -5, [[0, '#d6f7ff'], [0.55, '#4fa8d8'], [1, '#1f5f8f']]);
+      });
+      c.beginPath(); c.ellipse(0, -12, 3.2, 7.5, 0, 0, TAU); c.fill();
+      c.strokeStyle = 'rgba(207,216,220,0.9)'; c.lineWidth = 0.8; c.stroke();
+      c.fillStyle = 'rgba(255,255,255,0.75)';
+      c.beginPath(); c.ellipse(-1.2, -15, 0.9, 2.4, 0.2, 0, TAU); c.fill();
+      luceNav(c, 0, -31.8, '#ff8a80', morbido(Math.sin(T * 1.8 + ph * 5), 0.4));
+      c.restore();
+    }
+    function disco(c, x, y, k, ang) {
+      c.save();
+      c.translate(x, y); c.rotate(ang); c.scale(k, k);
+      var g = c.createRadialGradient(0, 10, 0, 0, 10, 30);
+      g.addColorStop(0, 'rgba(128,203,196,0.35)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = g;
+      c.beginPath(); c.ellipse(0, 12, 30, 16, 0, 0, TAU); c.fill();
+      var dg = c.createLinearGradient(0, -14, 0, 0);
+      dg.addColorStop(0, 'rgba(200,244,255,0.95)');
+      dg.addColorStop(1, 'rgba(79,195,247,0.55)');
+      c.fillStyle = dg;
+      c.beginPath(); c.ellipse(0, -2, 11, 12, 0, Math.PI, TAU); c.fill();
+      c.fillStyle = 'rgba(255,255,255,0.7)';
+      c.beginPath(); c.ellipse(-4, -9, 2.6, 1.6, -0.4, 0, TAU); c.fill();
+      c.shadowColor = '#9fa8da'; c.shadowBlur = 8;
+      var bg = c.createLinearGradient(0, -5, 0, 7);
+      bg.addColorStop(0, '#dfe5f5');
+      bg.addColorStop(1, '#7783b3');
+      c.fillStyle = bg;
+      c.beginPath(); c.ellipse(0, 0, 27, 7.5, 0, 0, TAU); c.fill();
+      c.shadowBlur = 0;
+      c.fillStyle = '#5c6798';
+      c.beginPath(); c.ellipse(0, 2.5, 27, 3.2, 0, 0, Math.PI); c.fill();
+      var LUCI = ['#ffcc02', '#80cbc4', '#f48fb1'], ga = c.globalAlpha >= 0 ? c.globalAlpha : 1;
+      for (var j = 0; j < 7; j++) {
+        var a = Math.PI * (0.12 + j * 0.127);
+        c.globalAlpha = ga * (0.35 + 0.65 * (0.5 + 0.5 * Math.sin(T * 1.6 - j * 0.9)));
+        c.fillStyle = LUCI[j % 3];
+        c.beginPath(); c.arc(Math.cos(a) * 22, Math.sin(a) * 4.2 + 1, 1.3, 0, TAU); c.fill();
+      }
+      c.globalAlpha = ga;
+      c.restore();
+    }
+    function stazione(c, x, y, k, rot, tilt, alpha) {
+      c.save();
+      c.globalAlpha = alpha;
+      c.translate(x, y); c.rotate(tilt); c.scale(k, k);
+      for (var s = -1; s <= 1; s += 2) {
+        var x0 = s > 0 ? 31 : -59;
+        c.strokeStyle = '#90a4ae'; c.lineWidth = 2;
+        c.beginPath(); c.moveTo(10 * s, 0); c.lineTo(31 * s, 0); c.stroke();
+        c.fillStyle = '#26357a'; c.fillRect(x0, -10, 28, 20);
+        c.strokeStyle = 'rgba(121,134,203,0.85)'; c.lineWidth = 0.8;
+        c.beginPath();
+        for (var q = 1; q < 4; q++) { c.moveTo(x0 + q * 7, -10); c.lineTo(x0 + q * 7, 10); }
+        c.moveTo(x0, 0); c.lineTo(x0 + 28, 0);
+        c.stroke();
+        c.strokeStyle = 'rgba(200,210,240,0.45)'; c.strokeRect(x0, -10, 28, 20);
+      }
+      c.save();
+      c.rotate(rot);
+      c.strokeStyle = '#78909c'; c.lineWidth = 2;
+      c.beginPath();
+      for (var sp = 0; sp < 4; sp++) {
+        var a = sp * Math.PI / 2;
+        c.moveTo(Math.cos(a) * 9, Math.sin(a) * 9); c.lineTo(Math.cos(a) * 24, Math.sin(a) * 24);
+      }
+      c.stroke();
+      c.shadowColor = 'rgba(144,164,174,0.6)'; c.shadowBlur = 6;
+      c.strokeStyle = '#90a4ae'; c.lineWidth = 6;
+      c.beginPath(); c.arc(0, 0, 25, 0, TAU); c.stroke();
+      c.shadowBlur = 0;
+      c.strokeStyle = '#cfd8dc'; c.lineWidth = 1.4;
+      c.beginPath(); c.arc(0, 0, 26.5, Math.PI * 1.05, Math.PI * 1.7); c.stroke();
+      c.fillStyle = 'rgba(0,0,0,0.25)';
+      for (sp = 0; sp < 8; sp++) {
+        var b = sp * Math.PI / 4 + Math.PI / 8;
+        c.beginPath(); c.arc(Math.cos(b) * 25, Math.sin(b) * 25, 1, 0, TAU); c.fill();
+      }
+      for (sp = 0; sp < 4; sp++) {
+        var cb = sp * Math.PI / 2 + Math.PI / 4;
+        luceNav(c, Math.cos(cb) * 25, Math.sin(cb) * 25, sp % 2 ? '#80cbc4' : '#ffcc02',
+                morbido(Math.sin(T * 1.4 + sp * 1.6), 0.4));
+      }
+      c.restore();
+      var hg = c.createRadialGradient(-3, -3, 1, 0, 0, 10);
+      hg.addColorStop(0, '#eceff1');
+      hg.addColorStop(1, '#8a9ba5');
+      c.fillStyle = hg;
+      c.beginPath(); c.arc(0, 0, 9, 0, TAU); c.fill();
+      c.fillStyle = 'rgba(255,224,130,0.9)';
+      for (var w = -1; w <= 1; w++) { c.beginPath(); c.arc(w * 3, 1 + (w === 0 ? 1.5 : 0), 1, 0, TAU); c.fill(); }
+      c.restore();
+    }
+    // Stazione modulare: traliccio, moduli abitativi, pannelli e radiatori
+    function stazioneModulare(c, x, y, k, rot, tilt, alpha) {
+      c.save();
+      c.globalAlpha = alpha;
+      c.translate(x, y); c.rotate(tilt + Math.sin(rot) * 0.06); c.scale(k, k);
+      // traliccio
+      c.fillStyle = '#78909c'; c.fillRect(-66, -2.2, 132, 4.4);
+      c.strokeStyle = 'rgba(207,216,220,0.7)'; c.lineWidth = 0.6;
+      c.beginPath();
+      for (var tx = -66; tx < 66; tx += 6) { c.moveTo(tx, -2.2); c.lineTo(tx + 6, 2.2); }
+      c.stroke();
+      c.strokeStyle = INCHIOSTRO; c.lineWidth = 0.7; c.strokeRect(-66, -2.2, 132, 4.4);
+      // pannelli solari, due per lato
+      var px = [-64, -46, 30, 48];
+      for (var j = 0; j < px.length; j++) {
+        for (var s = -1; s <= 1; s += 2) {
+          var y0 = s < 0 ? -25 : 4;
+          c.fillStyle = '#26357a'; c.fillRect(px[j], y0, 16, 21);
+          c.strokeStyle = 'rgba(121,134,203,0.85)'; c.lineWidth = 0.6;
+          c.beginPath();
+          for (var q = 1; q < 4; q++) { c.moveTo(px[j] + q * 4, y0); c.lineTo(px[j] + q * 4, y0 + 21); }
+          for (q = 1; q < 3; q++) { c.moveTo(px[j], y0 + q * 7); c.lineTo(px[j] + 16, y0 + q * 7); }
+          c.stroke();
+          c.fillStyle = 'rgba(255,255,255,0.08)'; c.fillRect(px[j], y0, 7, 21);
+          c.strokeStyle = 'rgba(200,210,240,0.5)'; c.lineWidth = 0.7; c.strokeRect(px[j], y0, 16, 21);
+        }
+        c.strokeStyle = '#90a4ae'; c.lineWidth = 1;
+        c.beginPath(); c.moveTo(px[j] + 8, -4); c.lineTo(px[j] + 8, 4); c.stroke();
+      }
+      // radiatori
+      c.fillStyle = '#eceff1';
+      c.fillRect(-26, 6, 6, 14); c.fillRect(20, -20, 6, 14);
+      c.strokeStyle = 'rgba(0,0,0,0.25)'; c.lineWidth = 0.5;
+      c.strokeRect(-26, 6, 6, 14); c.strokeRect(20, -20, 6, 14);
+      // moduli: cilindri a tre toni con giunti
+      var moduli = [[-7, -30, 14, 18], [-8, -12, 16, 24], [-6, 12, 12, 16]];
+      for (j = 0; j < moduli.length; j++) {
+        var m = moduli[j];
+        c.fillStyle = sfum(UGELLO_COL, 'modulo' + m[2], function () {
+          return lineare(-m[2] / 2, 0, m[2] / 2, 0, [[0, '#ffffff'], [0.3, '#ffffff'], [0.31, '#cfd8dc'], [0.72, '#cfd8dc'], [0.73, '#90a4ae'], [1, '#90a4ae']]);
+        });
+        c.save(); c.translate(m[0] + m[2] / 2, 0);
+        c.fillRect(-m[2] / 2, m[1], m[2], m[3]);
+        c.strokeStyle = INCHIOSTRO; c.lineWidth = 0.8; c.strokeRect(-m[2] / 2, m[1], m[2], m[3]);
+        c.strokeStyle = 'rgba(0,0,0,0.18)'; c.lineWidth = 0.6;
+        c.beginPath(); c.moveTo(-m[2] / 2, m[1] + m[3] / 2); c.lineTo(m[2] / 2, m[1] + m[3] / 2); c.stroke();
+        c.restore();
+      }
+      c.fillStyle = '#607d8b';
+      c.fillRect(-4.5, -13.5, 9, 2.4); c.fillRect(-4.5, 10.8, 9, 2.4);
+      // oblò illuminati e porto d'attracco
+      c.fillStyle = 'rgba(255,224,130,0.9)';
+      for (j = -1; j <= 1; j++) { c.beginPath(); c.arc(j * 3.6, -1, 0.9, 0, TAU); c.fill(); }
+      c.fillStyle = '#455a64'; c.beginPath(); c.arc(0, -31.5, 3, Math.PI, TAU); c.fill();
+      // luci che lampeggiano alle estremità
+      luceNav(c, -66, 0, '#ffcc02', morbido(Math.sin(T * 1.4), 0.3));
+      luceNav(c, 66, 0, '#80cbc4', morbido(Math.sin(T * 1.4 + 2), 0.3));
+      luceNav(c, 0, -34.5, '#ff8a80', morbido(Math.sin(T * 1.8), 0.4));
+      c.restore();
+    }
+    function pianeta(c, p, x, y, r, alpha) {
+      if (!(r > 0) || !(alpha > 0)) return;
+      c.save();
+      c.globalAlpha = alpha;
+      var h = c.createRadialGradient(x, y, r * 0.9, x, y, r * 1.5);
+      h.addColorStop(0, rgba(p.col, 0.18));
+      h.addColorStop(1, rgba(p.col, 0));
+      c.fillStyle = h;
+      c.beginPath(); c.arc(x, y, r * 1.5, 0, TAU); c.fill();
+      var anelli = p.tipo === 'anelli';
+      function anello(da, a) {
+        c.strokeStyle = rgba(p.col, 0.55); c.lineWidth = r * 0.16;
+        c.beginPath(); c.ellipse(x, y, r * 1.85, r * 0.5, p.incl, da, a); c.stroke();
+        c.strokeStyle = 'rgba(255,255,255,0.22)'; c.lineWidth = r * 0.04;
+        c.beginPath(); c.ellipse(x, y, r * 1.62, r * 0.42, p.incl, da, a); c.stroke();
+      }
+      if (anelli) anello(Math.PI, TAU);
+      c.save();
+      c.beginPath(); c.arc(x, y, r, 0, TAU); c.clip();
+      c.fillStyle = p.col;
+      c.fillRect(x - r, y - r, r * 2, r * 2);
+      if (p.tipo !== 'roccia') {
+        c.save();
+        c.translate(x, y); c.rotate(p.incl);
+        for (var j = 0; j < p.bande.length; j++) {
+          c.fillStyle = j % 2 ? rgba('#ffffff', 0.12) : 'rgba(0,0,0,0.14)';
+          c.fillRect(-r * 1.2, p.bande[j] * r, r * 2.4, r * (0.12 + j * 0.05));
+        }
+        c.restore();
+      } else {
+        for (var q = 0; q < p.crateri.length; q++) {
+          var cr = p.crateri[q];
+          c.fillStyle = 'rgba(0,0,0,0.18)';
+          c.beginPath(); c.ellipse(x + cr[0] * r, y + cr[1] * r, cr[2] * r, cr[2] * r * 0.8, 0, 0, TAU); c.fill();
+          c.strokeStyle = 'rgba(255,255,255,0.12)'; c.lineWidth = Math.max(0.5, r * 0.015);
+          c.beginPath(); c.ellipse(x + cr[0] * r, y + cr[1] * r, cr[2] * r, cr[2] * r * 0.8, 0, Math.PI, TAU); c.stroke();
+        }
+      }
+      var lg = c.createRadialGradient(x - r * 0.45, y - r * 0.5, r * 0.1, x - r * 0.2, y - r * 0.2, r * 1.25);
+      lg.addColorStop(0, 'rgba(255,255,255,0.35)');
+      lg.addColorStop(0.5, 'rgba(255,255,255,0)');
+      lg.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = lg;
+      c.fillRect(x - r, y - r, r * 2, r * 2);
+      // ombra a falce, netta come nei cartoni
+      c.fillStyle = 'rgba(5,8,20,0.5)';
+      c.beginPath(); c.arc(x + r * 0.5, y + r * 0.35, r * 1.05, 0, TAU); c.fill();
+      c.restore();
+      c.strokeStyle = 'rgba(255,255,255,0.16)'; c.lineWidth = Math.max(0.6, r * 0.025);
+      c.beginPath(); c.arc(x, y, r, Math.PI * 1.05, Math.PI * 1.65); c.stroke();
+      if (anelli) anello(0, Math.PI);
+      c.restore();
+    }
+    function stellina(c, x, y, r, col, a) {
+      c.strokeStyle = col + a + ')';
+      c.lineWidth = Math.max(0.5, r * 0.45);
+      c.beginPath();
+      c.moveTo(x - r * 2.2, y); c.lineTo(x + r * 2.2, y);
+      c.moveTo(x, y - r * 2.2); c.lineTo(x, y + r * 2.2);
+      c.stroke();
+      c.fillStyle = col + a + ')';
+      c.beginPath(); c.arc(x, y, r * 0.6, 0, TAU); c.fill();
     }
 
-    let nextShooter = 3000;
+    // ── Aggiornamento
+    var T = 0, ultimo = 0;
+    function aggiorna(dt) {
+      var m = dt * 60;
+      var tx = P.on ? (P.x / W - 0.5) * 2 : 0, ty = P.on ? (P.y / H - 0.5) * 2 : 0;
+      par.x += (tx - par.x) * Math.min(1, dt * 2.5);
+      par.y += (ty - par.y) * Math.min(1, dt * 2.5);
+
+      if (T >= prossimo) {
+        if (eventi.length < 3) lancia(prossimoTipo());
+        prossimo = T + rnd(6, 13) * scen.ritmo;
+      }
+      if (T >= prossimaCadente) {
+        cadenti.push({ x: R() * W * 0.6 + W * 0.4, y: R() * H * 0.4, len: R() * 120 + 60, sp: R() * 4 + 3, a: 1 });
+        prossimaCadente = T + (2 + R() * 4) * scen.cadenti;
+      }
+      for (var j = cadenti.length - 1; j >= 0; j--) {
+        var cd = cadenti[j];
+        cd.x -= cd.sp * 2 * m; cd.y += cd.sp * m; cd.a -= 0.012 * m;
+        if (cd.a <= 0) cadenti.splice(j, 1);
+      }
+
+      navi.forEach(function (n) {
+        var t = T * n.sp + n.ph;
+        var bx = n.bx * W - par.x * 18 * n.z, by = n.by * H + Math.sin(t) * n.amp - par.y * 12 * n.z;
+        var ax = -n.ox * 10 - n.vx * 3.2, ay = -n.oy * 10 - n.vy * 3.2;
+        if (P.on && !calmo) {
+          var dx = bx + n.ox - P.x, dy = by + n.oy - P.y, d = Math.hypot(dx, dy) || 1;
+          if (d < 140) { var f = (1 - d / 140); f = f * f * 900; ax += dx / d * f; ay += dy / d * f; }
+        }
+        n.vx += ax * dt; n.vy += ay * dt;
+        n.ox += n.vx * dt; n.oy += n.vy * dt;
+        n.spinta += (clamp(Math.hypot(n.vx, n.vy) / 160, 0, 1) - n.spinta) * Math.min(1, dt * 6);
+        n.sx = bx + n.ox; n.sy = by + n.oy;
+        n.ang = Math.cos(t) * 0.15 - 0.1 * n.giro + clamp(n.vx * 0.0025, -0.5, 0.5);
+      });
+
+      for (j = eventi.length - 1; j >= 0; j--) {
+        var e = eventi[j];
+        e.t += dt;
+        if (e.navi) {
+          var u = e.t / e.dur;
+          e.navi.forEach(function (s) {
+            var su = u - s.rit;
+            if (su < 0 || su > 1.04 || scintille.length >= 160 || R() > 0.6) return;
+            var q = punto(e.f, su, s.lat);
+            scintille.push({ x: q.x - q.dx * 20 * s.k, y: q.y - q.dy * 20 * s.k,
+                             vx: -q.dx * rnd(40, 90) + rnd(-15, 15), vy: -q.dy * rnd(40, 90) + rnd(-15, 15),
+                             t: 0, dur: rnd(0.35, 0.75), r: rnd(0.8, 2) * s.k });
+          });
+        }
+        if (e.tipo === 'stazione') e.rot += dt * 0.25;
+        if (e.t >= e.fine) {
+          if (e.tipo === 'pianeta') angoliLiberi.push(e.angolo);
+          eventi.splice(j, 1);
+        }
+      }
+      stazioniFisse.forEach(function (s) { s.rot += dt * 0.25; });
+      for (j = scintille.length - 1; j >= 0; j--) {
+        var sc = scintille[j];
+        sc.t += dt; sc.x += sc.vx * dt; sc.y += sc.vy * dt;
+        if (sc.t >= sc.dur) scintille.splice(j, 1);
+      }
+      for (j = polvere.length - 1; j >= 0; j--) {
+        var pv = polvere[j];
+        pv.t += dt; pv.x += pv.vx * dt; pv.y += pv.vy * dt;
+        if (pv.t >= pv.dur) polvere.splice(j, 1);
+      }
+      for (j = onde.length - 1; j >= 0; j--) {
+        onde[j].t += dt;
+        if (onde[j].t >= 0.9) onde.splice(j, 1);
+      }
+    }
+
+    function disegna() {
+      var c = ctx, j;
+      if (fondo) {
+        c.setTransform(1, 0, 0, 1, 0, 0);
+        c.drawImage(fondo, 0, 0);
+        c.setTransform(DPR, 0, 0, DPR, 0, 0);
+      } else {
+        c.setTransform(DPR, 0, 0, DPR, 0, 0);
+        dipingiFondo(c);
+      }
+      var mn = Math.min(W, H);
+
+      // Stelle
+      for (j = 0; j < stelle.length; j++) {
+        var s = stelle[j];
+        var lu = respiro(T / s.per + s.ph), a = (0.3 + 0.7 * lu) * s.a;
+        var x = s.x * W - par.x * (4 + s.z * 10), y = s.y * H - par.y * (3 + s.z * 7);
+        var base = s.oro ? 'rgba(255,224,150,' : 'rgba(200,220,255,';
+        c.beginPath(); c.arc(x, y, s.r, 0, TAU);
+        c.fillStyle = base + a + ')';
+        c.fill();
+        var cr = s.croce ? liscio((lu - 0.45) / 0.55) : 0;
+        if (cr > 0.01) {
+          var L = s.r * 5 * a * cr;
+          c.strokeStyle = base + (a * 0.55 * cr) + ')'; c.lineWidth = 0.7;
+          c.beginPath(); c.moveTo(x - L, y); c.lineTo(x + L, y); c.moveTo(x, y - L); c.lineTo(x, y + L); c.stroke();
+        }
+      }
+
+      // Pianeti
+      pianeti.forEach(function (p) {
+        var al = p.alpha * liscio((T - p.nasce) / 5);
+        var px = p.fx * W - par.x * 14 * p.z + Math.sin(T * 0.05 + p.ph) * 6;
+        var py = p.fy * H - par.y * 10 * p.z + Math.cos(T * 0.04 + p.ph) * 4;
+        pianeta(c, p, px, py, p.rf * mn, al);
+      });
+      eventi.forEach(function (e) {
+        if (e.tipo !== 'pianeta') return;
+        var u = e.t / e.dur, p = e.pian;
+        var al = p.alpha * liscio(u / 0.15) * liscio((1 - u) / 0.15);
+        var px = (e.da[0] + (e.a[0] - e.da[0]) * u) * W - par.x * 14 * p.z;
+        var py = (e.da[1] + (e.a[1] - e.da[1]) * u) * H - par.y * 10 * p.z;
+        pianeta(c, p, px, py, p.rf * mn, al);
+      });
+
+      // Stazioni
+      stazioniFisse.forEach(function (s) {
+        (s.mod === 'modulare' ? stazioneModulare : stazione)(c, s.fx * W - par.x * 16, s.fy * H + Math.sin(T * 0.5 + s.ph) * 6 - par.y * 11,
+                 s.k, s.rot, s.tilt, 0.9 * liscio((T - s.nasce) / 4));
+      });
+      eventi.forEach(function (e) {
+        if (e.tipo !== 'stazione') return;
+        var q = e.f(e.t / e.dur);
+        (e.mod === 'modulare' ? stazioneModulare : stazione)(c, q[0], q[1], e.k, e.rot, e.tilt, 0.9);
+      });
+
+      // Comete
+      c.lineCap = 'round';
+      eventi.forEach(function (e) {
+        if (e.tipo !== 'cometa') return;
+        var u = e.t / e.dur, N = 18;
+        for (var q = N; q >= 1; q--) {
+          var ua = u - q * e.coda / N, ub = u - (q - 1) * e.coda / N;
+          if (ua < 0) continue;
+          var A = e.f(ua), B = e.f(ub), f = 1 - q / N;
+          c.strokeStyle = 'rgba(160,230,255,' + (0.3 * f * f) + ')';
+          c.lineWidth = (1 + f * 6) * e.k;
+          c.beginPath(); c.moveTo(A[0], A[1]); c.lineTo(B[0], B[1]); c.stroke();
+        }
+        var h = e.f(u), rr = 16 * e.k;
+        var g = c.createRadialGradient(h[0], h[1], 0, h[0], h[1], rr);
+        g.addColorStop(0, 'rgba(255,255,255,0.95)');
+        g.addColorStop(0.35, 'rgba(178,235,242,0.6)');
+        g.addColorStop(1, 'rgba(178,235,242,0)');
+        c.fillStyle = g;
+        c.beginPath(); c.arc(h[0], h[1], rr, 0, TAU); c.fill();
+      });
+
+      // Stelle cadenti, come prima
+      cadenti.forEach(function (cd) {
+        c.save();
+        c.strokeStyle = 'rgba(255,255,255,' + (cd.a * liscio((1 - cd.a) / 0.15)) + ')';
+        c.lineWidth = 1.5;
+        c.shadowColor = 'rgba(255,255,255,0.8)';
+        c.shadowBlur = 4;
+        c.beginPath(); c.moveTo(cd.x, cd.y); c.lineTo(cd.x + cd.len, cd.y - cd.len * 0.35); c.stroke();
+        c.restore();
+      });
+
+      // Scie di fuoco e scintille
+      eventi.forEach(function (e) {
+        if (!e.navi) return;
+        var u = e.t / e.dur;
+        e.navi.forEach(function (s) {
+          var su = u - s.rit;
+          for (var q = SCIA_N; q >= 1; q--) {
+            var ua = su - q * e.passo, ub = su - (q - 1) * e.passo;
+            if (ua < 0 || ua > 1.04) continue;
+            var A = punto(e.f, ua, s.lat), B = punto(e.f, Math.min(ub, 1.04), s.lat), f = 1 - q / SCIA_N, o = 20 * s.k;
+            c.strokeStyle = 'rgba(255,150,50,' + (0.3 * f) + ')';
+            c.lineWidth = (2 + 7 * f) * s.k;
+            c.beginPath(); c.moveTo(A.x - A.dx * o, A.y - A.dy * o); c.lineTo(B.x - B.dx * o, B.y - B.dy * o); c.stroke();
+          }
+        });
+      });
+      scintille.forEach(function (sc) {
+        var f = 1 - sc.t / sc.dur;
+        c.fillStyle = 'rgba(255,' + Math.round(150 + 80 * f) + ',60,' + (0.8 * f) + ')';
+        c.beginPath(); c.arc(sc.x, sc.y, sc.r * (0.5 + f * 0.5), 0, TAU); c.fill();
+      });
+
+      // Dischi volanti
+      eventi.forEach(function (e) {
+        if (e.tipo !== 'disco') return;
+        var q = e.f(e.t / e.dur);
+        disco(c, q[0], q[1], e.k, 0.08 * Math.sin(T * 2.2) + 0.06 * e.dir);
+      });
+
+      // Navicelle
+      navi.forEach(function (n) { nave(c, n.sx, n.sy, n.k, n.ang, n.col, n.spinta, n.ph); });
+      eventi.forEach(function (e) {
+        if (!e.navi) return;
+        var u = e.t / e.dur;
+        e.navi.forEach(function (s) {
+          var su = u - s.rit;
+          if (su < 0 || su > 1.04) return;
+          var q = punto(e.f, su, s.lat);
+          (e.mod === 'caccia' ? caccia : nave)(c, q.x, q.y, s.k, Math.atan2(q.dy, q.dx) + Math.PI / 2, s.col, 0.75, s.ph);
+        });
+      });
+
+      // Polvere di stelle dietro il puntatore e onde del tocco
+      polvere.forEach(function (pv) {
+        var f = 1 - pv.t / pv.dur;
+        stellina(c, pv.x, pv.y, pv.r * (0.6 + 0.4 * f), pv.oro ? 'rgba(255,224,150,' : 'rgba(200,220,255,', 0.7 * f);
+      });
+      onde.forEach(function (o) {
+        var f = o.t / 0.9;
+        c.strokeStyle = 'rgba(122,163,255,' + (0.28 * (1 - f)) + ')';
+        c.lineWidth = 1.2;
+        c.beginPath(); c.arc(o.x, o.y, 8 + f * 70, 0, TAU); c.stroke();
+      });
+    }
 
     var _spaceRunning = false;
-    var _pageHome = document.getElementById('pageHome');
     function draw(ts) {
-      if (!_pageHome || _pageHome.style.display === 'none') {
+      if (!visibile()) {
         _spaceRunning = false; // stop: il loop riparte via __orosSpaceResume() al ritorno in Home
+        ultimo = 0;
         return;
       }
-      ctx.clearRect(0, 0, W, H);
-
-      // Deep space background gradient
-      const bg = ctx.createRadialGradient(W*0.5, H*0.4, 0, W*0.5, H*0.4, Math.max(W,H)*0.8);
-      bg.addColorStop(0, '#0d1424');
-      bg.addColorStop(0.4, '#090d18');
-      bg.addColorStop(1, '#050810');
-      ctx.fillStyle = bg;
-      ctx.fillRect(0, 0, W, H);
-
-      // Stars
-      stars.forEach(s => {
-        const a = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(ts * s.speed + s.phase));
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
-        ctx.fillStyle = `rgba(200,220,255,${a * s.a})`;
-        ctx.fill();
-      });
-
-      // Shooting stars
-      if (ts > nextShooter) {
-        shooters.push(makeShooter());
-        nextShooter = ts + 2000 + Math.random() * 4000;
-      }
-      shooters = shooters.filter(s => s.a > 0);
-      shooters.forEach(s => {
-        ctx.save();
-        ctx.strokeStyle = `rgba(255,255,255,${s.a})`;
-        ctx.lineWidth = 1.5;
-        ctx.shadowColor = 'rgba(255,255,255,0.8)';
-        ctx.shadowBlur = 4;
-        ctx.beginPath();
-        ctx.moveTo(s.x, s.y);
-        ctx.lineTo(s.x + s.len, s.y - s.len * 0.35);
-        ctx.stroke();
-        ctx.restore();
-        s.x -= s.speed * 2;
-        s.y += s.speed;
-        s.a -= 0.012;
-      });
-
-      // Nebula clouds
-      const neb = ctx.createRadialGradient(W*0.2, H*0.3, 0, W*0.2, H*0.3, W*0.35);
-      neb.addColorStop(0, 'rgba(41,98,255,0.04)');
-      neb.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = neb;
-      ctx.fillRect(0, 0, W, H);
-      const neb2 = ctx.createRadialGradient(W*0.8, H*0.7, 0, W*0.8, H*0.7, W*0.3);
-      neb2.addColorStop(0, 'rgba(206,147,216,0.04)');
-      neb2.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = neb2;
-      ctx.fillRect(0, 0, W, H);
-
-      // Spaceships
-      SHIPS.forEach(s => {
-        const cy = s.y * H + Math.sin(ts * s.speed + s.phase) * s.amp;
-        const angle = Math.cos(ts * s.speed + s.phase) * 0.15 - 0.1;
-        drawShip(ctx, s.x * W, cy, s.scale, s.color, angle);
-      });
-
+      var dt = ultimo ? Math.min(0.05, Math.max(0, (ts - ultimo) / 1000)) : 0.016;
+      ultimo = ts;
+      T += dt;
+      aggiorna(dt);
+      disegna();
       requestAnimationFrame(draw);
     }
-    window.__orosSpaceResume = function() {
+    window.__orosSpaceResume = function () {
       if (_spaceRunning) return;
       _spaceRunning = true;
       requestAnimationFrame(draw);
+    };
+    window.__orosSpaceStato = function () {
+      return { scenario: scen.nome, tempo: T, eventi: eventi.map(function (e) { return e.tipo; }), lanciati: contatori,
+               scintille: scintille.length, polvere: polvere.length, onde: onde.length, navi: navi.length,
+               pianeti: pianeti.length, stazioni: stazioniFisse.length, attivo: _spaceRunning,
+               scarto: navi.reduce(function (m, n) { return Math.max(m, Math.hypot(n.ox, n.oy)); }, 0),
+               navePos: navi.length ? [navi[0].sx, navi[0].sy] : null };
     };
     window.__orosSpaceResume();
   }
