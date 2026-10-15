@@ -282,12 +282,22 @@ function goHome() {
 var OROS_ICO_SOLE = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="display:block"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.3M12 19.2v2.3M2.5 12h2.3M19.2 12h2.3M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M5.6 18.4l1.6-1.6M16.8 7.2l1.6-1.6"/></svg>';
 var OROS_ICO_LUNA = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:block"><path d="M20.6 14.7A8.7 8.7 0 0 1 9.3 3.4 8.7 8.7 0 1 0 20.6 14.7z"/></svg>';
 
+// Bottone tema della barra laterale: sole e luna in SVG, ciascuno col suo
+// colore tenue. Le emoji ignorano il CSS e cambiano aspetto fra i sistemi.
+function orosThemeBtnSet(btn, t) {
+  if (!btn) return;
+  var sole = (t === 'dark');
+  btn.innerHTML = sole ? OROS_ICO_SOLE : OROS_ICO_LUNA;
+  btn.classList.toggle('sole', sole);
+  btn.classList.toggle('luna', !sole);
+}
+
 // Theme toggle
 function setTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
   orosLsSet('csp-theme', t);
   var btn = document.getElementById('themeBtn');
-  if (btn) btn.textContent = t === 'dark' ? '☀' : '🌙';
+  orosThemeBtnSet(btn, t);
   var homeIcon = document.getElementById('homeThemeBtn');
   if (homeIcon) homeIcon.innerHTML = t === 'dark' ? OROS_ICO_SOLE : OROS_ICO_LUNA;
   buildScreener(t);
@@ -527,7 +537,7 @@ function authInit() {
   document.documentElement.setAttribute('data-theme', savedTheme);
   document.documentElement.style.colorScheme = savedTheme === 'dark' ? 'dark' : 'light';
   var btn = document.getElementById('themeBtn');
-  if (btn) btn.textContent = savedTheme === 'dark' ? '☀' : '🌙';
+  orosThemeBtnSet(btn, savedTheme);
   var homeIcon = document.getElementById('homeThemeBtn');
   if (homeIcon) homeIcon.innerHTML = savedTheme === 'dark' ? OROS_ICO_SOLE : OROS_ICO_LUNA;
 
@@ -736,6 +746,16 @@ document.addEventListener('focusin', function(e) {
 
   /* TABS ROW */
   .tabs-row { position: relative; }
+  /* Trascinamento delle schede: niente selezione del testo ne' menu del
+     sistema sulla pressione prolungata */
+  .tabs-row .tab { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  .tab.oros-tab-segnaposto { opacity: .3; }
+  .oros-tab-ghost {
+    position: fixed; top: 0; left: 0; margin: 0; z-index: 5000; pointer-events: none;
+    border-radius: 8px; border-bottom: 1px solid var(--border);
+    box-shadow: 0 10px 26px rgba(0,0,0,.45); opacity: .95;
+  }
+  body.oros-tab-trascina, body.oros-tab-trascina * { cursor: grabbing !important; }
 
   /* PANEL */
   .panel {
@@ -1555,7 +1575,6 @@ body {
 }
 .sb-logo:hover { text-shadow: 0 0 30px rgba(240,180,41,0.8); }
 
-.sb-sep { width: 32px; height: 1px; background: var(--tv-bord); margin: 6px 0; flex-shrink: 0; }
 .sb-spacer { flex: 1; }
 
 .sb-btn {
@@ -1634,6 +1653,10 @@ body.sb-touch .sb-btn.sb-tip::after { opacity: 1 !important; visibility: visible
   overflow: visible;
 }
 .theme-btn:hover { color: var(--tv-text); background: rgba(255,255,255,.06); }
+.theme-btn.sole { color: rgba(240,180,41,.62); }
+.theme-btn.sole:hover { color: rgba(240,180,41,.9); }
+.theme-btn.luna { color: rgba(72,88,200,.75); }
+.theme-btn.luna:hover { color: rgba(72,88,200,.95); }
 [data-theme="light"] .theme-btn:hover { background: rgba(0,0,0,.05); }
 /* Tooltip handled via JS div #sb-tooltip — ::after disabled */
 .theme-btn::after { content: none; }
@@ -3057,10 +3080,27 @@ input[type="date"]::-webkit-date-and-time-value {
    APPUNTI — note libere, una bacheca di post-it
    ══════════════════════════════════════════════ */
 /* Stesso bottone "+" del Portafoglio, nel colore della pagina */
+/* Bottoni in alto a destra di Portafoglio e Appunti: stesso hover degli
+   ingranaggi. !important serve a vincere sugli stili scritti nel tag.
+   Solo dove c'e' un mouse: su iPhone l'hover resterebbe acceso dopo il tocco. */
+.pf-hdr-btn, .app-add, .sto-hov { transition: border-color .2s, color .2s, background .2s; }
+@media (hover: hover) {
+  /* Filtri dello Storico: bordo nel colore del simbolo, azzurro dove non ce l'hanno */
+  .sto-hov:not(.storia-filter-active):hover {
+    border-color: var(--hc, #7aa3ff) !important;
+    color: var(--hc, #7aa3ff) !important;
+    background: var(--hb, rgba(122,163,255,.08)) !important;
+  }
+  .pf-hdr-btn:hover, .app-add:hover {
+    border-color: #7aa3ff !important;
+    color: #7aa3ff !important;
+    background: rgba(122,163,255,.08) !important;
+  }
+}
 .app-add {
   padding: 6px 14px; border-radius: 6px;
-  border: 1px solid rgba(244,114,182,.3); background: rgba(244,114,182,.08);
-  color: #f472b6; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 700;
+  border: 1px solid var(--tv-bord); background: transparent;
+  color: var(--tv-muted); font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 700;
   line-height: 1; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 
@@ -3246,7 +3286,6 @@ input[type="date"]::-webkit-date-and-time-value {
 <!-- Desktop Sidebar Navigation -->
 <nav class="sidebar" id="mainNav" style="display:none;">
   <div class="sb-logo" onclick="goHome()">OROS</div>
-  <div class="sb-sep"></div>
   <button class="sb-btn" id="navScreener" onclick="goPage('screener')" data-tooltip="Screener Azioni">
     <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.5" y="0.5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="0.5" y="5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/><rect x="0.5" y="9.5" width="12" height="3" rx="0.6" fill="currentColor" opacity="0.75"/></svg>
   </button>
@@ -3657,10 +3696,10 @@ input[type="date"]::-webkit-date-and-time-value {
       <h2 style="font-size:24px;font-weight:800;letter-spacing:-.5px;background:#7aa3ff;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-family:'Inter',sans-serif;">Portafoglio</h2>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <button id="pfFilterAll" onclick="pfSetFilter('all')" class="storia-filter-btn storia-filter-active" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-blue);color:#fff;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;">Tutti</button>
-      <button onclick="pfManualOpen()" style="padding:6px 14px;border-radius:6px;border:1px solid rgba(0,229,160,0.3);background:rgba(0,229,160,0.08);color:#00e5a0;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;cursor:pointer;line-height:1;" title="Aggiungi operazione manuale">+</button>
-      <button onclick="dataExport('portafoglio')" style="padding:6px 12px;border-radius:6px;border:1px solid var(--tv-bord);background:transparent;color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;" title="Esporta backup JSON">↓ Export</button>
-      <button onclick="document.getElementById('pfImportFile').click()" style="padding:6px 12px;border-radius:6px;border:1px solid var(--tv-bord);background:transparent;color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;" title="Importa backup JSON">↑ Import</button>
+      <button class="pf-hdr-btn" onclick="pfManualOpen()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:transparent;color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:14px;font-weight:700;cursor:pointer;line-height:1;" title="Aggiungi operazione manuale">+</button>
+      <button class="pf-hdr-btn" id="pfPrivBtn" onclick="pfPrivToggle()" style="padding:6px 12px;border-radius:6px;border:1px solid var(--tv-bord);background:transparent;color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;line-height:1;" title="Nascondi i valori" aria-label="Nascondi i valori" aria-pressed="false"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block"><path d="M9.9 4.2A10.4 10.4 0 0 1 12 4c6.5 0 10 8 10 8a17.7 17.7 0 0 1-3.2 4.3"/><path d="M6.6 6.6C3.6 8.6 2 12 2 12s3.5 8 10 8a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="M2 2l20 20"/></svg></button>
+      <button class="pf-hdr-btn" onclick="dataExport('portafoglio')" style="padding:6px 12px;border-radius:6px;border:1px solid var(--tv-bord);background:transparent;color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;" title="Esporta backup JSON">↓ Export</button>
+      <button class="pf-hdr-btn" onclick="document.getElementById('pfImportFile').click()" style="padding:6px 12px;border-radius:6px;border:1px solid var(--tv-bord);background:transparent;color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;" title="Importa backup JSON">↑ Import</button>
       <input type="file" id="pfImportFile" accept="application/json,.json" style="display:none;" onchange="dataImport('portafoglio', this)">
     </div>
   </div>
@@ -3671,7 +3710,7 @@ input[type="date"]::-webkit-date-and-time-value {
   <!-- Profit chart -->
   <div id="pfChartWrap" style="display:none;background:var(--tv-surf);border:1px solid var(--tv-bord);border-radius:8px;padding:20px 24px;margin-bottom:24px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);">Andamento Profitti Cumulativi</div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tv-muted);">Equity P&amp;L netto operazioni chiuse</div>
       <button onclick="pfToggleDateFilter()" id="pfCalBtn" title="Filtra per data" style="width:32px;height:32px;background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="1" y="3" width="14" height="12" rx="2" stroke="var(--tv-muted)" stroke-width="1.3"/>
@@ -3684,7 +3723,7 @@ input[type="date"]::-webkit-date-and-time-value {
       </button>
     </div>
     <div id="pfDateFilterPanel" style="display:none;margin-bottom:14px;">
-      <div style="display:grid;grid-template-columns:1fr 1fr auto;align-items:end;gap:8px;width:100%;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;align-items:end;gap:8px;width:100%;">
         <div style="display:flex;flex-direction:column;gap:4px;">
           <label style="font-size:10px;color:var(--tv-muted);font-family:'Inter',sans-serif;">Dal</label>
           <input type="date" id="pfChartFrom"
@@ -3697,7 +3736,6 @@ input[type="date"]::-webkit-date-and-time-value {
             style="background:var(--tv-bg);border:1px solid var(--tv-bord);border-radius:8px;padding:10px 12px;color:var(--tv-text);font-family:'Inter',sans-serif;font-size:14px;outline:none;cursor:pointer;width:100%;box-sizing:border-box;min-height:42px;"
             oninput="pfRenderChartFiltered()">
         </div>
-        <button onclick="pfChartResetFilter()" style="padding:0 14px;background:transparent;border:1px solid var(--tv-bord);border-radius:8px;color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;cursor:pointer;min-height:42px;white-space:nowrap;align-self:end;">✕ Reset</button>
       </div>
     </div>
     <canvas id="pfProfitChart" height="90"></canvas>
@@ -4149,9 +4187,11 @@ function appTrova(id) {
   return null;
 }
 
-// Note visibili, dalla piu' recente: una nota non cambia posto quando la si modifica
+// Note visibili: in testa l'ultima creata o modificata, poi le piu' vecchie
 function appVive() {
   return APP.list.filter(function (n) { return !n.eliminato; }).sort(function (a, b) {
+    var ta = a.modificato || a.creato, tb = b.modificato || b.creato;
+    if (ta !== tb) return ta < tb ? 1 : -1;
     if (a.creato !== b.creato) return a.creato < b.creato ? 1 : -1;
     return a.id < b.id ? 1 : (a.id > b.id ? -1 : 0);
   });
@@ -4845,15 +4885,15 @@ appCarica();
       <h2 style="font-size:24px;font-weight:800;letter-spacing:-.5px;background:#7aa3ff;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-family:'Inter',sans-serif;">Storico Simulazioni</h2>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <button id="storiaFilterAll"  onclick="storiaSetFilter('all')"  class="storia-filter-btn storia-filter-active" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-blue);color:#fff;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;">Tutti</button>
-      <button id="storiaFilterCSP"  onclick="storiaSetFilter('csp')"  class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="10" height="13" viewBox="0 0 11 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;color:#26a69a;"><path d="M6.5 0.5L0.5 7.5H5.5L4.5 13.5L10.5 6.5H5.5L6.5 0.5Z" fill="currentColor" opacity="0.8"/></svg>CSP</button>
-      <button id="storiaFilterCC"   onclick="storiaSetFilter('cc')"   class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 13" fill="none" style="flex-shrink:0;color:#f0b429"><rect x="0.5" y="6.5" width="3" height="6" rx="0.6" fill="currentColor" opacity="0.9"/><rect x="5.5" y="3.5" width="3" height="9" rx="0.6" fill="currentColor" opacity="0.9"/><rect x="10.5" y="0.5" width="3" height="12" rx="0.6" fill="currentColor" opacity="0.9"/></svg>CC</button>
-      <button id="storiaFilterCentro" onclick="storiaSetFilter('centro')" class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;color:#c084fc"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3" opacity="0.85"/><line x1="7" y1="1.5" x2="7" y2="12.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/><line x1="1.5" y1="7" x2="12.5" y2="7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/></svg>Sup-Res MM</button>
-      <button id="storiaFilterBOT" onclick="storiaSetFilter('bot')" class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;color:#7aa3ff"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/><line x1="4" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><line x1="4" y1="7.5" x2="10" y2="7.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><line x1="4" y1="10" x2="7.5" y2="10" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>BOT</button>
-      <button id="storiaFilterMeteo" onclick="storiaSetFilter('meteo')" class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;color:#38bdf8"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2" opacity="0.85"/><line x1="7" y1="1.5" x2="7" y2="12.5" stroke="currentColor" stroke-width="1" opacity="0.5"/><line x1="1.5" y1="7" x2="12.5" y2="7" stroke="currentColor" stroke-width="1" opacity="0.5"/><circle cx="4.1" cy="4.1" r="1.8" fill="currentColor" opacity="0.9"/></svg>Outlook</button>
-      <button id="storiaFilterPf" onclick="storiaSetFilter('pf')" class="storia-filter-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;color:#a78bfa"><rect x="1" y="8.5" width="3.4" height="4.5" rx="0.7" fill="currentColor" opacity="0.75"/><rect x="5.3" y="5" width="3.4" height="8" rx="0.7" fill="currentColor" opacity="0.85"/><rect x="9.6" y="1" width="3.4" height="12" rx="0.7" fill="currentColor" opacity="0.95"/><circle cx="2.7" cy="5.4" r="1.35" stroke="currentColor" stroke-width="1.1" opacity="0.7"/></svg>Allocazione</button>
-      <button onclick="dataExport('storia')" style="padding:6px 12px;border-radius:6px;border:1px solid var(--tv-bord);background:transparent;color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;" title="Esporta backup JSON">↓ Export</button>
-      <button onclick="document.getElementById('storiaImportFile').click()" style="padding:6px 12px;border-radius:6px;border:1px solid var(--tv-bord);background:transparent;color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;" title="Importa backup JSON">↑ Import</button>
+      <button id="storiaFilterAll"  onclick="storiaSetFilter('all')"  class="storia-filter-btn sto-hov storia-filter-active" style="padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-blue);color:#fff;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;">Tutti</button>
+      <button id="storiaFilterCSP"  onclick="storiaSetFilter('csp')"  class="storia-filter-btn sto-hov" style="--hc:rgb(38,166,154);--hb:rgba(38,166,154,.08);padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="10" height="13" viewBox="0 0 11 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;color:#26a69a;"><path d="M6.5 0.5L0.5 7.5H5.5L4.5 13.5L10.5 6.5H5.5L6.5 0.5Z" fill="currentColor" opacity="0.8"/></svg>CSP</button>
+      <button id="storiaFilterCC"   onclick="storiaSetFilter('cc')"   class="storia-filter-btn sto-hov" style="--hc:rgb(240,180,41);--hb:rgba(240,180,41,.08);padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 13" fill="none" style="flex-shrink:0;color:#f0b429"><rect x="0.5" y="6.5" width="3" height="6" rx="0.6" fill="currentColor" opacity="0.9"/><rect x="5.5" y="3.5" width="3" height="9" rx="0.6" fill="currentColor" opacity="0.9"/><rect x="10.5" y="0.5" width="3" height="12" rx="0.6" fill="currentColor" opacity="0.9"/></svg>CC</button>
+      <button id="storiaFilterCentro" onclick="storiaSetFilter('centro')" class="storia-filter-btn sto-hov" style="--hc:rgb(192,132,252);--hb:rgba(192,132,252,.08);padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;color:#c084fc"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3" opacity="0.85"/><line x1="7" y1="1.5" x2="7" y2="12.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/><line x1="1.5" y1="7" x2="12.5" y2="7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/></svg>Sup-Res MM</button>
+      <button id="storiaFilterBOT" onclick="storiaSetFilter('bot')" class="storia-filter-btn sto-hov" style="--hc:rgb(122,163,255);--hb:rgba(122,163,255,.08);padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;color:#7aa3ff"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/><line x1="4" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><line x1="4" y1="7.5" x2="10" y2="7.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><line x1="4" y1="10" x2="7.5" y2="10" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>BOT</button>
+      <button id="storiaFilterMeteo" onclick="storiaSetFilter('meteo')" class="storia-filter-btn sto-hov" style="--hc:rgb(56,189,248);--hb:rgba(56,189,248,.08);padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;color:#38bdf8"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2" opacity="0.85"/><line x1="7" y1="1.5" x2="7" y2="12.5" stroke="currentColor" stroke-width="1" opacity="0.5"/><line x1="1.5" y1="7" x2="12.5" y2="7" stroke="currentColor" stroke-width="1" opacity="0.5"/><circle cx="4.1" cy="4.1" r="1.8" fill="currentColor" opacity="0.9"/></svg>Outlook</button>
+      <button id="storiaFilterPf" onclick="storiaSetFilter('pf')" class="storia-filter-btn sto-hov" style="--hc:rgb(167,139,250);--hb:rgba(167,139,250,.08);padding:6px 14px;border-radius:6px;border:1px solid var(--tv-bord);background:var(--tv-surf2);color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;color:#a78bfa"><rect x="1" y="8.5" width="3.4" height="4.5" rx="0.7" fill="currentColor" opacity="0.75"/><rect x="5.3" y="5" width="3.4" height="8" rx="0.7" fill="currentColor" opacity="0.85"/><rect x="9.6" y="1" width="3.4" height="12" rx="0.7" fill="currentColor" opacity="0.95"/><circle cx="2.7" cy="5.4" r="1.35" stroke="currentColor" stroke-width="1.1" opacity="0.7"/></svg>Allocazione</button>
+      <button class="pf-hdr-btn" onclick="dataExport('storia')" style="padding:6px 12px;border-radius:6px;border:1px solid var(--tv-bord);background:transparent;color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;" title="Esporta backup JSON">↓ Export</button>
+      <button class="pf-hdr-btn" onclick="document.getElementById('storiaImportFile').click()" style="padding:6px 12px;border-radius:6px;border:1px solid var(--tv-bord);background:transparent;color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;" title="Importa backup JSON">↑ Import</button>
       <input type="file" id="storiaImportFile" accept="application/json,.json" style="display:none;" onchange="dataImport('storia', this)">
     </div>
   </div>
@@ -5128,7 +5168,7 @@ appCarica();
     <div class="logo-area">
       <h1 id="pbTitle">Allocazione</h1>
     </div>
-    <button class="pb-btn sm ghost" onclick="pbAzzera()" title="Azzera e ricomincia">↺ Azzera</button>
+    <button class="pf-hdr-btn" onclick="pbAzzera()" title="Azzera e ricomincia" style="padding:6px 12px;border-radius:6px;border:1px solid var(--tv-bord);background:transparent;color:var(--tv-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;">↺ Azzera</button>
   </header>
 
   <div class="tabs-row">
@@ -5960,7 +6000,7 @@ function orosCfgModaleSync() {
 // Deve coincidere con CACHE_VERSION in sw.js: e' lo stesso deploy.
 // Se i due numeri divergono, l'indicatore non e' piu' in grado di
 // dire se un dispositivo ha il file aggiornato.
-var OROS_BUILD = '38';
+var OROS_BUILD = '48';
 
 function orosTsLabel(iso) {
   var d = new Date(iso);
@@ -7435,6 +7475,7 @@ function renderTabs() {
   tabs.forEach(tab => {
     const el = document.createElement('div');
     el.className = 'tab' + (tab.id === activeTab ? ' active' : '');
+    el.dataset.tabId = tab.id;
     const ticker = tab.data.ticker || `T${tabs.indexOf(tab)+1}`;
     el.innerHTML = `<span class="tab-ticker">${escapeHtml(ticker.toUpperCase())}</span>
       ${tabs.length > 1 ? `<span class="close-btn" data-id="${tab.id}">×</span>` : ''}`;
@@ -7793,8 +7834,157 @@ document.getElementById('compareBtn').addEventListener('click', () => {
 });
 
 
+
+// ══════════════════════════════════════
+// RIORDINO DELLE SCHEDE (CSP, CC, BOT)
+// Col mouse si trascina subito; col dito serve una pressione prolungata,
+// cosi' lo scorrimento della pagina e lo swipe fra pagine restano liberi.
+// L'ordine e' quello dell'array delle schede: confronto e BEST lo seguono.
+// ══════════════════════════════════════
+var OROS_DRAG_PRESS_MS = 350;   // pressione prolungata sul dito
+var OROS_DRAG_SOGLIA   = 6;     // pixel di movimento prima che il mouse trascini
+var OROS_DRAG_TOLL     = 10;    // pixel di movimento del dito che annullano la pressione
+var _orosDragNoClick = false;
+
+document.addEventListener('click', function (e) {
+  if (!_orosDragNoClick) return;
+  _orosDragNoClick = false;
+  e.stopPropagation(); e.preventDefault();
+}, true);
+
+// Ridisegna una sezione senza l'animazione d'ingresso: dopo un riordino il
+// contenuto e' lo stesso, solo in un altro ordine, e non deve lampeggiare.
+// Lo stile si mette sugli elementi appena creati, prima che il browser li
+// disegni; il ridisegno successivo crea elementi nuovi e anima come sempre.
+function orosSenzaAnim(id, fn) {
+  fn();
+  var c = document.getElementById(id);
+  if (!c) return;
+  Array.prototype.forEach.call(c.querySelectorAll('.compare-section, .panel'), function (el) {
+    el.style.animation = 'none';
+  });
+}
+
+// rerender ridisegna solo cio' che dipende dall'ordine: bandierine e confronto.
+// Il pannello della scheda attiva non cambia e non va toccato.
+function orosTabsDrag(rowId, getList, rerender) {
+  var row = document.getElementById(rowId);
+  if (!row || row._orosDrag) return;
+  row._orosDrag = true;
+  var st = null;
+
+  function tabDa(t) {
+    if (!t || !t.closest || t.closest('.close-btn')) return null;
+    var el = t.closest('.tab');
+    return (el && row.contains(el) && el.dataset.tabId) ? el : null;
+  }
+  function inizia() {
+    var r = st.el.getBoundingClientRect();
+    st.dx = st.sx - r.left; st.dy = st.sy - r.top;
+    var g = st.el.cloneNode(true);
+    g.classList.add('oros-tab-ghost');
+    g.style.width = r.width + 'px'; g.style.height = r.height + 'px';
+    document.body.appendChild(g);
+    st.ghost = g; st.attivo = true;
+    st.el.classList.add('oros-tab-segnaposto');
+    document.body.classList.add('oros-tab-trascina');
+    if (navigator.vibrate) { try { navigator.vibrate(10); } catch (e) {} }
+    sposta(st.x, st.y);
+  }
+  function sposta(x, y) {
+    st.ghost.style.transform = 'translate(' + (x - st.dx) + 'px,' + (y - st.dy) + 'px) scale(1.04)';
+    var altri = row.querySelectorAll('.tab');
+    for (var i = 0; i < altri.length; i++) {
+      var o = altri[i];
+      if (o === st.el) continue;
+      var r = o.getBoundingClientRect();
+      if (x < r.left || x > r.right || y < r.top || y > r.bottom) continue;
+      if (x < r.left + r.width / 2) { if (o.previousSibling !== st.el) row.insertBefore(st.el, o); }
+      else if (o.nextSibling !== st.el) row.insertBefore(st.el, o.nextSibling);
+      break;
+    }
+  }
+  function fine(annulla) {
+    var s = st; st = null;
+    if (!s) return false;
+    clearTimeout(s.timer);
+    if (!s.attivo) return false;
+    if (s.ghost && s.ghost.parentNode) s.ghost.parentNode.removeChild(s.ghost);
+    s.el.classList.remove('oros-tab-segnaposto');
+    document.body.classList.remove('oros-tab-trascina');
+    var lista = getList();
+    var mappa = {};
+    lista.forEach(function (t) { mappa[t.id] = t; });
+    var nuova = Array.prototype.map.call(row.querySelectorAll('.tab'), function (e) { return mappa[e.dataset.tabId]; })
+      .filter(Boolean);
+    if (!annulla && nuova.length === lista.length) lista.splice.apply(lista, [0, lista.length].concat(nuova));
+    rerender();
+    return true;
+  }
+
+  // ── Mouse
+  row.addEventListener('mousedown', function (e) {
+    if (e.button !== 0) return;
+    var el = tabDa(e.target);
+    if (!el) return;
+    st = { el: el, sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY, attivo: false, mouse: true };
+  });
+  document.addEventListener('mousemove', function (e) {
+    if (!st || !st.mouse) return;
+    st.x = e.clientX; st.y = e.clientY;
+    if (!st.attivo) {
+      if (Math.abs(st.x - st.sx) + Math.abs(st.y - st.sy) < OROS_DRAG_SOGLIA) return;
+      inizia();
+    } else sposta(st.x, st.y);
+    e.preventDefault();
+  });
+  document.addEventListener('mouseup', function () {
+    if (!st || !st.mouse) return;
+    if (fine(false)) {
+      // il click che segue il rilascio non deve cambiare scheda
+      _orosDragNoClick = true;
+      setTimeout(function () { _orosDragNoClick = false; }, 0);
+    }
+  });
+
+  // ── Dito
+  row.addEventListener('touchstart', function (e) {
+    if (e.touches.length !== 1) { if (st) fine(true); return; }
+    var el = tabDa(e.target);
+    if (!el) return;
+    var t = e.touches[0];
+    st = { el: el, sx: t.clientX, sy: t.clientY, x: t.clientX, y: t.clientY, attivo: false, mouse: false };
+    st.timer = setTimeout(function () { if (st && !st.mouse && !st.attivo) inizia(); }, OROS_DRAG_PRESS_MS);
+  }, { passive: true });
+  row.addEventListener('touchmove', function (e) {
+    if (!st || st.mouse) return;
+    var t = e.touches[0];
+    st.x = t.clientX; st.y = t.clientY;
+    if (!st.attivo) {
+      if (Math.abs(st.x - st.sx) + Math.abs(st.y - st.sy) > OROS_DRAG_TOLL) { clearTimeout(st.timer); st = null; }
+      return;
+    }
+    if (e.cancelable) e.preventDefault();   // la pagina non scorre mentre si trascina
+    sposta(st.x, st.y);
+  }, { passive: false });
+  function dito(e, annulla) {
+    if (!st || st.mouse) return;
+    if (!st.attivo) { clearTimeout(st.timer); st = null; return; }
+    if (e.cancelable) e.preventDefault();   // niente click sintetico sulla scheda
+    e.stopPropagation();                    // niente cambio pagina dallo swipe
+    fine(annulla);
+  }
+  row.addEventListener('touchend', function (e) { dito(e, false); });
+  row.addEventListener('touchcancel', function (e) { dito(e, true); });
+  row.addEventListener('contextmenu', function (e) { if (tabDa(e.target)) e.preventDefault(); });
+}
+
 // Avvio: una scheda vuota
 createTab();
+orosTabsDrag('tabsRow', function () { return tabs; }, function () {
+  renderTabs();
+  if (compareVisible) orosSenzaAnim('compareSection', renderCompare);
+});
 </script>
 
 
@@ -8023,6 +8213,7 @@ function ccRenderTabs() {
   ccTabs.forEach((tab, idx) => {
     const el = document.createElement('div');
     el.className = 'tab' + (tab.id === ccActiveTab ? ' active' : '');
+    el.dataset.tabId = tab.id;
     const tk = tab.data.ticker || ('T' + (idx + 1));
     el.innerHTML = `<span class="tab-ticker">${escapeHtml(tk.toUpperCase())}</span>${ccTabs.length > 1 ? `<span class="close-btn" data-id="${tab.id}">×</span>` : ''}`;
     el.addEventListener('click', e => {
@@ -8288,6 +8479,10 @@ document.getElementById('ccCompareBtn').addEventListener('click', () => {
 
 // Avvio: una scheda vuota
 ccCreateTab();
+orosTabsDrag('ccTabsRow', function () { return ccTabs; }, function () {
+  ccRenderTabs();
+  if (ccCompareVisible) orosSenzaAnim('ccCompareSection', ccRenderCompare);
+});
 
 
 function ccToggleDividendi(btn) {
@@ -8643,6 +8838,7 @@ function storiaSetFilter(f) {
     btn.style.background  = active ? 'var(--tv-blue)' : 'var(--tv-surf2)';
     btn.style.color       = active ? '#fff' : 'var(--tv-muted)';
     btn.style.borderColor = active ? 'var(--tv-blue)' : 'var(--tv-bord)';
+    btn.classList.toggle('storia-filter-active', active);
   });
   renderStoria();
 }
@@ -9279,6 +9475,7 @@ function botRenderTabs() {
   botTabs.forEach(function(tab) {
     var el = document.createElement('div');
     el.className = 'tab' + (tab.id === botActiveTab ? ' active' : '');
+    el.dataset.tabId = tab.id;
     var label = (tab.data.ticker || ('T' + (botTabs.indexOf(tab)+1))).toUpperCase();
     el.innerHTML = '<span class="tab-ticker">' + escapeHtml(label) + '</span>' +
       (botTabs.length > 1 ? '<span class="close-btn" data-id="' + tab.id + '">×</span>' : '');
@@ -9485,6 +9682,10 @@ document.getElementById('botCompareBtn').addEventListener('click', function() {
 
 // Init first tab
 createBotTab();
+orosTabsDrag('botTabsRow', function () { return botTabs; }, function () {
+  botRenderTabs();
+  if (botCompareVisible) orosSenzaAnim('botCompareSection', botRenderCompare);
+});
 
 // ── Centro Mini Storico
 var centroHistoryOpen = false;
@@ -12360,6 +12561,27 @@ var pfSumMode = false;
 var pfSumSelected = Object.create(null); // { id: true } — senza prototipo: nessun falso positivo su chiavi tipo "constructor" 
 var _pfManualEditId = null; // id dell'operazione manuale in modifica
 
+// ── Privacy: nasconde gli importi di card e somme. Resta acceso anche dopo
+//    una ricarica, ma solo su questo dispositivo.
+var PF_PRIV_KEY = 'oros_pf_privacy';
+var PF_PRIV_MASK = '\u2022\u2022\u2022\u2022\u2022';
+var pfPriv = false;
+try { pfPriv = localStorage.getItem(PF_PRIV_KEY) === '1'; } catch (e) {}
+function pfPrivToggle() {
+  pfPriv = !pfPriv;
+  orosLsSet(PF_PRIV_KEY, pfPriv ? '1' : '0');
+  portafoglioRender({skipChart: true});
+}
+function pfPrivBtnSync() {
+  var b = document.getElementById('pfPrivBtn');
+  if (!b) return;
+  b.style.color       = pfPriv ? '#3d9bff' : 'var(--tv-muted)';
+  b.style.borderColor = pfPriv ? 'rgba(61,155,255,0.5)' : 'var(--tv-bord)';
+  b.title = pfPriv ? 'Mostra i valori' : 'Nascondi i valori';
+  b.setAttribute('aria-label', b.title);
+  b.setAttribute('aria-pressed', pfPriv ? 'true' : 'false');
+}
+
 function pfEntryNetProfit(entry) {
   if (!entry) return 0;
   if (entry.status === 'closed') {
@@ -12404,14 +12626,9 @@ function pfDelete(id) {
   portafoglioRender();
 }
 
+// Aperte e Chiuse funzionano da interruttore: il secondo tocco torna a tutte
 function pfSetFilter(f) {
-  pfFilterCur = f;
-  var btnAll = document.getElementById('pfFilterAll');
-  if (btnAll) {
-    btnAll.style.background  = f === 'all' ? 'var(--tv-blue)' : 'var(--tv-surf2)';
-    btnAll.style.color       = f === 'all' ? '#fff' : 'var(--tv-muted)';
-    btnAll.style.borderColor = f === 'all' ? 'var(--tv-blue)' : 'var(--tv-bord)';
-  }
+  pfFilterCur = (f !== 'all' && f === pfFilterCur) ? 'all' : f;
   portafoglioRender();
 }
 
@@ -12654,18 +12871,14 @@ function pfToggleDateFilter() {
   var open = panel.style.display !== 'none';
   panel.style.display = open ? 'none' : 'block';
   if (btn) btn.style.borderColor = open ? 'var(--tv-bord)' : '#26a69a';
-}
-
-function pfChartResetFilter() {
-  var from = document.getElementById('pfChartFrom');
-  var to   = document.getElementById('pfChartTo');
-  if (from) from.value = '';
-  if (to)   to.value   = '';
-  var panel = document.getElementById('pfDateFilterPanel');
-  var btn   = document.getElementById('pfCalBtn');
-  if (panel) panel.style.display = 'none';
-  if (btn)   btn.style.borderColor = 'var(--tv-bord)';
-  pfRenderChartFiltered();
+  // Chiudere il pannello toglie anche il filtro: il calendario fa da interruttore
+  if (open) {
+    var from = document.getElementById('pfChartFrom');
+    var to   = document.getElementById('pfChartTo');
+    if (from) from.value = '';
+    if (to)   to.value   = '';
+    pfRenderChartFiltered();
+  }
 }
 
 function pfRenderChartFiltered() {
@@ -12853,8 +13066,13 @@ function pfRenderSummary(list) {
 
   var openList   = list.filter(function(e){ return e.status === 'open'; });
   var closedList = list.filter(function(e){ return e.status === 'closed'; });
+  // Somma delle operazioni mostrate: chiuse al realizzato, aperte al netto atteso
   var totalProfit = 0;
-  closedList.forEach(function(e){ if (e.closedProfit != null) totalProfit += e.closedProfit; });
+  list.forEach(function(e){
+    if (pfFilterCur === 'open'   && e.status !== 'open')   return;
+    if (pfFilterCur === 'closed' && e.status !== 'closed') return;
+    totalProfit += pfEntryNetProfit(e);
+  });
 
   var profitColor = totalProfit >= 0 ? '#26a69a' : 'var(--tv-red)';
   var profitSign  = totalProfit >= 0 ? '+' : '−';
@@ -12894,7 +13112,7 @@ function pfRenderSummary(list) {
       ' onmouseover="this.style.borderColor=\'rgba(61,155,255,0.5)\'"' +
       ' onmouseout="this.style.borderColor=\'' + bord + '\'">' +
       '<span style="color:' + sigmaColor + ';font-weight:700;font-size:16px;line-height:1;">Σ</span>' +
-      (isActive ? '<span style="color:' + sumColor + ';font-weight:700;">' + sumSign + '€' + sumAbs + '</span>' : '') +
+      (isActive ? '<span style="color:' + (pfPriv ? 'var(--tv-muted)' : sumColor) + ';font-weight:700;">' + (pfPriv ? PF_PRIV_MASK : sumSign + '€' + sumAbs) + '</span>' : '') +
     '</span>';
   }
 
@@ -12905,7 +13123,7 @@ function pfRenderSummary(list) {
       pill('Aperte', openList.length, pfFilterCur === 'open' ? '#3d9bff' : 'var(--tv-text)', 'open', pfFilterCur === 'open') +
       pill('Chiuse', closedList.length, pfFilterCur === 'closed' ? '#3d9bff' : 'var(--tv-text)', 'closed', pfFilterCur === 'closed') +
       sep +
-      pill('P&L Tot.', profitSign + '€' + profitAbs, profitColor, null, false) +
+      pill('P&L Tot.', pfPriv ? PF_PRIV_MASK : (profitSign + '€' + profitAbs), pfPriv ? 'var(--tv-muted)' : profitColor, null, false) +
       sep +
       pillSum(pfSumMode) +
     '</div>';
@@ -12915,6 +13133,7 @@ function pfRenderSummary(list) {
 // ── Render operazioni card
 function portafoglioRender(opts) {
   opts = opts || {};
+  pfPrivBtnSync();
   var container  = document.getElementById('pfContainer');
   if (!container) return;
 
@@ -13006,6 +13225,7 @@ function portafoglioRender(opts) {
         rightValue = '—';
         rightColor = 'var(--tv-muted)';
       }
+      if (pfPriv && rightValue !== '—') { rightValue = PF_PRIV_MASK; rightColor = 'var(--tv-muted)'; }
 
       var badgeHtml = isManual
         ? '<span style="background:rgba(0,229,160,0.1);color:#00e5a0;border:1px solid rgba(0,229,160,0.3);padding:2px 8px;border-radius:4px;font-family:\'Inter\',sans-serif;font-size:11px;font-weight:700;">📊</span>'
