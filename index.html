@@ -3150,6 +3150,20 @@ input[type="date"]::-webkit-date-and-time-value {
   .app-card:active { transform: scale(.98); }
 }
 .app-card:focus-visible { outline: none; border-color: #f472b6; }
+.app-card { position: relative; }
+.app-star {
+  position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none; border-radius: 6px; cursor: pointer;
+  color: var(--tv-muted); opacity: 0; transition: opacity .15s, color .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.app-star svg { fill: none; }
+.app-card:hover .app-star, .app-card:focus-within .app-star { opacity: .7; }
+.app-star:hover { opacity: 1 !important; color: var(--tv-gold); }
+.app-card.pref .app-star { opacity: 1; color: var(--tv-gold); }
+.app-card.pref .app-star svg { fill: currentColor; }
+@media (hover: none) { .app-star { opacity: .35; } }
 .app-card-data { flex-shrink: 0; margin-bottom: 8px; font-family: 'Inter', sans-serif; font-size: 11px; color: var(--tv-muted); }
 .app-card-testo { --app-b: 13.5px; flex: 1; min-height: 0; overflow: hidden; }
 .app-card-testo.lunga {
@@ -4163,7 +4177,8 @@ function appNorm(x, chiave) {
     html: '',
     creato: creato,
     modificato: modificato,
-    eliminato: x.eliminato ? (appIso(x.eliminato) || modificato || creato || null) : null
+    eliminato: x.eliminato ? (appIso(x.eliminato) || modificato || creato || null) : null,
+    preferito: x.preferito === true
   };
   if (!n.creato) n.creato = n.modificato || n.eliminato || '';
   if (!n.modificato) n.modificato = n.eliminato || n.creato;
@@ -4174,7 +4189,7 @@ function appNorm(x, chiave) {
 
 function appCopia(n) {
   return { id: n.id, html: n.eliminato ? '' : (n.html || ''), creato: n.creato || '',
-           modificato: n.modificato || '', eliminato: n.eliminato || null };
+           modificato: n.modificato || '', eliminato: n.eliminato || null, preferito: !n.eliminato && n.preferito === true };
 }
 
 function appCarica() {
@@ -4208,7 +4223,7 @@ function appInvia(note) {
 // stessa versione e i due archivi finiscono sempre uguali.
 function appTs(n) { return n.eliminato || n.modificato || n.creato || ''; }
 function appFirma(n) {
-  return (n.eliminato ? 'E' : 'V') + '|' + appTs(n) + '|' + (n.creato || '') + '|' + (n.eliminato ? '' : (n.html || ''));
+  return (n.eliminato ? 'E' : 'V') + (n.preferito ? 'P' : '') + '|' + appTs(n) + '|' + (n.creato || '') + '|' + (n.eliminato ? '' : (n.html || ''));
 }
 function appConfronta(a, b) {
   var ta = appTs(a), tb = appTs(b);
@@ -4223,9 +4238,10 @@ function appTrova(id) {
   return null;
 }
 
-// Note visibili: in testa l'ultima creata o modificata, poi le piu' vecchie
+// Note visibili: in testa le preferite, poi l'ultima creata o modificata
 function appVive() {
   return APP.list.filter(function (n) { return !n.eliminato; }).sort(function (a, b) {
+    if (!!a.preferito !== !!b.preferito) return a.preferito ? -1 : 1;
     var ta = a.modificato || a.creato, tb = b.modificato || b.creato;
     if (ta !== tb) return ta < tb ? 1 : -1;
     if (a.creato !== b.creato) return a.creato < b.creato ? 1 : -1;
@@ -4252,9 +4268,11 @@ function appTomba(n) {
 // ── Bacheca ──────────────────────────────────────────────────────
 function appCardHtml(n) {
   var mod = n.modificato ? 'Modificato il ' + appData(n.modificato) : '';
-  return '<div class="app-card" role="button" tabindex="0" data-app-id="' + n.id + '"' +
+  return '<div class="app-card' + (n.preferito ? ' pref' : '') + '" role="button" tabindex="0" data-app-id="' + n.id + '"' +
       ' onclick="appApri(\'' + n.id + '\')"' +
-      ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();appApri(\'' + n.id + '\');}">' +
+      ' onkeydown="if(event.target===this&&(event.key===\'Enter\'||event.key===\' \')){event.preventDefault();appApri(\'' + n.id + '\');}">' +
+    '<button type="button" class="app-star" title="' + (n.preferito ? 'Togli dai preferiti' : 'Preferito') + '" aria-label="Preferito"' +
+      ' onclick="event.stopPropagation();appPreferito(\'' + n.id + '\')"><svg width="15" height="15" viewBox="0 0 16 16"><path d="M8 1.6l1.9 4 4.4.5-3.3 3 .9 4.3L8 11.2l-3.9 2.2.9-4.3-3.3-3 4.4-.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg></button>' +
     '<div class="app-card-data"' + (mod ? ' title="' + escapeAttr(mod) + '"' : '') + '>' + escapeHtml(appData(n.creato)) + '</div>' +
     '<div class="app-card-testo app-rt">' + n.html + '</div>' +
   '</div>';
@@ -4285,6 +4303,17 @@ function appRender() {
 }
 
 function appOpenPage() { appRender(); }
+
+// Stellina: la nota preferita resta in cima alla bacheca
+function appPreferito(id) {
+  var n = appTrova(id);
+  if (!n || n.eliminato) return;
+  n.preferito = !n.preferito;
+  n.modificato = appTsDopo(appTs(n));
+  appSalvaLocale();
+  appInvia([n]);
+  appRender();
+}
 
 // ── Card aperta ──────────────────────────────────────────────────
 function appNuova() {
@@ -5073,7 +5102,10 @@ appCarica();
     <div>
       <h2 style="font-size:24px;font-weight:800;letter-spacing:-.5px;background:#7aa3ff;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-family:'Inter',sans-serif;">Outlook</h2>
     </div>
-    <button class="gear-btn" id="meteoGearBtn" title="Impostazioni" onclick="document.getElementById('meteoGearOverlay').style.display='block'">⚙</button>
+    <div style="display:flex;gap:8px;">
+      <button class="gear-btn" id="meteoPasteBtn" title="Incolla i dati da Claude" onclick="meteoIncolla()"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="9" height="9" rx="1.6" stroke="currentColor" stroke-width="1.3"/><path d="M11 5V3.6c0-.9-.7-1.6-1.6-1.6H3.6C2.7 2 2 2.7 2 3.6v5.8c0 .9.7 1.6 1.6 1.6H5" stroke="currentColor" stroke-width="1.3"/></svg></button>
+      <button class="gear-btn" id="meteoGearBtn" title="Impostazioni" onclick="document.getElementById('meteoGearOverlay').style.display='block'">⚙</button>
+    </div>
   </div>
 
   <!-- 1 · DATI DEL GIORNO -->
@@ -11894,8 +11926,80 @@ function meteoRecalc() {
   var hint = document.getElementById('meteoSalvaHint');
   if (hint && st && ball) hint.style.display = 'none';
 
-  if (meteoTouched) meteoInputsDeb();
+  if (meteoTouched) { meteoInputsDeb(); meteoAutoArm(); }
 }
+
+// ── Incolla il blocco OROS-OUTLOOK generato da Claude ──
+var METEO_PASTE_MAP = { vix:'metIn_vix', y10_oggi:'metIn_y10a', y10_5s:'metIn_y10b', dxy_oggi:'metIn_dxya', dxy_5s:'metIn_dxyb',
+  cpi_ultimo:'metIn_cpiu', cpi_prec:'metIn_cpip', pmi:'metIn_pmi', nfp_uscito:'metIn_nfpa', nfp_previsto:'metIn_nfpf' };
+function meteoIncolla() {
+  if (navigator.clipboard && navigator.clipboard.readText) {
+    navigator.clipboard.readText().then(meteoIncollaTesto, meteoIncollaManuale);
+  } else meteoIncollaManuale();
+}
+function meteoIncollaManuale() {
+  var t = prompt('Incolla qui il blocco OROS-OUTLOOK');
+  if (t) meteoIncollaTesto(t);
+}
+// Tutti i 13 campi devono arrivare validi: altrimenti X rossa (i validi si compilano comunque)
+function meteoIncollaTesto(txt) {
+  var ok = {};
+  if (/OROS-OUTLOOK/i.test(txt || '')) {
+    txt.split(/\r?\n/).forEach(function(riga) {
+      var m = /^\s*([a-z0-9_]+)\s*=\s*(.*?)\s*$/i.exec(riga);
+      if (!m || m[2] === '') return;
+      var k = m[1].toLowerCase(), v = m[2].toUpperCase();
+      if (k === 'spx_sopra200' || k === 'mib_sopra200') {
+        var b = (v === 'SI' || v === 'SÌ') ? 1 : (v === 'NO' ? 0 : -1);
+        if (b < 0) return;
+        meteoUI[k === 'spx_sopra200' ? 'spx' : 'mib'] = b; ok[k] = 1;
+      } else if (k === 'eventi') {
+        if (v === '1' || v === '2' || v === '3') { meteoUI.prev = +v; ok[k] = 1; }
+      } else if (METEO_PASTE_MAP[k]) {
+        var s = meteoNormSeg(m[2]).replace('.', ',');
+        if (!/^-?\d+(,\d+)?$/.test(s)) return;
+        var el = document.getElementById(METEO_PASTE_MAP[k]);
+        if (el) { el.value = s; ok[k] = 1; }
+      }
+    });
+  }
+  var mancano = ['spx_sopra200','mib_sopra200','eventi'].concat(Object.keys(METEO_PASTE_MAP))
+    .filter(function(k) { return !ok[k]; });
+  if (mancano.length < 13) { meteoTouched = true; meteoRecalc(); }
+  meteoIncollaEsito(!mancano.length, mancano);
+}
+function meteoIncollaEsito(ok, mancano) {
+  var btn = document.getElementById('meteoPasteBtn');
+  if (!btn) return;
+  if (!btn._ico) btn._ico = btn.innerHTML;
+  clearTimeout(btn._t);
+  btn.innerHTML = ok
+    ? '<svg width="18" height="15" viewBox="0 0 18 15" fill="none"><path d="M1.5 8l3.5 3.5L12 4M7.5 11.5L15 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    : '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+  btn.title = ok ? 'Tutti i dati incollati' : 'Mancanti o non validi: ' + mancano.join(', ');
+  btn.style.color = btn.style.borderColor = ok ? 'var(--tv-green)' : 'var(--tv-red)';
+  btn._t = setTimeout(function() {
+    btn.innerHTML = btn._ico; btn.title = 'Incolla i dati da Claude';
+    btn.style.color = btn.style.borderColor = '';
+  }, 2500);
+}
+
+// ── Salvataggio automatico: 30 s dopo l'ultima modifica, se i dati sono completi ──
+var meteoAutoT = null;
+function meteoAutoArm() {
+  clearTimeout(meteoAutoT);
+  meteoAutoT = setTimeout(meteoAutoSalva, 30000);
+}
+function meteoAutoSalva() {
+  meteoAutoT = null;
+  if (!meteoTouched) return;
+  if (!meteoStato(meteoCalc()) || !meteoBallCalc()) return;
+  meteoSalva();
+}
+// Se chiudi o cambi app prima dei 30 s, salva subito
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'hidden' && meteoAutoT) { clearTimeout(meteoAutoT); meteoAutoSalva(); }
+});
 
 // ── Persistenza input (per non ribattere i numeri ogni giorno) ──
 function meteoInputsCollect() {
