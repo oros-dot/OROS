@@ -2623,6 +2623,41 @@ body.has-sidebar #pageMeteo {
   filter: grayscale(1);
 }
 
+/* Confronto a tabella: stesso scarto delle card. La riga (CSP, CC) o la
+   colonna del titolo (BOT) resta dov'e' e perde colore. L'effetto sta sulle
+   celle e non sul <tr>: opacity e filter sulle righe di tabella su Safari
+   non sono affidabili. */
+.compare-table tr.cmp-riga,
+.compare-table .cmp-col {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.compare-table tr.cmp-spenta > td,
+.compare-table .cmp-col.cmp-spenta {
+  opacity: .35;
+  filter: grayscale(1);
+}
+
+/* Ordinamento delle card: un solo simbolo accanto alla vista, la lista
+   compare al tocco e sparisce da sola. */
+.cmp-ord-wrap { position: relative; display: inline-flex; }
+.cmp-ord-pop {
+  display: none; position: absolute; top: calc(100% + 4px); right: 0; z-index: 5;
+  min-width: 168px; padding: 6px;
+  background: var(--tv-surf); border: 1px solid var(--tv-bord); border-radius: 9px;
+  box-shadow: 0 12px 32px var(--tv-shadow);
+}
+.cmp-ord-wrap.open .cmp-ord-pop { display: block; animation: fadeIn .15s ease; }
+.cmp-ord-opt {
+  display: block; width: 100%; padding: 8px 12px; text-align: left; white-space: nowrap;
+  border: none; border-radius: 6px; background: transparent; color: var(--tv-text);
+  font-family: 'Inter', sans-serif; font-size: 12px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.cmp-ord-opt:hover { background: rgba(255,255,255,.05); }
+[data-theme="light"] .cmp-ord-opt:hover { background: rgba(0,0,0,.045); }
+.cmp-ord-opt.sel { color: var(--tv-blue); }
+
 /* ── pageCentro styles ── */
 #pageCentro .logo-area h1 {
   background: #7aa3ff;
@@ -6068,7 +6103,7 @@ function orosCfgModaleSync() {
 // Deve coincidere con CACHE_VERSION in sw.js: e' lo stesso deploy.
 // Se i due numeri divergono, l'indicatore non e' piu' in grado di
 // dire se un dispositivo ha il file aggiornato.
-var OROS_BUILD = '54';
+var OROS_BUILD = '57';
 
 function orosTsLabel(iso) {
   var d = new Date(iso);
@@ -7033,6 +7068,9 @@ var CMP_ICON_CARD = '<svg width="13" height="13" viewBox="0 0 14 14" fill="none"
   '<rect x="1" y="7.5" width="5" height="5" rx="1.2" stroke="currentColor" stroke-width="1.2"/>' +
   '<rect x="8" y="7.5" width="5" height="5" rx="1.2" stroke="currentColor" stroke-width="1.2"/></svg>';
 
+var CMP_ICON_ORD = '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;">' +
+  '<path d="M2 3.2h10M2 7h7M2 10.8h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
+
 function cmpToggleHtml(pagina) {
   var m = CMP_MODE[pagina];
   // Solo il simbolo: l'etichetta resta come tooltip e come nome
@@ -7044,7 +7082,10 @@ function cmpToggleHtml(pagina) {
            'aria-pressed="' + (m === val ? 'true' : 'false') + '" ' +
            'aria-label="' + et + '" title="' + et + '">' + icona + '</button>';
   };
+  // Il comando di ordinamento esiste solo in vista card, a sinistra dei due
+  // simboli di vista, che cosi' restano fermi quando si cambia vista.
   return '<div class="cmp-view-group">' +
+    (m === 'card' ? cmpOrdineHtml(pagina) : '') +
     btn('tabella', CMP_ICON_TAB,  'Tabella') +
     btn('card',    CMP_ICON_CARD, 'Card') +
   '</div>';
@@ -7163,18 +7204,85 @@ function cmpMeglio(a, b) {
 
 function cmpOrdina(pagina, results) {
   var s = CMP_SORT[pagina];
-  if (!s.col || !s.dir) return results;
+  return cmpOrdinaPer(s.col, s.dir, results);
+}
+
+// Ordinamento vero e proprio, indipendente dallo stato: la tabella lo chiama
+// con la colonna scelta nell'intestazione, le card con il criterio scelto
+// nella tendina. Stesso criterio, stesso trattamento dei dati assenti.
+function cmpOrdinaPer(col, dir, results) {
+  if (!col || !dir) return results;
   return results
-    .map(function (r, i) { return { r: r, i: i, v: cmpValore(s.col, r) }; })
+    .map(function (r, i) { return { r: r, i: i, v: cmpValore(col, r) }; })
     .sort(function (x, y) {
       if (x.v === null || y.v === null) {
         if (x.v === y.v) return x.i - y.i;
         return (x.v === null) ? 1 : -1;
       }
-      return (s.dir * cmpMeglio(y.v, x.v)) || (x.i - y.i);
+      return (dir * cmpMeglio(y.v, x.v)) || (x.i - y.i);
     })
     .map(function (x) { return x.r; });
 }
+
+// ══════════════════════
+// CONFRONTO — ordinamento delle card
+// Le card seguono l'ordine delle schede; qui lo si sostituisce con un
+// criterio, sempre dal migliore al peggiore. Stato proprio, separato da quello
+// delle intestazioni della tabella: cambiare vista non deve cambiare criterio.
+// Con un criterio attivo il trascinamento delle card e' spento (vedi
+// cmpCardsHtml): riordinerebbe le schede secondo l'ordine di vista.
+// ══════════════════════
+var CMP_CARD_SORT = { csp: '', cc: '' };
+var CMP_CARD_CRITERI = ['premioNetto', 'rendAnnuoNetto', 'rendScadNetto', 'ivhv'];
+
+function cmpEtichettaCol(pagina, col) {
+  var c = CMP_COLONNE[pagina];
+  for (var i = 0; i < c.length; i++) if (c[i][0] === col) return c[i][1];
+  return '';
+}
+
+function cmpOrdineHtml(pagina) {
+  var cur = CMP_CARD_SORT[pagina];
+  var voce = function (val, testo) {
+    return '<button type="button" class="cmp-ord-opt' + (cur === val ? ' sel' : '') + '" ' +
+           'onclick="cmpCardOrdina(\'' + pagina + '\',\'' + val + '\')">' + testo + '</button>';
+  };
+  return '<div class="cmp-ord-wrap">' +
+    '<button type="button" class="cmp-view-btn' + (cur ? ' active' : '') + '" onclick="cmpOrdApri(this)" ' +
+    'aria-haspopup="true" aria-expanded="false" aria-label="Ordina le card" title="Ordina le card">' + CMP_ICON_ORD + '</button>' +
+    '<div class="cmp-ord-pop">' +
+      voce('', 'Ordine schede') +
+      CMP_CARD_CRITERI.map(function (c) { return voce(c, cmpEtichettaCol(pagina, c)); }).join('') +
+    '</div>' +
+  '</div>';
+}
+
+function cmpOrdApri(btn) {
+  var w = btn.parentNode;
+  var apri = !w.classList.contains('open');
+  w.classList.toggle('open', apri);
+  btn.setAttribute('aria-expanded', apri ? 'true' : 'false');
+}
+
+function cmpCardOrdina(pagina, val) {
+  if (val !== '' && CMP_CARD_CRITERI.indexOf(val) === -1) return;
+  CMP_CARD_SORT[pagina] = val;
+  // Stesso ridisegno senza animazione d'ingresso del riordino a trascinamento:
+  // il contenuto e' lo stesso, solo in un altro ordine.
+  if (pagina === 'csp') orosSenzaAnim('compareSection', renderCompare);
+  else orosSenzaAnim('ccCompareSection', ccRenderCompare);
+}
+
+// La tendina si chiude toccando altrove.
+document.addEventListener('click', function (e) {
+  var aperti = document.querySelectorAll('.cmp-ord-wrap.open');
+  for (var i = 0; i < aperti.length; i++) {
+    if (aperti[i].contains(e.target)) continue;
+    aperti[i].classList.remove('open');
+    var b = aperti[i].querySelector('.cmp-view-btn');
+    if (b) b.setAttribute('aria-expanded', 'false');
+  }
+});
 
 // ══════════════════════
 // CONFRONTO — card spente
@@ -7183,13 +7291,26 @@ function cmpOrdina(pagina, results) {
 // Nessun ridisegno: cambia la classe della sola card toccata. Stato in
 // memoria per scheda, come le schede stesse.
 // ══════════════════════
-var CMP_SPENTE = { csp: {}, cc: {} };
+var CMP_SPENTE = { csp: {}, cc: {}, bot: {} };
 
 function cmpCardTgl(el, pagina, id) {
   var spenta = !CMP_SPENTE[pagina][id];
   if (spenta) CMP_SPENTE[pagina][id] = true;
   else delete CMP_SPENTE[pagina][id];
   el.classList.toggle('cmp-spenta', spenta);
+}
+
+// Riga della tabella di confronto (CSP, CC): stesso stato e stesso scarto
+// delle card, quindi una riga spenta resta spenta anche passando alla vista
+// card. Se il tocco chiude una selezione di testo (si stava copiando un
+// numero) la riga non si spegne.
+function cmpTestoSelezionato() {
+  try { return !!(window.getSelection && String(window.getSelection())); } catch (e) { return false; }
+}
+
+function cmpRigaTgl(el, pagina, id) {
+  if (cmpTestoSelezionato()) return;
+  cmpCardTgl(el, pagina, id);
 }
 
 // Griglia di card: solo ticker e premio netto con la sua barra.
@@ -7200,12 +7321,16 @@ function cmpCardsHtml(results, bestIdx, pagina) {
               'Nessun titolo da confrontare.</div>';
   if (!results || !results.length) return vuoto;
 
-  return '<div class="compare-cards">' + results.map(function (r, i) {
+  // L'ordine di vista puo' non essere quello delle schede: il BEST segue la
+  // card (come nella tabella), non la posizione.
+  var best = (bestIdx >= 0) ? results[bestIdx] : null;
+  var ord = CMP_CARD_SORT[pagina];
+  return '<div class="compare-cards">' + cmpOrdinaPer(ord, 1, results).map(function (r, i) {
     var res = r.res;
-    var isBest = (i === bestIdx);
+    var isBest = (r === best);
     var bordo = isBest ? 'border-color:rgba(38,166,154,.55);box-shadow:0 0 0 1px rgba(38,166,154,.18);' : '';
     var spenta = !!CMP_SPENTE[pagina][r.tab.id];
-    return '<div class="output-card primary cmp-card' + (spenta ? ' cmp-spenta' : '') + '" data-tab-id="' + r.tab.id + '" style="padding:16px;' + bordo + '" ' +
+    return '<div class="output-card primary cmp-card' + (spenta ? ' cmp-spenta' : '') + '"' + (ord ? '' : ' data-tab-id="' + r.tab.id + '"') + ' style="padding:16px;' + bordo + '" ' +
            'onclick="cmpCardTgl(this,\'' + pagina + '\',\'' + r.tab.id + '\')">' +
       '<div class="cmp-card-head">' +
         '<span class="ticker-badge">' + escapeHtml(String(r.ticker).toUpperCase()) + '</span>' +
@@ -7880,7 +8005,7 @@ function renderCompare() {
           </thead>
           <tbody>
             ${cmpOrdina('csp', results).map(r => `
-              <tr data-tab="${r.tab.id}">
+              <tr data-tab="${r.tab.id}" class="cmp-riga${CMP_SPENTE.csp[r.tab.id] ? ' cmp-spenta' : ''}" onclick="cmpRigaTgl(this,'csp','${r.tab.id}')">
                 <td>
                   <span class="ticker-badge">${escapeHtml(r.ticker.toUpperCase())}</span>
                   ${r === best ? '<span class="best-badge">BEST</span>' : ''}
@@ -8590,7 +8715,7 @@ function ccRenderCompare() {
         <table class="compare-table"><thead><tr>
           ${cmpThHtml('cc')}
         </tr></thead><tbody>
-        ${cmpOrdina('cc', results).map(r => `<tr data-tab="${r.tab.id}">
+        ${cmpOrdina('cc', results).map(r => `<tr data-tab="${r.tab.id}" class="cmp-riga${CMP_SPENTE.cc[r.tab.id] ? ' cmp-spenta' : ''}" onclick="cmpRigaTgl(this,'cc','${r.tab.id}')">
           <td><span class="ticker-badge">${escapeHtml(r.ticker.toUpperCase())}</span>${r===best?'<span class="best-badge">BEST</span>':''}</td>
           <td class="gold-val">${r.tab.data.strike ? '€' + fmtDec(ccParseNum(r.tab.data.strike), 3) : '—'}</td>
           <td class="gold-val">${r.tab.data.contratti || '—'}</td>
@@ -11076,6 +11201,26 @@ function salvaBotCorrente() {
   }
 }
 
+// Nel confronto BOT le righe sono le metriche e i titoli stanno in colonna:
+// spegnere una metrica non avrebbe senso, si spegne il titolo, cioe' la
+// colonna. Stato in memoria per scheda, come CSP e CC.
+function botColAttr(tab) {
+  return ' class="cmp-col' + (CMP_SPENTE.bot[tab.id] ? ' cmp-spenta' : '') + '" data-tab="' + tab.id + '"' +
+         ' onclick="botColTgl(\'' + tab.id + '\')"';
+}
+
+function botColTgl(id) {
+  if (cmpTestoSelezionato()) return;
+  var spenta = !CMP_SPENTE.bot[id];
+  if (spenta) CMP_SPENTE.bot[id] = true;
+  else delete CMP_SPENTE.bot[id];
+  var sec = document.getElementById('botCompareSection');
+  if (!sec) return;
+  Array.prototype.forEach.call(sec.querySelectorAll('.cmp-col'), function (el) {
+    if (el.getAttribute('data-tab') === id) el.classList.toggle('cmp-spenta', spenta);
+  });
+}
+
 function botRenderCompare() {
   var sec = document.getElementById('botCompareSection');
   if (!sec) return;
@@ -11086,7 +11231,7 @@ function botRenderCompare() {
     '<thead><tr style="border-bottom:2px solid var(--tv-bord);">' +
     '<th style="text-align:left;padding:8px 12px;color:var(--tv-muted);font-size:10px;letter-spacing:1px;text-transform:uppercase;font-weight:700;white-space:nowrap;border-bottom:1px solid var(--tv-bord);">Metrica</th>';
   botTabs.forEach(function(tab) {
-    html += '<th style="text-align:right;padding:8px 12px;color:var(--tv-muted);font-size:10px;letter-spacing:1px;text-transform:uppercase;font-weight:700;border-bottom:1px solid var(--tv-bord);">' +
+    html += '<th' + botColAttr(tab) + ' style="text-align:right;padding:8px 12px;color:var(--tv-muted);font-size:10px;letter-spacing:1px;text-transform:uppercase;font-weight:700;border-bottom:1px solid var(--tv-bord);">' +
       '<span class="ticker-badge">' + escapeHtml((tab.data.ticker||'BOT '+(botTabs.indexOf(tab)+1)).toUpperCase()) + '</span></th>';
   });
   html += '</tr></thead><tbody>';
@@ -11110,7 +11255,7 @@ function botRenderCompare() {
       '<td style="padding:9px 12px;color:var(--tv-muted);font-size:12px;font-weight:600;white-space:nowrap;border-bottom:1px solid rgba(42,46,57,0.3);">' + escapeHtml(row[0]) + '</td>';
     botTabs.forEach(function(tab) {
       var res = botGetResults(tab);
-      html += '<td style="padding:9px 12px;text-align:right;color:var(--tv-text);font-size:13px;font-weight:500;border-bottom:1px solid rgba(42,46,57,0.3);">' + row[1](res, tab.data) + '</td>';
+      html += '<td' + botColAttr(tab) + ' style="padding:9px 12px;text-align:right;color:var(--tv-text);font-size:13px;font-weight:500;border-bottom:1px solid rgba(42,46,57,0.3);">' + row[1](res, tab.data) + '</td>';
     });
     html += '</tr>';
   });
@@ -13383,7 +13528,7 @@ function raccInvia() {
   var cfg = raccCfg();
   raccSalvaLocale();
   raccStatoSet('wait', 'Invio\u2026');
-  window.fsInboxSave({
+  return window.fsInboxSave({
     rows: RACC.rows.map(function (r) {
       var o = { id: r.id };
       cfg.campi.forEach(function (k) { o[k] = raccStr(r[k]).slice(0, 40); });
@@ -13395,8 +13540,10 @@ function raccInvia() {
     doneId: RACC.doneId
   }, cfg.doc).then(function () {
     raccStatoSet('ok', 'Sincronizzato');
+    return true;
   }).catch(function (e) {
     raccStatoSet('err', 'Non sincronizzato \u2014 ' + (e && e.message ? e.message : 'errore'));
+    return false;
   });
 }
 var raccInviaDeb = debounce(raccInvia, 500);
@@ -13718,10 +13865,19 @@ function raccCompleta() {
     orosAlert('Aggiungi almeno una voce prima di completare.');
     return;
   }
-  RACC.doneId = raccNuovoId();
+  var done = raccNuovoId();
+  var n = RACC.rows.length;
+  RACC.doneId = done;
   RACC.focusRow = '';
-  raccInvia();
-  raccStatoSet('ok', RACC.rows.length + ' ' + (RACC.rows.length === 1 ? cfg.unita[0] : cfg.unita[1]) + ' inviate');
+  raccInvia().then(function (ok) {
+    // Invio fallito: la pagina resta aperta con l'errore gia' scritto nello
+    // stato, cosi' non si crede inviato quello che non lo e'.
+    if (!ok) return;
+    raccStatoSet('ok', n + ' ' + (n === 1 ? cfg.unita[0] : cfg.unita[1]) + ' inviate');
+    // Si chiude solo se si e' ancora qui e non si e' ripreso a scrivere nel
+    // frattempo: ogni modifica azzera doneId.
+    if (window.__orosCurPage === 'raccolta' && RACC.doneId === done) raccChiudi();
+  });
 }
 
 function raccNuovaSessione() {
@@ -13766,6 +13922,13 @@ function raccRxTab(rid) {
     for (var i = 0; i < tabs.length; i++) if (tabs[i].id === tid) return tabs[i];
     delete RACC_RX.map[rid];
   }
+  // La mappa vive solo in memoria e si azzera a ogni riavvio della ricezione
+  // e a ogni cambio di sessione. Il legame riga -> scheda sta anche sulla
+  // scheda stessa (raccId, fuori da tab.data che finisce in Storia): una riga
+  // gia' arrivata ritrova la sua scheda invece di generarne un'altra.
+  for (var a = 0; a < tabs.length; a++) {
+    if (tabs[a].raccId === rid) { RACC_RX.map[rid] = tabs[a].id; return tabs[a]; }
+  }
   // La scheda vuota iniziale viene riusata invece di lasciarla in mezzo.
   var libera = null;
   if (tabs.length === 1 && raccTabVuota(tabs[0])) {
@@ -13787,6 +13950,7 @@ function raccRxTab(rid) {
   }
   if (!libera) return null;
   RACC_RX.map[rid] = libera.id;
+  libera.raccId = rid;
   return libera;
 }
 
