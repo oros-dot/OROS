@@ -760,10 +760,15 @@ document.addEventListener('focusin', function(e) {
   .compare-cards .cmp-card { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   #pageCSP .output-card.cmp-card.oros-card-segnaposto,
   #pageCC .output-card.cmp-card.oros-card-segnaposto { opacity: .3; }
+  /* La card trascinata e' una copia attaccata al body, fuori da #pageCSP:
+     eredita da .output-card "transition: all 0.3s" e insegue il mouse con
+     0,3 s di ritardo. Qui la transizione si spegne e la card va su un suo
+     livello grafico, cosi' si sposta nello stesso fotogramma del mouse. */
   .oros-card-ghost {
     position: fixed; top: 0; left: 0; margin: 0; z-index: 5000; pointer-events: none;
     background: var(--tv-surf) !important;
     box-shadow: 0 14px 34px rgba(0,0,0,.5); opacity: .95;
+    transition: none !important; will-change: transform;
   }
 
   /* PANEL */
@@ -2657,6 +2662,29 @@ body.has-sidebar #pageMeteo {
 .cmp-ord-opt:hover { background: rgba(255,255,255,.05); }
 [data-theme="light"] .cmp-ord-opt:hover { background: rgba(0,0,0,.045); }
 .cmp-ord-opt.sel { color: var(--tv-blue); }
+
+/* Somma delle card (solo CSP): stesso azzurro della Σ del Portafoglio.
+   Spento pesa come gli altri simboli; acceso si allarga e mostra la somma. */
+.cmp-view-btn.cmp-sum-btn {
+  width: auto; min-width: 30px; padding: 0 8px; gap: 6px;
+  white-space: nowrap; font-family: 'Inter', sans-serif; line-height: 1;
+}
+.cmp-sum-s { font-size: 14px; font-weight: 700; }
+.cmp-sum-v { font-size: 12px; font-weight: 700; color: var(--tv-green); font-variant-numeric: tabular-nums; }
+.cmp-sum-v.neg { color: var(--tv-red); }
+.cmp-view-btn.cmp-sum-btn.on {
+  opacity: 1; color: #3d9bff;
+  border-color: rgba(61,155,255,.5); background: rgba(61,155,255,.08);
+}
+/* Card selezionata: il bordo del BEST e' scritto nello stile della card,
+   per questo serve !important. La selezione vince anche sulla card spenta:
+   uscendo dalla somma la card torna com'era. */
+#pageCSP .output-card.cmp-card.cmp-sel {
+  border-color: rgba(61,155,255,.6) !important;
+  box-shadow: none !important;
+  background: rgba(61,155,255,.04);
+  opacity: 1; filter: none;
+}
 
 /* ── pageCentro styles ── */
 #pageCentro .logo-area h1 {
@@ -6103,7 +6131,7 @@ function orosCfgModaleSync() {
 // Deve coincidere con CACHE_VERSION in sw.js: e' lo stesso deploy.
 // Se i due numeri divergono, l'indicatore non e' piu' in grado di
 // dire se un dispositivo ha il file aggiornato.
-var OROS_BUILD = '57';
+var OROS_BUILD = '59';
 
 function orosTsLabel(iso) {
   var d = new Date(iso);
@@ -7084,8 +7112,10 @@ function cmpToggleHtml(pagina) {
   };
   // Il comando di ordinamento esiste solo in vista card, a sinistra dei due
   // simboli di vista, che cosi' restano fermi quando si cambia vista.
+  // La Σ sta ancora piu' a sinistra: allargandosi con la somma non sposta
+  // nessun altro simbolo.
   return '<div class="cmp-view-group">' +
-    (m === 'card' ? cmpOrdineHtml(pagina) : '') +
+    (m === 'card' ? cmpSommaHtml(pagina) + cmpOrdineHtml(pagina) : '') +
     btn('tabella', CMP_ICON_TAB,  'Tabella') +
     btn('card',    CMP_ICON_CARD, 'Card') +
   '</div>';
@@ -7313,6 +7343,63 @@ function cmpRigaTgl(el, pagina, id) {
   cmpCardTgl(el, pagina, id);
 }
 
+// ══════════════════════
+// CONFRONTO — somma delle card (solo CSP)
+// Come la Σ del Portafoglio. Accesa la Σ, il tocco su una card la seleziona
+// invece di spegnerla e accanto al simbolo compare la somma dei premi netti
+// selezionati. Spenta la Σ la selezione si azzera e il tocco torna a
+// spegnere le card. Nessun ridisegno al tocco: cambiano la classe della card
+// e il solo numero della somma. Stato in memoria, come le schede.
+// ══════════════════════
+var CMP_SOMMA = { csp: { on: false, sel: {} } };
+
+function cmpSommaAttiva(pagina) {
+  return !!(CMP_SOMMA[pagina] && CMP_SOMMA[pagina].on);
+}
+
+function cmpSommaValore(pagina) {
+  var s = 0, sel = CMP_SOMMA[pagina].sel;
+  cmpRisultati(pagina).forEach(function (r) {
+    if (sel[r.tab.id] && r.res && isFinite(r.res.premioNetto)) s += r.res.premioNetto;
+  });
+  return { txt: (s < 0 ? '\u2212' : '+') + fmt(Math.abs(s)), neg: s < 0 };
+}
+
+function cmpSommaHtml(pagina) {
+  if (!CMP_SOMMA[pagina]) return '';
+  var on = CMP_SOMMA[pagina].on;
+  var et = on ? 'Chiudi la somma' : 'Somma le card';
+  var v = on ? cmpSommaValore(pagina) : null;
+  return '<button type="button" class="cmp-view-btn cmp-sum-btn' + (on ? ' on' : '') + '" ' +
+         'onclick="cmpSommaTgl(\'' + pagina + '\')" aria-pressed="' + (on ? 'true' : 'false') + '" ' +
+         'aria-label="' + et + '" title="' + et + '">' +
+         '<span class="cmp-sum-s">Σ</span>' +
+         (on ? '<span class="cmp-sum-v' + (v.neg ? ' neg' : '') + '" data-cmp-sum="' + pagina + '">' + v.txt + '</span>' : '') +
+         '</button>';
+}
+
+function cmpSommaTgl(pagina) {
+  var st = CMP_SOMMA[pagina];
+  if (!st) return;
+  st.on = !st.on;
+  if (!st.on) st.sel = {};
+  if (pagina === 'csp') orosSenzaAnim('compareSection', renderCompare);
+  else orosSenzaAnim('ccCompareSection', ccRenderCompare);
+}
+
+function cmpCardClick(el, pagina, id) {
+  if (!cmpSommaAttiva(pagina)) { cmpCardTgl(el, pagina, id); return; }
+  var sel = CMP_SOMMA[pagina].sel;
+  if (sel[id]) delete sel[id];
+  else sel[id] = true;
+  el.classList.toggle('cmp-sel', !!sel[id]);
+  var out = document.querySelector('[data-cmp-sum="' + pagina + '"]');
+  if (!out) return;
+  var v = cmpSommaValore(pagina);
+  out.textContent = v.txt;
+  out.classList.toggle('neg', v.neg);
+}
+
 // Griglia di card: solo ticker e premio netto con la sua barra.
 // Niente strike, niente cash, niente rendimenti: quelli stanno in tabella.
 // Qui si guarda la proporzione fra valore equo ed extra premio.
@@ -7330,8 +7417,9 @@ function cmpCardsHtml(results, bestIdx, pagina) {
     var isBest = (r === best);
     var bordo = isBest ? 'border-color:rgba(38,166,154,.55);box-shadow:0 0 0 1px rgba(38,166,154,.18);' : '';
     var spenta = !!CMP_SPENTE[pagina][r.tab.id];
-    return '<div class="output-card primary cmp-card' + (spenta ? ' cmp-spenta' : '') + '"' + (ord ? '' : ' data-tab-id="' + r.tab.id + '"') + ' style="padding:16px;' + bordo + '" ' +
-           'onclick="cmpCardTgl(this,\'' + pagina + '\',\'' + r.tab.id + '\')">' +
+    var scelta = cmpSommaAttiva(pagina) && !!CMP_SOMMA[pagina].sel[r.tab.id];
+    return '<div class="output-card primary cmp-card' + (spenta ? ' cmp-spenta' : '') + (scelta ? ' cmp-sel' : '') + '"' + (ord ? '' : ' data-tab-id="' + r.tab.id + '"') + ' style="padding:16px;' + bordo + '" ' +
+           'onclick="cmpCardClick(this,\'' + pagina + '\',\'' + r.tab.id + '\')">' +
       '<div class="cmp-card-head">' +
         '<span class="ticker-badge">' + escapeHtml(String(r.ticker).toUpperCase()) + '</span>' +
         (isBest ? '<span class="best-badge" style="margin-left:0;">BEST</span>' : '') +
